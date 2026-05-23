@@ -1,8 +1,65 @@
-@import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500&display=swap')
+layer(base);
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  /* ── Backgrounds & Surfaces ────────────────────────────────────────────── */
+  --color-abyssal-slate:  #0f172a;  /* Main background                       */
+  --color-canvas-surface: #1e293b;  /* Cards / modals                         */
+
+  /* ── Borders ────────────────────────────────────────────────────────────── */
+  --color-tactical-border: #334155;
+
+  /* ── Accents ────────────────────────────────────────────────────────────── */
+  --color-muted-emerald: #0d9488;   /* Primary accent (HP, CTAs)              */
+  --color-steel-violet:  #6366f1;   /* Secondary accent                       */
+  --color-dawn-gold:     #f59e0b;   /* XP / milestones                        */
+
+  /* ── Text ────────────────────────────────────────────────────────────────  */
+  --color-pearl-text:  #f8fafc;     /* Base text                              */
+  --color-muted-text:  #94a3b8;     /* Secondary / supporting text            */
+
+  /* ── Danger ─────────────────────────────────────────────────────────────── */
+  --color-terracotta: #e11d48;      /* Danger / low HP                        */
+
+  /* ── Typography ─────────────────────────────────────────────────────────── */
+  --font-sans:    'IBM Plex Sans', sans-serif;
+  --font-display: 'Source Sans 3', sans-serif;
+
+  /* ── Radii ───────────────────────────────────────────────────────────────── */
+  --radius-xl:  1rem;
+  --radius-2xl: 1.5rem;
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
+
+/* ── Decorative effects not expressible as single Tailwind classes ──────── */
+@utility grid-overlay {
+  /* Structural grid used behind the hero — Tactical Border at low opacity */
+  background-image:
+    linear-gradient(rgba(51, 65, 85, 0.18) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(51, 65, 85, 0.18) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
 
 @layer base {
   html {
@@ -11,40 +68,5 @@
   body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-  }
-}
-
-/* ── Decorative effects not expressible as single Tailwind classes ──────── */
-@layer utilities {
-  /* Star-field used as absolute overlay in the Hero */
-  .star-field {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background-image:
-      radial-gradient(1px   1px   at 12% 18%, rgba(248,250,252,0.55) 0%, transparent 100%),
-      radial-gradient(1px   1px   at 80% 10%, rgba(248,250,252,0.40) 0%, transparent 100%),
-      radial-gradient(1.5px 1.5px at 44% 34%, rgba(45,212,191,0.35)  0%, transparent 100%),
-      radial-gradient(1px   1px   at 68% 58%, rgba(248,250,252,0.50) 0%, transparent 100%),
-      radial-gradient(1px   1px   at 28% 74%, rgba(248,250,252,0.30) 0%, transparent 100%),
-      radial-gradient(1.5px 1.5px at 91% 42%, rgba(251,191,36,0.28)  0%, transparent 100%),
-      radial-gradient(1px   1px   at 54% 84%, rgba(248,250,252,0.50) 0%, transparent 100%),
-      radial-gradient(1px   1px   at  8% 54%, rgba(248,250,252,0.38) 0%, transparent 100%),
-      radial-gradient(1px   1px   at 64% 14%, rgba(248,250,252,0.55) 0%, transparent 100%),
-      radial-gradient(1px   1px   at 36% 92%, rgba(248,250,252,0.28) 0%, transparent 100%),
-      radial-gradient(1px   1px   at 93% 76%, rgba(248,250,252,0.38) 0%, transparent 100%),
-      radial-gradient(1px   1px   at 22% 44%, rgba(45,212,191,0.28)  0%, transparent 100%),
-      radial-gradient(1px   1px   at 50% 5%,  rgba(248,250,252,0.45) 0%, transparent 100%),
-      radial-gradient(1px   1px   at 76% 27%, rgba(248,250,252,0.40) 0%, transparent 100%),
-      radial-gradient(1px   1px   at  4% 80%, rgba(251,191,36,0.22)  0%, transparent 100%),
-      radial-gradient(1px   1px   at 87% 90%, rgba(248,250,252,0.38) 0%, transparent 100%);
-  }
-
-  /* Subtle grid used behind the hero */
-  .grid-overlay {
-    background-image:
-      linear-gradient(rgba(46,60,80,0.25) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(46,60,80,0.25) 1px, transparent 1px);
-    background-size: 64px 64px;
   }
 }
