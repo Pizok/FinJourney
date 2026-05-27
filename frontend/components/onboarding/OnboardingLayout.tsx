@@ -1,13 +1,16 @@
 'use client';
-
 // components/onboarding/OnboardingLayout.tsx
-// Centered container with star-field background and optional step indicator.
+//
+// Guided / structured atmosphere — flat Canvas Surface card on Abyssal Slate.
+// No star-fields, no radial glows, no glassmorphism.
+// Step indicator: muted pips that grow and tint on completion / active states.
 
 import React from 'react';
 
 interface OnboardingLayoutProps {
   children: React.ReactNode;
-  step?: number;   // 1–4, shown in the progress dots
+  /** Current wizard step (1–totalSteps). Drives the pip indicator. */
+  step?: number;
   totalSteps?: number;
 }
 
@@ -17,41 +20,31 @@ export default function OnboardingLayout({
   totalSteps = 4,
 }: OnboardingLayoutProps) {
   return (
-    <div className="min-h-screen bg-midnight-sky flex flex-col items-center justify-center px-6 py-12 relative overflow-hidden">
-      {/* Background effects */}
-      <div className="star-field" />
-      <div className="grid-overlay absolute inset-0 opacity-20" />
+    <div className="min-h-screen bg-abyssal-slate flex flex-col items-center justify-center px-6 py-16">
 
-      {/* Radial glow */}
-      <div
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full pointer-events-none"
-        style={{
-          background:
-            'radial-gradient(circle, rgba(45,212,191,0.04) 0%, transparent 70%)',
-        }}
-      />
-
-      {/* Step dots */}
+      {/* Step pip track */}
       {step !== undefined && (
-        <div className="relative z-10 flex gap-2 mb-8">
-          {Array.from({ length: totalSteps }).map((_, i) => (
-            <div
-              key={i}
-              className={[
-                'h-1 rounded-full transition-all duration-300',
-                i + 1 < step
-                  ? 'w-6 bg-refreshing-teal'
-                  : i + 1 === step
-                  ? 'w-8 bg-refreshing-teal'
-                  : 'w-4 bg-clean-border',
-              ].join(' ')}
-            />
-          ))}
+        <div className="flex gap-1.5 mb-10" role="progressbar" aria-valuenow={step} aria-valuemax={totalSteps}>
+          {Array.from({ length: totalSteps }).map((_, i) => {
+            const done   = i + 1 < step;
+            const active = i + 1 === step;
+            return (
+              <div
+                key={i}
+                className={[
+                  'h-[3px] rounded-full transition-all duration-300',
+                  done   ? 'w-6  bg-muted-emerald'  : '',
+                  active ? 'w-8  bg-muted-emerald'  : '',
+                  !done && !active ? 'w-4 bg-tactical-border' : '',
+                ].join(' ')}
+              />
+            );
+          })}
         </div>
       )}
 
-      {/* Content */}
-      <div className="relative z-10 w-full">{children}</div>
+      {/* Content — children supply their own card */}
+      <div className="w-full">{children}</div>
     </div>
   );
 }

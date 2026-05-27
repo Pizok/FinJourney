@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import Image from "next/image";
 import { useState } from 'react';
 
 const NAV_LINKS = [
@@ -16,11 +17,7 @@ export default function Header() {
 
         {/* ── Logo ─────────────────────────────── */}
         <Link href="/" className="flex items-center gap-2.5 shrink-0">
-          <span className="w-7 h-7 rounded-[6px] bg-muted-emerald flex items-center justify-center">
-            <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-              <path d="M8 2L13 5.5V10.5L8 14L3 10.5V5.5L8 2Z" fill="#0F172A" />
-            </svg>
-          </span>
+          <Image src="/logo/logo.svg" alt="FinJourney" width={32} height={32}/>
           <span className="font-display font-semibold text-lg text-pearl-text tracking-tight">
             FinJourney
           </span>

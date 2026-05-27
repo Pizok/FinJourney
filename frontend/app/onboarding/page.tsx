@@ -1,8 +1,13 @@
 'use client';
-
 // app/onboarding/page.tsx
+//
 // Orchestrates all onboarding steps using local React state only.
 // No Zustand, no global store — compatible for future migration.
+//
+// Design contract:
+//   • OnboardingLayout owns the Abyssal Slate background + pip track.
+//   • Each Step component renders its own Canvas Surface card (max-w-[540px] mx-auto).
+//   • No cinematic effects, blobs, or glows anywhere in this subtree.
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
@@ -12,6 +17,7 @@ import StepPrologue     from '@/components/onboarding/StepPrologue';
 import StepPath         from '@/components/onboarding/StepPath';
 import StepBaseline     from '@/components/onboarding/StepBaseline';
 import StepReview       from '@/components/onboarding/StepReview';
+
 import { INITIAL_STATE, OnboardingState } from '@/components/onboarding/types';
 
 // Wizard steps:
@@ -19,7 +25,6 @@ import { INITIAL_STATE, OnboardingState } from '@/components/onboarding/types';
 //  2 = Path selection
 //  3 = Baseline (sub-stepped internally)
 //  4 = Review
-
 type Step = 1 | 2 | 3 | 4;
 
 // When the user wants to edit from the Review screen we store which
@@ -29,8 +34,9 @@ type BaselineJumpTarget = 'income' | 'fixed' | 'savings' | null;
 export default function OnboardingPage() {
   const router = useRouter();
 
-  const [step,        setStep]        = React.useState<Step>(1);
-  const [formState,   setFormState]   = React.useState<OnboardingState>(INITIAL_STATE);
+  const [step,      setStep]      = React.useState<Step>(1);
+  const [formState, setFormState] = React.useState<OnboardingState>(INITIAL_STATE);
+
   // Baseline sub-step jump — passed via a ref trick to StepBaseline
   const baselineJumpRef = React.useRef<BaselineJumpTarget>(null);
 
@@ -42,7 +48,7 @@ export default function OnboardingPage() {
     router.push('/dashboard');
   };
 
-  // ── Edit shortcuts from Review screen ──
+  // ── Edit shortcuts from Review screen ──────────────────────────────────
   const jumpToBaseline = (target: BaselineJumpTarget) => {
     baselineJumpRef.current = target;
     setStep(3);
@@ -59,6 +65,7 @@ export default function OnboardingPage() {
           state={formState}
           onChange={patch}
           onNext={() => setStep(3)}
+          onBack={() => setStep(1)}
         />
       )}
 
@@ -66,6 +73,7 @@ export default function OnboardingPage() {
         <StepBaseline
           state={formState}
           onChange={patch}
+          jumpTo={baselineJumpRef.current}
           onNext={() => {
             baselineJumpRef.current = null;
             setStep(4);
@@ -79,9 +87,10 @@ export default function OnboardingPage() {
           state={formState}
           onConfirm={handleFinished}
           onBack={() => setStep(3)}
-          onEditIncome={() => jumpToBaseline('income')}
-          onEditFixed={() => jumpToBaseline('fixed')}
-          onEditSavings={() => jumpToBaseline('savings')}
+          onEditPath={()         => setStep(2)}
+          onEditIncome={()       => jumpToBaseline('income')}
+          onEditFixed={()        => jumpToBaseline('fixed')}
+          onEditSavings={()      => jumpToBaseline('savings')}
         />
       )}
     </OnboardingLayout>
