@@ -1,7 +1,5 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import Header from '@/components/ui/Header';
-import Footer from '@/components/ui/Footer';
 
 export const metadata: Metadata = {
   title: 'FinJourney — Level Up Your Financial Life',
@@ -20,11 +18,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      {/* Updated to Abyssal Slate and Pearl Text from DESIGN.md */}
+      {/* Global background and text colors stay here so they apply to all pages */}
       <body className="bg-abyssal-slate text-pearl-text font-sans min-h-screen flex flex-col">
-        <Header />
-        <main className="flex-1 pt-16">{children}</main>
-        <Footer />
+        {children}
       </body>
     </html>
   );

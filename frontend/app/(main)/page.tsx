@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import Accordion from '@/components/ui/Accordion';
-import { Zap, ShieldCheck, TrendingUp } from 'lucide-react';
+import { Zap, ShieldCheck, TrendingUp, ShieldAlert, ShoppingBag, Trophy, Swords  } from 'lucide-react';
 
 /* ─────────────────────────────────────────────────────────────
    HERO
@@ -8,20 +8,59 @@ import { Zap, ShieldCheck, TrendingUp } from 'lucide-react';
    at very low opacity. grid-overlay provides structural depth.
    star-field removed — absolute ban.
 ───────────────────────────────────────────────────────────── */
+
+// Pre-calculated positions to maintain a balanced layout without client-side hydration mismatch
+const FLOATING_CARDS = [
+  { id: '1', content: 'Rp', type: 'text', size: 'w-16 h-16', top: '15%', left: '10%', delay: '0s', duration: '7s' },
+  { id: '2', content: 'XP', type: 'text', size: 'w-12 h-12', top: '25%', left: '80%', delay: '1s', duration: '9s', color: 'text-dawn-gold/60' },
+  { id: '3', type: 'empty', size: 'w-24 h-24', top: '55%', left: '8%', delay: '2s', duration: '10s' },
+  { id: '4', content: '+1.5k', type: 'text', size: 'w-20 h-20', top: '70%', left: '85%', delay: '0.5s', duration: '8s', color: 'text-muted-emerald/60' },
+  { id: '5', icon: ShieldAlert, type: 'icon', size: 'w-14 h-14', top: '10%', left: '65%', delay: '1.5s', duration: '8.5s', color: 'text-terracotta/50' },
+  { id: '6', content: 'HP', type: 'text', size: 'w-14 h-14', top: '80%', left: '15%', delay: '2.5s', duration: '11s', color: 'text-muted-emerald/60' },
+  { id: '7', type: 'empty', size: 'w-16 h-16', top: '45%', left: '90%', delay: '0s', duration: '7.5s' },
+  { id: '8', icon: Trophy, type: 'icon', size: 'w-12 h-12', top: '35%', left: '20%', delay: '1.2s', duration: '9s', color: 'text-muted-text/40' },
+  { id: '9', content: '%', type: 'text', size: 'w-10 h-10', top: '65%', left: '75%', delay: '0.8s', duration: '6s' },
+];
+
 function HeroSection() {
   return (
-    <section className="relative min-h-[92vh] flex items-center justify-center overflow-hidden bg-abyssal-slate">
-      {/* Structural grid — the single permitted non-content layer */}
-      <div className="grid-overlay absolute inset-0 pointer-events-none" aria-hidden="true" />
+    <section className="relative min-h-[92vh] flex items-center justify-center overflow-hidden">
+      {/* Structural grid */}
+      <div className="absolute inset-0 bg-black/50 pointer-events-none" aria-hidden="true" />
 
-      {/* One centred glow — hero-only, deliberately faint */}
+      {/* Floating Background Cards */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden z-0" aria-hidden="true">
+        {FLOATING_CARDS.map((card) => (
+          <div
+            key={card.id}
+            className={`absolute flex items-center justify-center rounded-xl bg-canvas-surface/60 border border-tactical-border/50 backdrop-blur-[2px] animate-float ${card.size}`}
+            style={{
+              top: card.top,
+              left: card.left,
+              animationDelay: card.delay,
+              animationDuration: card.duration,
+            }}
+          >
+            {card.type === 'text' && (
+              <span className={`font-display font-bold text-lg ${card.color || 'text-muted-text/40'}`}>
+                {card.content}
+              </span>
+            )}
+            {card.type === 'icon' && card.icon && (
+              <card.icon className={`w-1/2 h-1/2 ${card.color || 'text-muted-text/40'}`} strokeWidth={1.5} />
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* One centred glow — hero-only */}
       <div
         aria-hidden="true"
-        className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[640px] h-[440px] bg-[radial-gradient(ellipse_at_center,rgba(13,148,136,0.07)_0%,transparent_70%)] pointer-events-none"
+        className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[640px] h-[440px] bg-[radial-gradient(ellipse_at_center,rgba(13,148,136,0.07)_0%,transparent_70%)] pointer-events-none z-0"
       />
 
       <div className="relative z-10 max-w-4xl mx-auto px-6 py-32 text-center flex flex-col items-center gap-6">
-        {/* Badge — weight contrast, no border decoration */}
+        {/* Badge */}
         <span className="font-display font-semibold text-xs tracking-widest uppercase text-muted-emerald">
           Financial Adventure · Free to Start
         </span>
@@ -36,7 +75,7 @@ function HeroSection() {
           visible progress, and long-term financial challenges designed to keep you consistent.
         </p>
 
-        {/* Hero CTA — glow allowed here only */}
+        {/* Hero CTA */}
         <Link
           href="/auth?view=signup"
           className="font-display font-bold text-base text-abyssal-slate bg-muted-emerald rounded-lg px-10 py-4 mt-2 hover:brightness-90 transition-all duration-200 shadow-[0_4px_24px_rgba(13,148,136,0.28)]"
@@ -49,19 +88,29 @@ function HeroSection() {
           paying attention after a few weeks.
         </p>
 
-        {/* Stat pills */}
-        <div className="flex flex-wrap justify-center gap-4 mt-6">
+        {/* Stat section */}
+        <div className="flex flex-wrap justify-center items-center gap-x-10 mt-14 px-6 relative z-10">
           {[
-            { label: 'Daily Budget', sub: 'Smart spending limits',   accent: 'text-muted-emerald' },
-            { label: 'HP & XP',      sub: 'Visible progress system', accent: 'text-dawn-gold'     },
-            { label: 'Quarterly',    sub: 'Financial reviews',       accent: 'text-terracotta'    },
-          ].map((s) => (
-            <div
-              key={s.label}
-              className="bg-canvas-surface border border-tactical-border rounded-xl px-5 py-3 text-left"
-            >
-              <p className={`font-display font-semibold text-sm ${s.accent}`}>{s.label}</p>
-              <p className="font-sans text-xs text-muted-text mt-0.5">{s.sub}</p>
+            { label: 'Daily Budget', sub: 'Smart spending limits', accent: 'text-muted-emerald' },
+            { label: 'HP & XP', sub: 'Visible progress system', accent: 'text-dawn-gold' },
+            { label: 'Quarterly', sub: 'Financial reviews', accent: 'text-pearl-text' },
+          ].map((s, index, array) => (
+            <div key={s.label} className="flex items-center">
+              <div className="text-center py-6 flex-1 max-w-[280px]">
+                <p className={`font-display font-semibold text-lg lg:text-lg tracking-tight leading-none ${s.accent}`}>
+                  {s.label}
+                </p>
+                <p className="font-sans text-sm tracking-widest text-muted-text mt-4 uppercase">
+                  {s.sub}
+                </p>
+              </div>
+
+              {index < array.length - 1 && (
+                <div
+                  className="h-24 border-l-2 border-tactical-border/50 w-px flex-shrink-0 mx-6 lg:mx-8 hidden md:block"
+                  aria-hidden="true"
+                />
+              )}
             </div>
           ))}
         </div>
@@ -98,8 +147,12 @@ function UserFlowSection() {
   ];
 
   return (
-    <section className="py-28 lg:py-36">
-      <div className="max-w-7xl mx-auto px-6">
+    <section className="relative py-28 lg:py-36 bg-[url('/background/landing/hero.png')] bg-cover bg-center">
+      {/* The black overlay */}
+      <div className="absolute inset-0 bg-black/70 pointer-events-none" aria-hidden="true" />
+
+      {/* Content wrapper — needs relative and z-10 to stay visible above the overlay */}
+      <div className="relative z-10 max-w-7xl mx-auto px-6">
         <div className="text-center max-w-xl mx-auto mb-20">
           <h2 className="font-display font-bold text-4xl lg:text-5xl text-pearl-text tracking-tight mb-4">
             How FinJourney Works
@@ -161,7 +214,7 @@ function FeaturesSection() {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-5 mb-5">
 
           {/* Card 1 — 7 cols. Blob removed. */}
-          <div className="col-span-1 md:col-span-7 bg-canvas-surface border border-tactical-border hover:border-muted-emerald rounded-xl p-10 transition-colors duration-200">
+          <div className="col-span-1 md:col-span-7 bg-canvas-surface border border-tactical-border rounded-xl p-10">
             <span className="inline-block font-display font-semibold text-[11px] tracking-widest uppercase text-muted-emerald mb-6">
               Core System
             </span>
@@ -192,7 +245,7 @@ function FeaturesSection() {
           </div>
 
           {/* Card 2 — 5 cols. Blob removed. */}
-          <div className="col-span-1 md:col-span-5 bg-canvas-surface border border-tactical-border hover:border-dawn-gold rounded-xl p-10 transition-colors duration-200">
+          <div className="col-span-1 md:col-span-5 bg-canvas-surface border border-tactical-border rounded-xl p-10">
             <span className="inline-block font-display font-semibold text-[11px] tracking-widest uppercase text-dawn-gold mb-6">
               Insights
             </span>
@@ -279,12 +332,16 @@ function FeaturesSection() {
 function HighlightSection() {
   return (
     <section className="relative py-32 lg:py-40 overflow-hidden bg-abyssal-slate">
-      {/* Dynamic background — renderer-driven, kept at low opacity */}
+      {/* Background image layer */}
       <div
         aria-hidden="true"
         data-asset-key="highlight-background"
-        className="absolute inset-0 bg-cover bg-center opacity-[0.04] pointer-events-none bg-[url(/assets/highlight-bg.webp)]"
+        className="absolute inset-0 bg-cover opacity-[100] bg-bottom pointer-events-none bg-[url('/background/landing/highlight.png')]"
       />
+      
+      {/* Black overlay layer */}
+      <div className="absolute inset-0 bg-black/60 pointer-events-none" aria-hidden="true" />
+
 
       <div className="relative z-10 max-w-3xl mx-auto px-6 text-center">
         {/* Restrained accent line — solid token, no gradient */}
@@ -299,8 +356,8 @@ function HighlightSection() {
         </p>
 
         {/* Blockquote — full border only, side-stripe removed */}
-        <blockquote className="bg-canvas-surface border border-tactical-border rounded-xl px-9 py-7 text-left">
-          <p className="font-display font-medium text-lg text-pearl-text leading-relaxed italic">
+        <blockquote className="bg-canvas-surface/70 border border-tactical-border rounded-xl px-9 py-7 text-left">
+          <p className="font-display font-medium text-lg text-pearl-text leading-relaxed italic opacity-[100]">
             "People rarely lose control of their finances in one day. It happens slowly through
             repeated small decisions — and that's exactly where FinJourney helps."
           </p>
@@ -348,8 +405,14 @@ const FAQ_ITEMS = [
 
 function FAQSection() {
   return (
-    <section className="py-28 lg:py-36">
-      <div className="max-w-2xl mx-auto px-6">
+    // 1. Added relative and overflow-hidden
+    <section className="relative py-28 lg:py-36 overflow-hidden">
+      
+      {/* 2. Inserted grid overlay */}
+      <div className="grid-overlay absolute inset-0 pointer-events-none opacity-100" aria-hidden="true" />
+
+      {/* 3. Added relative z-10 to keep content on top */}
+      <div className="relative z-10 max-w-2xl mx-auto px-6">
         <div className="text-center mb-14">
           <h2 className="font-display font-bold text-4xl lg:text-5xl text-pearl-text tracking-tight mb-4">
             FAQ
