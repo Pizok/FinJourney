@@ -59,14 +59,7 @@ export default function StepPrologue({ onNext }: StepPrologueProps) {
 
       <PrimaryButton onClick={onNext}>Begin setup</PrimaryButton>
 
-      <div className="text-center mt-3.5">
-        <GhostButton
-          className="text-[12px] mx-auto"
-          onClick={() => { /* skip handler wired in page */ }}
-        >
-          Skip and explore on my own
-        </GhostButton>
-      </div>
+
     </OnboardingCard>
   );
 }

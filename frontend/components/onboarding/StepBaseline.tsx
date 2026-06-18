@@ -33,11 +33,13 @@ type SubStep = 'income' | 'fixed' | 'savings';
 
 const SUB_ORDER: SubStep[] = ['income', 'fixed', 'savings'];
 
-const LABELS: Record<SubStep, { tag: string; heading: string; sub: string }> = {
-  income:  { tag: 'Baseline 1 of 3', heading: 'How much do you earn?',              sub: 'Enter your total monthly income from all sources.' },
-  fixed:   { tag: 'Baseline 2 of 3', heading: 'What are your monthly essentials?',  sub: 'List the costs you must pay every month before anything else.' },
-  savings: { tag: 'Baseline 3 of 3', heading: 'How much do you want to save?',       sub: 'Set aside money for your future before daily spending begins.' },
-};
+// Using a Map instead of a plain object so that LABELS[subStep] bracket notation
+// (flagged as CWE-94) is replaced with the safe Map.get() API.
+const LABELS = new Map<SubStep, { tag: string; heading: string; sub: string }>([
+  ['income',  { tag: 'Baseline 1 of 3', heading: 'How much do you earn?',             sub: 'Enter your total monthly income from all sources.' }],
+  ['fixed',   { tag: 'Baseline 2 of 3', heading: 'What are your monthly essentials?', sub: 'List the costs you must pay every month before anything else.' }],
+  ['savings', { tag: 'Baseline 3 of 3', heading: 'How much do you want to save?',     sub: 'Set aside money for your future before daily spending begins.' }],
+]);
 
 const uid = () => Math.random().toString(36).slice(2, 8);
 
@@ -45,7 +47,11 @@ const uid = () => Math.random().toString(36).slice(2, 8);
 
 interface EntryListProps {
   entries: BaselineEntry[];
-  errors:  Record<string, string>;
+  // ── Map instead of plain object ──────────────────────────────────────────────
+  // Using Map<string, string> prevents prototype-pollution attacks:
+  // a crafted entry.id like "__proto__" or "constructor" would silently
+  // write to Object.prototype on a plain object but is completely inert on a Map.
+  errors:  Map<string, string>;
   onUpdate: (id: string, field: 'label' | 'amount', value: string | number) => void;
   onAdd:    () => void;
   onRemove: (id: string) => void;
@@ -55,45 +61,47 @@ interface EntryListProps {
 function EntryList({ entries, errors, onUpdate, onAdd, onRemove, addLabel }: EntryListProps) {
   return (
     <div className="flex flex-col gap-2.5">
-      {entries.map((entry) => (
-        <div key={entry.id} className="flex gap-2.5 items-start">
-          <div className="flex-1">
-            <Input
-              value={entry.label}
-              onChange={(e) => onUpdate(entry.id, 'label', e.target.value)}
-              placeholder="Description"
-              error={!!errors[`label_${entry.id}`]}
-            />
-            {errors[`label_${entry.id}`] && (
-              <FieldError message={errors[`label_${entry.id}`]} />
+      {entries.map((entry) => {
+        const labelErr  = errors.get(`label_${entry.id}`);
+        const amountErr = errors.get(`amount_${entry.id}`);
+        return (
+          <div key={entry.id} className="flex gap-2.5 items-start">
+            <div className="flex-1">
+              <Input
+                value={entry.label}
+                onChange={(e) => onUpdate(entry.id, 'label', e.target.value)}
+                placeholder="Description"
+                error={!!labelErr}
+              />
+              {labelErr && <FieldError message={labelErr} />}
+            </div>
+
+            <div className="w-36">
+              <Input
+                value={entry.amount === 0 ? '' : String(entry.amount)}
+                onChange={(e) =>
+                  onUpdate(entry.id, 'amount', Number(sanitizeCurrencyInput(e.target.value)) || 0)
+                }
+                placeholder="0"
+                suffix="IDR"
+                inputMode="numeric"
+                error={!!amountErr}
+              />
+            </div>
+
+            {entries.length > 1 && (
+              <button
+                type="button"
+                onClick={() => onRemove(entry.id)}
+                className="mt-3 text-muted-text hover:text-terracotta transition-colors"
+                aria-label="Remove entry"
+              >
+                <Trash2 size={15} strokeWidth={2} />
+              </button>
             )}
           </div>
-
-          <div className="w-36">
-            <Input
-              value={entry.amount === 0 ? '' : String(entry.amount)}
-              onChange={(e) =>
-                onUpdate(entry.id, 'amount', Number(sanitizeCurrencyInput(e.target.value)) || 0)
-              }
-              placeholder="0"
-              suffix="IDR"
-              inputMode="numeric"
-              error={!!errors[`amount_${entry.id}`]}
-            />
-          </div>
-
-          {entries.length > 1 && (
-            <button
-              type="button"
-              onClick={() => onRemove(entry.id)}
-              className="mt-3 text-muted-text hover:text-terracotta transition-colors"
-              aria-label="Remove entry"
-            >
-              <Trash2 size={15} strokeWidth={2} />
-            </button>
-          )}
-        </div>
-      ))}
+        );
+      })}
 
       <button
         type="button"
@@ -137,7 +145,8 @@ export default function StepBaseline({
   jumpTo,
 }: StepBaselineProps) {
   const [subStep, setSubStep] = React.useState<SubStep>(jumpTo ?? 'income');
-  const [errors,  setErrors]  = React.useState<Record<string, string>>({});
+  // Map prevents prototype-pollution via crafted entry IDs (CWE-94).
+  const [errors,  setErrors]  = React.useState<Map<string, string>>(new Map());
 
   // Apply jump target if the Review screen triggered an edit
   React.useEffect(() => {
@@ -150,51 +159,67 @@ export default function StepBaseline({
   const dailyBudget = Math.max(0, (totalIncome - totalFixed - state.savingsTarget) / 30);
 
   // ── Entry helpers ──
+  // Dynamic bracket access (state[key]) is replaced with explicit branches so
+  // the property name is never derived from runtime input — eliminating the
+  // prototype-pollution vector flagged as CWE-94.
   const updateEntry = (
     key: 'incomeEntries' | 'fixedCostEntries',
     id: string,
     field: 'label' | 'amount',
     value: string | number,
-  ) =>
-    onChange({
-      [key]: (state[key] as BaselineEntry[]).map((e) =>
-        e.id === id ? { ...e, [field]: value } : e,
-      ),
-    });
+  ) => {
+    if (key === 'incomeEntries') {
+      onChange({ incomeEntries: state.incomeEntries.map((e) => e.id === id ? { ...e, [field]: value } : e) });
+    } else {
+      onChange({ fixedCostEntries: state.fixedCostEntries.map((e) => e.id === id ? { ...e, [field]: value } : e) });
+    }
+  };
 
-  const addEntry = (key: 'incomeEntries' | 'fixedCostEntries') =>
-    onChange({ [key]: [...(state[key] as BaselineEntry[]), { id: uid(), label: '', amount: 0 }] });
+  const addEntry = (key: 'incomeEntries' | 'fixedCostEntries') => {
+    const newEntry = { id: uid(), label: '', amount: 0 };
+    if (key === 'incomeEntries') {
+      onChange({ incomeEntries: [...state.incomeEntries, newEntry] });
+    } else {
+      onChange({ fixedCostEntries: [...state.fixedCostEntries, newEntry] });
+    }
+  };
 
-  const removeEntry = (key: 'incomeEntries' | 'fixedCostEntries', id: string) =>
-    onChange({ [key]: (state[key] as BaselineEntry[]).filter((e) => e.id !== id) });
+  const removeEntry = (key: 'incomeEntries' | 'fixedCostEntries', id: string) => {
+    if (key === 'incomeEntries') {
+      onChange({ incomeEntries: state.incomeEntries.filter((e) => e.id !== id) });
+    } else {
+      onChange({ fixedCostEntries: state.fixedCostEntries.filter((e) => e.id !== id) });
+    }
+  };
 
   // ── Validation ──
-  const validateEntries = (entries: BaselineEntry[]) => {
-    const errs: Record<string, string> = {};
+  // Returns a Map so keys derived from entry IDs never touch Object.prototype.
+  const validateEntries = (entries: BaselineEntry[]): Map<string, string> => {
+    const errs = new Map<string, string>();
     entries.forEach((e) => {
-      if (!e.label.trim())  errs[`label_${e.id}`]  = 'Required';
-      if (e.amount < 0)     errs[`amount_${e.id}`] = 'Cannot be negative';
+      if (!e.label.trim()) errs.set(`label_${e.id}`,  'Required');
+      if (e.amount < 0)    errs.set(`amount_${e.id}`, 'Cannot be negative');
     });
     return errs;
   };
 
-  const validateSavings = () => {
-    const errs: Record<string, string> = {};
+  const validateSavings = (): Map<string, string> => {
+    const errs = new Map<string, string>();
     if (state.savingsTarget < 0)
-      errs.savings = 'Amount cannot be negative.';
+      errs.set('savings', 'Amount cannot be negative.');
     else if (state.savingsTarget > totalIncome - totalFixed)
-      errs.savings = 'Savings cannot exceed income minus fixed costs.';
+      errs.set('savings', 'Savings cannot exceed income minus fixed costs.');
     return errs;
   };
 
   const handleNext = () => {
-    let errs: Record<string, string> = {};
+    let errs = new Map<string, string>();
     if (subStep === 'income')  errs = validateEntries(state.incomeEntries);
     if (subStep === 'fixed')   errs = validateEntries(state.fixedCostEntries);
     if (subStep === 'savings') errs = validateSavings();
 
     setErrors(errs);
-    if (Object.keys(errs).length > 0) return;
+    if (errs.size > 0) return;
 
     const nextIdx = SUB_ORDER.indexOf(subStep) + 1;
     if (nextIdx < SUB_ORDER.length) {
@@ -213,7 +238,10 @@ export default function StepBaseline({
     }
   };
 
-  const meta = LABELS[subStep];
+  // Map.get() — no bracket notation on user-influenced input (CWE-94 safe).
+  // The non-null assertion is safe: subStep is the typed union and all three
+  // keys are guaranteed to exist in the Map above.
+  const meta = LABELS.get(subStep)!;
   const isLastSub = subStep === 'savings';
 
   return (
@@ -285,14 +313,14 @@ export default function StepBaseline({
             value={state.savingsTarget === 0 ? '' : String(state.savingsTarget)}
             onChange={(e) => {
               onChange({ savingsTarget: Number(sanitizeCurrencyInput(e.target.value)) || 0 });
-              setErrors({});
+              setErrors(new Map());
             }}
             placeholder="0"
             suffix="IDR"
             inputMode="numeric"
-            error={!!errors.savings}
+            error={errors.has('savings')}
           />
-          {errors.savings && <FieldError message={errors.savings} />}
+          {errors.has('savings') && <FieldError message={errors.get('savings')!} />}
           <p className="text-[11px] text-muted-text/70 mt-0.5">
             This is your financial priority before any discretionary spend.
           </p>

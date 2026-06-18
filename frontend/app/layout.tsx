@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import Providers from './providers';
 
 export const metadata: Metadata = {
   title: 'FinJourney — Level Up Your Financial Life',
@@ -20,7 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       {/* Global background and text colors stay here so they apply to all pages */}
       <body className="bg-abyssal-slate text-pearl-text font-sans min-h-screen flex flex-col">
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

@@ -32,11 +32,11 @@ function AuthContent() {
   };
 
   const handleVerifySuccess = () => {
-    router.push('/onboarding');
+    router.push('/dashboard');
   };
 
   const handleLoginSuccess = () => {
-    router.push('/onboarding');
+    router.push('/dashboard');
   };
 
   // 4. Update the switch buttons to actually change the URL, not just the state
