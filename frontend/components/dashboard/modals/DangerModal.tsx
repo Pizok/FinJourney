@@ -22,7 +22,7 @@ export function DangerModal({ onClose }: DangerModalProps) {
   }
 
   return (
-    <div className="bg-canvas-surface border border-terracotta/20 rounded-xl p-8 w-full max-w-md shadow-xl animate-fade-in">
+    <div className="bg-canvas-surface border border-terracotta/20 rounded-xl p-8 w-full max-w-lg shadow-xl animate-fade-in">
       {/* Icon */}
       <div className="w-10 h-10 rounded-lg bg-terracotta/10 border border-terracotta/20 flex items-center justify-center mb-6">
         <AlertTriangle size={18} strokeWidth={2} className="text-terracotta" />

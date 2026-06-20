@@ -95,7 +95,7 @@ function ModalShell({ onClose, children }: { onClose: () => void; children: Reac
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
-        className="animate-fade-in relative z-10 w-full max-w-md rounded-xl border border-tactical-border bg-canvas-surface"
+        className="animate-fade-in relative z-10 w-full max-w-lg rounded-xl border border-tactical-border bg-canvas-surface"
       >
         {children}
       </div>

@@ -9,6 +9,9 @@ import { Button }                         from '@/components/ui/button';
 import { Input }                          from '@/components/ui/input';
 import { Label, FieldError, SectionTag }  from '@/components/ui/label';
 
+import { createBrowserClient } from '@supabase/ssr';
+import { GoogleIcon } from './GoogleIcon';
+
 interface SignUpFormProps {
   onSuccess: (email: string) => void;
   onSwitchToLogin: () => void;
@@ -16,6 +19,13 @@ interface SignUpFormProps {
 
 export default function SignUpForm({ onSuccess, onSwitchToLogin }: SignUpFormProps) {
   const [loading, setLoading] = React.useState(false);
+  const [apiError, setApiError] = React.useState('');
+  const [checkEmail, setCheckEmail] = React.useState(false);
+
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 
   const {
     register,
@@ -28,10 +38,62 @@ export default function SignUpForm({ onSuccess, onSwitchToLogin }: SignUpFormPro
 
   const onSubmit = async (values: SignUpFormValues) => {
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1200));
+    setApiError('');
+    
+    const { data, error } = await supabase.auth.signUp({
+      email: values.email,
+      password: values.password,
+    });
+    
     setLoading(false);
-    onSuccess(values.email);
+    
+    if (error) {
+      setApiError(error.message);
+    } else {
+      // If we require email confirmation, session might be null.
+      if (!data.session) {
+        setCheckEmail(true);
+      } else {
+        onSuccess(values.email);
+      }
+    }
   };
+
+  const handleGoogleSignUp = async () => {
+    setLoading(true);
+    setApiError('');
+    
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+    
+    if (error) {
+      setLoading(false);
+      setApiError(error.message);
+    }
+  };
+
+  if (checkEmail) {
+    return (
+      <div className="flex flex-col gap-6 text-center">
+        <div className="flex flex-col gap-2">
+          <SectionTag>Check Your Email</SectionTag>
+          <h1 className="font-display font-semibold text-3xl text-pearl-text tracking-tight">
+            Confirm your account
+          </h1>
+          <p className="font-sans text-sm text-muted-text leading-relaxed mt-2">
+            We sent a confirmation link to your email address. Please click the link to finish setting up your account.
+          </p>
+        </div>
+        <Button onClick={onSwitchToLogin} variant="outline" className="mt-4">
+          Return to Sign In
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-10">
@@ -53,7 +115,14 @@ export default function SignUpForm({ onSuccess, onSwitchToLogin }: SignUpFormPro
         onSubmit={handleSubmit(onSubmit)}
         className="flex flex-col gap-5"
         noValidate
+        onChange={() => setApiError('')}
       >
+        {/* Global API error */}
+        {apiError && (
+          <div className="rounded-lg border border-terracotta/40 bg-terracotta/5 px-4 py-3">
+            <p className="font-sans text-sm text-terracotta">{apiError}</p>
+          </div>
+        )}
         {/* Email */}
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="email">Email address</Label>
@@ -103,10 +172,30 @@ export default function SignUpForm({ onSuccess, onSwitchToLogin }: SignUpFormPro
           type="submit"
           size="lg"
           className="w-full"
-          disabled={!isValid}
+          disabled={!isValid || loading}
           loading={loading}
         >
           Create Account
+        </Button>
+        
+        <div className="relative flex items-center py-2">
+          <div className="flex-grow border-t border-abyssal-border"></div>
+          <span className="flex-shrink-0 mx-4 text-muted-text text-xs uppercase tracking-wider font-semibold">Or</span>
+          <div className="flex-grow border-t border-abyssal-border"></div>
+        </div>
+
+        <Button
+          type="button"
+          size="lg"
+          variant="outline"
+          className="w-full relative"
+          onClick={handleGoogleSignUp}
+          disabled={loading}
+        >
+          <div className="absolute left-4">
+            <GoogleIcon />
+          </div>
+          Sign up with Google
         </Button>
       </form>
 

@@ -78,6 +78,65 @@ export type ColorToken =
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * A user-defined recurring fixed expense (rent, internet, gym, etc.).
+ * Represents a monthly committed outgoing that is deducted from the
+ * projected safe daily budget calculation alongside loan installments.
+ */
+export interface FixedExpense {
+  id: string;
+  /** Human-readable name, e.g. "Sewa Kost", "Internet Indihome". */
+  name: string;
+  /** Monthly cost in IDR. Always > 0. */
+  amount: number;
+  /**
+   * How often this expense recurs.
+   *   daily   → no specific target day (recurrence_value = null)
+   *   weekly  → recurrence_value = weekday name, e.g. "Monday"
+   *   monthly → recurrence_value = day number 1–31, or "last"
+   *   yearly  → recurrence_value = "MM-DD" string, e.g. "03-25"
+   */
+  recurrence_type: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  /**
+   * Target value for the recurrence, type-dependent (see above).
+   * null for daily expenses.
+   */
+  recurrence_value: string | number | null;
+}
+
+/**
+ * An active debt/loan being tracked on the Baselines & Debt tab.
+ *
+ * Progress bar: paid_amount / total_amount (fills muted-emerald as paid off).
+ * Remaining balance (total_amount - paid_amount) is displayed in text-terracotta
+ * to visually distinguish debt from asset balances.
+ */
+export interface Loan {
+  id: string;
+  /** Human-readable name, e.g. "KTA Bank Mandiri", "Cicilan HP". */
+  name: string;
+  /** Original loan principal in IDR. */
+  total_amount: number;
+  /** Amount repaid so far. Backend-authoritative. */
+  paid_amount: number;
+  /** ISO 8601 date string for the next scheduled payment. */
+  next_due_date: string;
+  /** Fixed monthly installment amount. */
+  monthly_installment: number;
+}
+
+/**
+ * Financial baseline assumptions owned by the Wallet domain.
+ * Drives the Projected Safe Daily Budget calculation:
+ *   (income − fixed_costs_total − savings) / 30
+ */
+export interface FinancialAssumptions {
+  expected_monthly_income: number;
+  monthly_savings_target: number;
+  /** Read-only preview, derived client-side. Server value is authoritative on save. */
+  projected_safe_daily_budget: number;
+}
+
+/**
  * A user-owned financial container.
  *
  * Wallets answer: WHERE was the money held / moved from?
@@ -253,6 +312,12 @@ export interface WalletBootstrapResponse {
   /** Last-used filter state, persisted server-side per user. */
   active_filters: FilterState;
   feature_unlocks: FeatureUnlocks;
+  /** Recurring fixed costs (rent, internet, etc.) — used in Baselines & Debt tab. */
+  fixed_expenses: FixedExpense[];
+  /** Active loans/debts — used in Baselines & Debt tab with progress bar display. */
+  active_loans: Loan[];
+  /** Income & savings assumptions for the daily budget calculation. */
+  financial_assumptions: FinancialAssumptions;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -344,6 +409,8 @@ export interface LoadingState {
   categories: boolean;
   /** True while any create / edit / delete mutation is in flight. */
   mutation: boolean;
+  /** True while baselines (fixed expenses / loans / assumptions) are saving. */
+  baselines: boolean;
 }
 
 /**

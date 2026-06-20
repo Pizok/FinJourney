@@ -155,7 +155,7 @@ export function TopTransactionsCard() {
   return (
     <section
       aria-label="Largest Transactions"
-      className="rounded-xl border border-tactical-border bg-canvas-surface p-6"
+      className="flex h-full flex-col rounded-xl border border-tactical-border bg-canvas-surface p-6"
     >
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="mb-4">

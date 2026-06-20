@@ -21,30 +21,18 @@ import {
   SettingsErrorState,
 } from '@/components/settings/states/SettingsSkeleton'
 import { ProfileCard } from '@/components/settings/profile/ProfileCard'
-import { FinancialBaselinesCard } from '@/components/settings/financial/FinancialBaselinesCard'
 import { JourneyProgressionCard } from '@/components/settings/progression/JourneyProgressionCard'
 import { PreferencesCard } from '@/components/settings/preferences/PreferencesCard'
 import { NotificationSettingsCard } from '@/components/settings/notifications/NotificationSettingsCard'
 import type { Settings } from '@/components/settings/types/settings.types'
 
+import { apiFetchClient } from '@/lib/apiClient'
+
 // ─── Data Fetcher ─────────────────────────────────────────────────────────────
 
 async function fetchSettings(): Promise<Settings> {
-  const res = await fetch('/api/v1/settings', {
-    credentials: 'include',
-  })
-
-  if (!res.ok) {
-    throw new Error(`Failed to load settings (${res.status})`)
-  }
-
-  const json = await res.json()
-
-  if (!json.success) {
-    throw new Error(json.error?.message ?? 'Unknown error')
-  }
-
-  return json.data as Settings
+  // Uses apiFetchClient to ensure the Supabase JWT is injected as a Bearer token.
+  return await apiFetchClient('settings') as Settings
 }
 
 // ─── Query Key ────────────────────────────────────────────────────────────────
@@ -102,7 +90,6 @@ export default function SettingsPage() {
     <SettingsShell>
       <div className="flex flex-col gap-6">
         <ProfileCard />
-        <FinancialBaselinesCard />
         <JourneyProgressionCard />
         <PreferencesCard />
         <NotificationSettingsCard />

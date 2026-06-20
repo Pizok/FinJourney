@@ -20,6 +20,8 @@ import StepReview       from '@/components/onboarding/StepReview';
 
 import { INITIAL_STATE, OnboardingState } from '@/components/onboarding/types';
 
+import { apiFetchClient } from '@/lib/apiClient';
+
 // Wizard steps:
 //  1 = Prologue
 //  2 = Path selection
@@ -36,6 +38,7 @@ export default function OnboardingPage() {
 
   const [step,      setStep]      = React.useState<Step>(1);
   const [formState, setFormState] = React.useState<OnboardingState>(INITIAL_STATE);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   // Baseline sub-step jump — passed via a ref trick to StepBaseline
   const baselineJumpRef = React.useRef<BaselineJumpTarget>(null);
@@ -43,9 +46,38 @@ export default function OnboardingPage() {
   const patch = (p: Partial<OnboardingState>) =>
     setFormState((prev) => ({ ...prev, ...p }));
 
-  const handleFinished = () => {
-    // TODO: POST /profile/setup + /baselines when real auth exists.
-    router.push('/dashboard');
+  const handleFinished = async () => {
+    try {
+      setIsSubmitting(true);
+      
+      // 1. Setup Profile
+      await apiFetchClient('profile/setup', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: formState.username,
+          avatar_class: formState.selectedPath || 'Sentinel',
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        })
+      });
+
+      // 2. Save Baselines (only runs if setup succeeds)
+      await apiFetchClient('profile/baselines', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          incomeEntries: formState.incomeEntries,
+          fixedCostEntries: formState.fixedCostEntries,
+          savingsTarget: formState.savingsTarget,
+        })
+      });
+
+      router.push('/dashboard');
+    } catch (err) {
+      console.error('Failed to complete onboarding:', err);
+      setIsSubmitting(false);
+      // In a real app we'd set a global error banner here
+    }
   };
 
   // ── Edit shortcuts from Review screen ──────────────────────────────────
@@ -57,7 +89,7 @@ export default function OnboardingPage() {
   return (
     <OnboardingLayout step={step}>
       {step === 1 && (
-        <StepPrologue onNext={() => setStep(2)} />
+        <StepPrologue state={formState} onChange={patch} onNext={() => setStep(2)} />
       )}
 
       {step === 2 && (
@@ -85,6 +117,7 @@ export default function OnboardingPage() {
       {step === 4 && (
         <StepReview
           state={formState}
+          isSubmitting={isSubmitting}
           onConfirm={handleFinished}
           onBack={() => setStep(3)}
           onEditPath={()         => setStep(2)}

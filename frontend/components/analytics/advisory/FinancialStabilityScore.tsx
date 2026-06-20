@@ -33,6 +33,7 @@
  */
 
 import { useState, useEffect } from 'react'
+import { cn } from '@/lib/utils'
 
 // ─── Arc Constants ─────────────────────────────────────────────────────────────
 
@@ -154,19 +155,7 @@ export function FinancialStabilityScore({
             transform={ROTATION}
           />
 
-          {/* Trend line (above score) */}
-          <text
-            x={CX}
-            y={46}
-            textAnchor="middle"
-            fontSize={11}
-            style={{
-              fill:       trendColor,
-              fontFamily: "'IBM Plex Sans', sans-serif",
-            }}
-          >
-            {trendLabel} this month
-          </text>
+          {/* Trend line (Moved outside SVG) */}
 
           {/* Score number */}
           <text
@@ -198,6 +187,16 @@ export function FinancialStabilityScore({
             {status.label}
           </text>
         </svg>
+      </div>
+
+      {/* Trend indicator placed below the circle, above the description */}
+      <div 
+        className={cn(
+          "mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-medium",
+          score_trend >= 0 ? "bg-muted-emerald/10 text-muted-emerald" : "bg-terracotta/10 text-terracotta"
+        )}
+      >
+        <span>{trendLabel} this month</span>
       </div>
     </div>
   )

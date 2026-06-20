@@ -331,7 +331,7 @@ export function FinancialBaselinesCard() {
       <section
         id="financials"
         aria-labelledby="financials-heading"
-        className="rounded-xl border border-tactical-border bg-canvas-surface scroll-mt-8"
+        className="rounded-xl border border-tactical-border bg-canvas-surface scroll-mt-32"
       >
         {/* Card Header */}
         <div className="border-b border-tactical-border px-8 py-6">

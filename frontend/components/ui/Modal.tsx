@@ -178,8 +178,8 @@ function useModalAnimation(isOpen: boolean) {
 // ─── Size variants ────────────────────────────────────────────────────────────
 
 const SIZE = {
-  sm: "max-w-sm",
-  md: "max-w-[540px]",
+  sm: "max-w-lg",
+  md: "max-w-lg",
   lg: "max-w-2xl",
 } as const;
 

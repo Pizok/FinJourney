@@ -45,12 +45,12 @@ function AnalyticsGrid() {
   const isLocked = useAnalyticsStore((s) => !s.bootstrap?.unlock_status.unlocked)
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       {/* Row 1 — Advisory + Financial Stability Score */}
       <AdvisoryCard />
 
       {/* Row 2 — Cashflow (lg:3/5) | Top Transactions (lg:2/5) */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
         <div className="lg:col-span-3">
           <CashflowChart />
         </div>
@@ -60,13 +60,13 @@ function AnalyticsGrid() {
       </div>
 
       {/* Row 3 — Income Allocation (1/2) | Category Pie (1/2) */}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <IncomeAllocationCard />
         <CategoryPieChart />
       </div>
 
       {/* Row 4 — Debt Health (1/2) | Asset Health (1/2) */}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <DebtHealthCard />
         <AssetHealthCard />
       </div>

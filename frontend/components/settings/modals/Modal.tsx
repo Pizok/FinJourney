@@ -81,8 +81,8 @@ export interface ModalProps {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const SIZE_MAP: Record<NonNullable<ModalProps['size']>, string> = {
-  sm: 'max-w-sm',
-  md: 'max-w-md',
+  sm: 'max-w-lg',
+  md: 'max-w-lg',
   lg: 'max-w-lg',
 }
 

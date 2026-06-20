@@ -163,7 +163,7 @@ export function WalletSettingsModal() {
       isOpen={isWalletSettingsOpen}
       onClose={handleClose}
       title="Wallet Settings"
-      maxWidth="md"
+      maxWidth="lg"
     >
       <div className="flex flex-col gap-5">
 

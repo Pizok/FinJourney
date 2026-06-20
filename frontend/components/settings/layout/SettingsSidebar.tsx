@@ -1,19 +1,8 @@
-// ─── SettingsSidebar.tsx ──────────────────────────────────────────────────────
-// Sticky left-hand navigation for the Settings page.
-//
-// Behaviour:
-//   • Clicking an item smooth-scrolls to its section
-//   • IntersectionObserver tracks the active section as the user scrolls
-//   • Active state uses muted-emerald text + a 1px left indicator line
-//   • No scroll-triggered animations that could distract (DESIGN.md)
-// ─────────────────────────────────────────────────────────────────────────────
-
 'use client'
 
 import { useEffect, useRef } from 'react'
 import {
   User,
-  BarChart2,
   Shield,
   SlidersHorizontal,
   Bell,
@@ -28,11 +17,6 @@ const NAV_ITEMS: SettingsNavItem[] = [
     id: 'profile',
     label: 'Profile & Account',
     description: 'Identity, timezone, payday',
-  },
-  {
-    id: 'financials',
-    label: 'Financial Assumptions',
-    description: 'Income, savings, daily budget',
   },
   {
     id: 'progression',
@@ -51,9 +35,8 @@ const NAV_ITEMS: SettingsNavItem[] = [
   },
 ]
 
-const SECTION_ICONS: Record<SettingsSectionId, React.ElementType> = {
+const SECTION_ICONS: Record<string, React.ElementType> = {
   profile: User,
-  financials: BarChart2,
   progression: Shield,
   preferences: SlidersHorizontal,
   notifications: Bell,
@@ -70,8 +53,6 @@ export function SettingsSidebar() {
 
   useEffect(() => {
     const sectionIds = NAV_ITEMS.map((item) => item.id)
-
-    // Track the topmost visible section
     const visibleSections = new Map<string, number>()
 
     observerRef.current = new IntersectionObserver(
@@ -84,7 +65,6 @@ export function SettingsSidebar() {
           }
         })
 
-        // Activate the section closest to the top of the viewport
         if (visibleSections.size > 0) {
           const topmost = [...visibleSections.entries()].reduce((a, b) =>
             Math.abs(a[1]) < Math.abs(b[1]) ? a : b,
@@ -125,69 +105,45 @@ export function SettingsSidebar() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <aside className="w-[220px]" aria-label="Settings navigation">
-      {/* Sticky wrapper — aligns to the top of the page content area */}
-      <nav className="sticky top-8" aria-label="Settings sections">
-        <p className="mb-4 px-3 font-display text-[11px] font-semibold uppercase tracking-widest text-muted-text">
-          Sections
-        </p>
+    <nav className="flex flex-col gap-2" aria-label="Settings sections">
+      {NAV_ITEMS.map((item) => {
+        const isActive = activeSection === item.id
+        const Icon = SECTION_ICONS[item.id]
 
-        <ul className="flex flex-col gap-0.5" role="list">
-          {NAV_ITEMS.map((item) => {
-            const isActive = activeSection === item.id
-            const Icon = SECTION_ICONS[item.id]
-
-            return (
-              <li key={item.id} role="listitem">
-                <a
-                  href={`#${item.id}`}
-                  onClick={(e) => handleNavClick(e, item.id)}
-                  aria-current={isActive ? 'location' : undefined}
-                  className={[
-                    'group relative flex items-center gap-3 rounded-lg px-3 py-2.5',
-                    'transition-colors duration-150',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted-emerald focus-visible:ring-offset-2 focus-visible:ring-offset-abyssal-slate',
-                    isActive
-                      ? 'bg-canvas-surface text-pearl-text'
-                      : 'text-muted-text hover:bg-canvas-surface/60 hover:text-pearl-text',
-                  ].join(' ')}
-                >
-                  {/*
-                    Active indicator — a single 2px left edge using an
-                    absolutely-positioned element. Avoids the banned
-                    "side-stripe border" pattern by being 2px (hairline accent,
-                    not a thick stripe) and limited to the active state only.
-                  */}
-                  {isActive && (
-                    <span
-                      aria-hidden="true"
-                      className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-muted-emerald"
-                    />
-                  )}
-
-                  {/* Icon */}
-                  <Icon
-                    className={[
-                      'shrink-0 transition-colors duration-150',
-                      isActive
-                        ? 'text-muted-emerald'
-                        : 'text-muted-text group-hover:text-pearl-text',
-                    ].join(' ')}
-                    size={15}
-                    strokeWidth={2}
-                    aria-hidden="true"
-                  />
-
-                  {/* Label */}
-                  <span className="font-sans text-sm font-medium leading-none">
-                    {item.label}
-                  </span>
-                </a>
-              </li>
-            )
-          })}
-        </ul>
-      </nav>
-    </aside>
+        return (
+          <a
+            key={item.id}
+            href={`#${item.id}`}
+            onClick={(e) => handleNavClick(e, item.id)}
+            aria-current={isActive ? 'page' : undefined}
+            className={[
+              'group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-150',
+              isActive
+                ? 'bg-muted-emerald/10 text-pearl-text'
+                : 'bg-transparent text-muted-text hover:bg-tactical-border/30 hover:text-pearl-text',
+            ].join(' ')}
+          >
+            <Icon
+              className={[
+                'shrink-0 transition-colors duration-150',
+                isActive ? 'text-muted-emerald' : 'text-muted-text group-hover:text-pearl-text',
+              ].join(' ')}
+              size={18}
+              strokeWidth={2}
+              aria-hidden="true"
+            />
+            <div className="flex flex-col">
+              <span className="font-sans text-sm font-medium leading-none">
+                {item.label}
+              </span>
+              <span className="font-sans text-[11px] text-muted-text mt-1">
+                {item.description}
+              </span>
+            </div>
+          </a>
+        )
+      })}
+    </nav>
   )
 }
+

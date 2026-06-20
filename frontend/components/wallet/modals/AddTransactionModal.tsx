@@ -215,7 +215,7 @@ export function AddTransactionModal() {
       isOpen={isAddTransactionOpen}
       onClose={handleClose}
       title="Add Transaction"
-      maxWidth="md"
+      maxWidth="lg"
     >
       <div className="flex flex-col gap-5">
 

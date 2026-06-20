@@ -31,6 +31,7 @@ import type { OnboardingState } from './types';
 
 interface StepReviewProps {
   state:         OnboardingState;
+  isSubmitting:  boolean;
   onConfirm:     () => void;
   onBack:        () => void;
   onEditPath:    () => void;
@@ -90,12 +91,14 @@ function ConfirmModal({
   state,
   dailyBudget,
   fmt,
+  isSubmitting,
   onConfirm,
   onClose,
 }: {
   state: OnboardingState;
   dailyBudget: number;
   fmt: (n: number) => string;
+  isSubmitting: boolean;
   onConfirm: () => void;
   onClose: () => void;
 }) {
@@ -150,10 +153,13 @@ function ConfirmModal({
           ))}
         </div>
 
-        <PrimaryButton onClick={onConfirm}>Enter dashboard</PrimaryButton>
+        <PrimaryButton onClick={onConfirm} disabled={isSubmitting} loading={isSubmitting}>
+          {isSubmitting ? 'Entering...' : 'Enter dashboard'}
+        </PrimaryButton>
         <GhostButton
           className="w-full justify-center mt-2"
           onClick={onClose}
+          disabled={isSubmitting}
         >
           Review again
         </GhostButton>
@@ -166,6 +172,7 @@ function ConfirmModal({
 
 export default function StepReview({
   state,
+  isSubmitting,
   onConfirm,
   onBack,
   onEditPath,
@@ -260,6 +267,7 @@ export default function StepReview({
           state={state}
           dailyBudget={dailyBudget}
           fmt={fmt}
+          isSubmitting={isSubmitting}
           onConfirm={onConfirm}
           onClose={() => setShowModal(false)}
         />

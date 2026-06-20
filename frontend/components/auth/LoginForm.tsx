@@ -9,6 +9,9 @@ import { Button }                        from '@/components/ui/button';
 import { Input }                         from '@/components/ui/input';
 import { Label, FieldError, SectionTag } from '@/components/ui/label';
 
+import { createBrowserClient } from '@supabase/ssr';
+import { GoogleIcon } from './GoogleIcon';
+
 interface LoginFormProps {
   onSuccess: () => void;
   onSwitchToSignUp: () => void;
@@ -17,6 +20,11 @@ interface LoginFormProps {
 export default function LoginForm({ onSuccess, onSwitchToSignUp }: LoginFormProps) {
   const [loading,  setLoading]  = React.useState(false);
   const [apiError, setApiError] = React.useState('');
+  
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 
   const {
     register,
@@ -27,12 +35,39 @@ export default function LoginForm({ onSuccess, onSwitchToSignUp }: LoginFormProp
     mode: 'onChange',
   });
 
-  const onSubmit = async (_values: LoginFormValues) => {
+  const onSubmit = async (values: LoginFormValues) => {
     setLoading(true);
     setApiError('');
-    await new Promise((r) => setTimeout(r, 1200));
+    
+    const { error } = await supabase.auth.signInWithPassword({
+      email: values.email,
+      password: values.password,
+    });
+    
     setLoading(false);
-    onSuccess();
+    
+    if (error) {
+      setApiError(error.message);
+    } else {
+      onSuccess();
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    setApiError('');
+    
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+    
+    if (error) {
+      setLoading(false);
+      setApiError(error.message);
+    }
   };
 
   return (
@@ -97,10 +132,30 @@ export default function LoginForm({ onSuccess, onSwitchToSignUp }: LoginFormProp
           type="submit"
           size="lg"
           className="w-full"
-          disabled={!isValid}
+          disabled={!isValid || loading}
           loading={loading}
         >
           Sign In
+        </Button>
+        
+        <div className="relative flex items-center py-2">
+          <div className="flex-grow border-t border-abyssal-border"></div>
+          <span className="flex-shrink-0 mx-4 text-muted-text text-xs uppercase tracking-wider font-semibold">Or</span>
+          <div className="flex-grow border-t border-abyssal-border"></div>
+        </div>
+
+        <Button
+          type="button"
+          size="lg"
+          variant="outline"
+          className="w-full relative"
+          onClick={handleGoogleSignIn}
+          disabled={loading}
+        >
+          <div className="absolute left-4">
+            <GoogleIcon />
+          </div>
+          Sign in with Google
         </Button>
       </form>
 

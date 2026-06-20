@@ -8,14 +8,17 @@
 //
 // Responsibilities:
 //   1. Bootstraps the Zustand store on mount (mock data now; real API in Part 2).
-//   2. Establishes the max-width 1440px, centred, gap-8 page layout.
-//   3. Renders section-level skeleton loaders during the bootstrap phase.
-//      Each skeleton mirrors the rough geometry of its real section so layout
-//      shift is minimal on hydration.
-//   4. Exposes named section containers for child components (Part 2 / 3):
-//        • #section-overview     → WalletCardList
-//        • #section-categories   → CategoryTrackingSection
-//        • #section-transactions → TransactionTable
+//   2. Wraps the page content in a two-tab layout:
+//        • Ledger (default) — liquid wallets, category tracking, transactions
+//        • Baselines & Debt — financial assumptions, fixed expenses, active loans
+//   3. The Ledger tab uses Radix forceMount so the Zustand filter/pagination
+//      state is NEVER reset when switching to the Baselines tab.
+//   4. Renders section-level skeleton loaders during the bootstrap phase.
+//
+// Sticky Tabs note:
+//   The TabsList uses sticky top-0. The PageHeader is NOT sticky — it scrolls
+//   away as the user scrolls down, and the tab strip pins to the top of the
+//   main scroll container. No offset compensation needed.
 //
 // Design rules (DESIGN.md):
 //   • Flat surfaces only — no glassmorphism, no outer glows.
@@ -23,7 +26,6 @@
 //   • Canvas Surface cards (--color-canvas-surface).
 //   • gap-8 between sections, p-6 / p-8 within cards.
 //   • No hardcoded hex values — CSS custom properties only.
-//   • Source Sans 3 for headings, IBM Plex Sans for body.
 // =============================================================================
 
 import { useEffect } from 'react';
@@ -38,6 +40,8 @@ import { DeleteWalletModal } from '@/components/wallet/modals/DeleteWalletModal'
 import { DeleteTransactionModal } from '@/components/wallet/modals/DeleteTransactionModal';
 import { AddTransactionModal } from '@/components/wallet/modals/AddTransactionModal';
 import { EditTransactionModal } from '@/components/wallet/modals/EditTransactionModal';
+import { BaselinesTab } from '@/components/wallet/baselines/BaselinesTab';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Skeleton primitives
@@ -193,6 +197,65 @@ function TransactionSkeleton() {
   );
 }
 
+/**
+ * Baselines tab skeleton — three stacked cards.
+ */
+function BaselinesSkeleton() {
+  return (
+    <div className="flex flex-col gap-6" aria-label="Loading baselines" aria-busy="true">
+      {/* FinancialAssumptionsCard skeleton */}
+      <div className="rounded-xl border border-[var(--color-tactical-border)] bg-[var(--color-canvas-surface)] p-6">
+        <Bone className="mb-5 h-4 w-48" />
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <div>
+            <Bone className="mb-2 h-3 w-40" />
+            <Bone className="h-10 w-full rounded-lg" />
+          </div>
+          <div>
+            <Bone className="mb-2 h-3 w-44" />
+            <Bone className="h-10 w-full rounded-lg" />
+          </div>
+        </div>
+        <Bone className="mt-5 h-16 w-full rounded-lg" />
+      </div>
+      {/* FixedExpenses skeleton */}
+      <div className="rounded-xl border border-[var(--color-tactical-border)] bg-[var(--color-canvas-surface)] p-6">
+        <Bone className="mb-5 h-4 w-36" />
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="flex items-center gap-4 py-3">
+            <Bone className="h-9 w-9 rounded-lg" />
+            <div className="flex-1">
+              <Bone className="mb-1.5 h-3 w-32" />
+              <Bone className="h-2.5 w-24" />
+            </div>
+            <Bone className="h-3 w-24" />
+          </div>
+        ))}
+      </div>
+      {/* ActiveLoans skeleton */}
+      <div className="rounded-xl border border-[var(--color-tactical-border)] bg-[var(--color-canvas-surface)] p-6">
+        <Bone className="mb-5 h-4 w-32" />
+        {[0, 1].map((i) => (
+          <div key={i} className="py-4">
+            <div className="mb-2 flex justify-between">
+              <div>
+                <Bone className="mb-1.5 h-3 w-40" />
+                <Bone className="h-2.5 w-28" />
+              </div>
+              <div className="text-right">
+                <Bone className="mb-1 h-4 w-28" />
+                <Bone className="h-2.5 w-16" />
+              </div>
+            </div>
+            <Bone className="h-[5px] w-full rounded-full" />
+            <Bone className="mt-2 h-2.5 w-full" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Error banner
 // ─────────────────────────────────────────────────────────────────────────────
@@ -260,7 +323,7 @@ function PageHeader() {
         className="mt-1 text-sm text-[var(--color-muted-text)]"
         style={{ fontFamily: 'var(--font-sans)' }}
       >
-        Balances, spending limits, and transaction history.
+        Balances, spending limits, transactions, and financial baselines.
       </p>
     </header>
   );
@@ -270,53 +333,47 @@ function PageHeader() {
 // WalletShell — main export
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function WalletShell() {
+import type { WalletBootstrapResponse } from '@/components/wallet/types/wallet.types';
+
+export function WalletShell({ initialData }: { initialData?: WalletBootstrapResponse | null }) {
   const {
     isBootstrapped,
     loading,
     ui,
+    hydrate,
     hydrateMock,
     setGlobalError,
     setLoading,
   } = useWalletStore();
 
   // ── Bootstrap on mount ──────────────────────────────────────────────────
-  //
-  // Part 1 (now): loads mock data after a short delay so skeleton states
-  // are testable and visible during local development.
-  //
-  // Part 2 (when real API is ready):
-  //   Replace the mock call with:
-  //     const res  = await fetch('/api/v1/wallet/bootstrap');
-  //     const json = await res.json();
-  //     hydrate(json.data);
-  //
-  // The `initialData` prop pattern (server → client hydration) is already
-  // drafted in the server page component below. Once that fetch is
-  // uncommented, WalletShell should accept an `initialData` prop and call
-  // hydrate(initialData) instead of hydrateMock().
-  // ────────────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (isBootstrapped) return;
 
     setLoading('bootstrap', true);
 
-    // Simulated async delay — remove when using real data.
-    const timer = window.setTimeout(() => {
-      try {
-        hydrateMock();
-      } catch {
-        setGlobalError(
-          'Could not load wallet data. Check your connection and try again.',
-        );
-      } finally {
-        setLoading('bootstrap', false);
-      }
-    }, 550);
+    if (initialData) {
+      hydrate(initialData);
+      setLoading('bootstrap', false);
+    } else {
+      // Fallback to mock data if no initialData provided
+      // (e.g. testing mode or server error)
+      const timer = window.setTimeout(() => {
+        try {
+          hydrateMock();
+        } catch {
+          setGlobalError(
+            'Could not load wallet data. Check your connection and try again.',
+          );
+        } finally {
+          setLoading('bootstrap', false);
+        }
+      }, 550);
 
-    return () => window.clearTimeout(timer);
+      return () => window.clearTimeout(timer);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isBootstrapped]);
+  }, [initialData, isBootstrapped]);
 
   const isLoading = loading.bootstrap || !isBootstrapped;
 
@@ -326,95 +383,99 @@ export function WalletShell() {
     <div className="flex min-h-screen bg-[var(--color-abyssal-slate)]">
       <DashboardSidebar />
       <main className="flex-1 overflow-y-auto w-full" style={{ fontFamily: 'var(--font-sans)' }}>
-      {/*
-       * Content column — max-width 1440px, centred, responsive horizontal
-       * padding (px-4 → px-6 → px-8 as the viewport grows).
-       */}
-      <div className="mx-auto w-full max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-6">
 
-        {/*
-         * Vertical stack — gap-8 between every top-level section.
-         * Per wallet_prd.md § 3: "Container: gap-8 vertical spacing."
-         */}
-        <div className="flex flex-col gap-8">
+            {/* Page header ─────────────────────────────────────────────────── */}
+            <PageHeader />
 
-          {/* Page header ─────────────────────────────────────────────────── */}
-          <PageHeader />
-
-          {/* Global error banner ─────────────────────────────────────────── */}
-          {ui.globalError && (
-            <ErrorBanner
-              message={ui.globalError}
-              onDismiss={() => setGlobalError(null)}
-              onRetry={() => {
-                setGlobalError(null);
-                // Re-trigger bootstrap. Replace with real fetch in Part 2.
-                hydrateMock();
-              }}
-            />
-          )}
-
-          {/* ─────────────────────────────────────────────────────────────── */}
-          {/* SECTION 1 — Wallet Overview                                     */}
-          {/*                                                                 */}
-          {/* Slot for: <WalletCardList /> (built in Part 2)                  */}
-          {/* Shows: TotalBalanceCard + individual WalletCards + Add button.  */}
-          {/* Interaction: click-to-filter, wallet settings menu.             */}
-          {/* ─────────────────────────────────────────────────────────────── */}
-          <div
-            id="section-overview"
-            data-section="wallet-overview"
-            aria-label="Wallet overview"
-          >
-            {isLoading ? (
-              <OverviewSkeleton />
-            ) : (
-              <WalletCardList />
+            {/* Global error banner ─────────────────────────────────────────── */}
+            {ui.globalError && (
+              <ErrorBanner
+                message={ui.globalError}
+                onDismiss={() => setGlobalError(null)}
+                onRetry={() => {
+                  setGlobalError(null);
+                  hydrateMock();
+                }}
+              />
             )}
+
+            {/* ─── Tab layout ────────────────────────────────────────────── */}
+            <Tabs defaultValue="ledger" className="w-full">
+
+              {/*
+               * TabsList — sticky within the main scroll container.
+               * The PageHeader is NOT sticky, so it scrolls away naturally.
+               * The tab strip then pins to top-0 of the scroll viewport.
+               * bg-[var(--color-abyssal-slate)] prevents content bleed-through.
+               */}
+              <div className="sticky top-0 z-10 bg-[var(--color-abyssal-slate)] -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+                <TabsList>
+                  <TabsTrigger value="ledger">Ledger</TabsTrigger>
+                  <TabsTrigger value="baselines">Baselines &amp; Debt</TabsTrigger>
+                </TabsList>
+              </div>
+
+              {/*
+               * TAB 1 — Ledger (existing content, preserved exactly)
+               *
+               * forceMount keeps this tab permanently mounted so the Zustand
+               * filter state, selected wallet, and pagination page are never
+               * reset when the user switches to Baselines & Debt and back.
+               * The TabsContent's data-[state=inactive]:hidden class hides the
+               * content visually without unmounting it.
+               */}
+              <TabsContent value="ledger" forceMount className="mt-8">
+                <div className="flex flex-col gap-8">
+
+                  {/* SECTION 1 — Wallet Overview */}
+                  <div
+                    id="section-overview"
+                    data-section="wallet-overview"
+                    aria-label="Wallet overview"
+                  >
+                    {isLoading ? <OverviewSkeleton /> : <WalletCardList />}
+                  </div>
+
+                  {/* SECTION 2 — Category Tracking */}
+                  <div
+                    id="section-categories"
+                    data-section="category-tracking"
+                    aria-label="Category spending limits"
+                  >
+                    {isLoading ? <CategorySkeleton /> : <CategoryTrackingSection />}
+                  </div>
+
+                  {/* SECTION 3 — Transaction History */}
+                  <div
+                    id="section-transactions"
+                    data-section="transaction-history"
+                    aria-label="Transaction history"
+                  >
+                    {isLoading ? <TransactionSkeleton /> : <TransactionTable />}
+                  </div>
+
+                </div>
+              </TabsContent>
+
+              {/*
+               * TAB 2 — Baselines & Debt (new content)
+               *
+               * No forceMount needed here — this tab has no pagination state
+               * to preserve. It can mount/unmount freely.
+               */}
+              <TabsContent value="baselines" className="mt-8">
+                {isLoading ? <BaselinesSkeleton /> : <BaselinesTab />}
+              </TabsContent>
+
+            </Tabs>
+
+            {/* Breathing room at the bottom of the page */}
+            <div className="h-8" aria-hidden="true" />
+
           </div>
-
-          {/* ─────────────────────────────────────────────────────────────── */}
-          {/* SECTION 2 — Category Tracking                                   */}
-          {/*                                                                 */}
-          {/* Slot for: <CategoryTrackingSection /> (built in Part 2)         */}
-          {/* Shows: "Category Spending Limits" + progress bar grid.         */}
-          {/* Filters to activeWallet.visible_category_ids when selected.    */}
-          {/* ─────────────────────────────────────────────────────────────── */}
-          <div
-            id="section-categories"
-            data-section="category-tracking"
-            aria-label="Category spending limits"
-          >
-            {isLoading ? (
-              <CategorySkeleton />
-            ) : (
-              <CategoryTrackingSection />
-            )}
-          </div>
-
-          {/* ─────────────────────────────────────────────────────────────── */}
-          {/* SECTION 3 — Transaction History                                 */}
-          {/*                                                                 */}
-          {/* Slot for: <TransactionTable /> (built in Part 3)                */}
-          {/* Shows: filter bar + paginated ledger + pagination controls.    */}
-          {/* ─────────────────────────────────────────────────────────────── */}
-          <div
-            id="section-transactions"
-            data-section="transaction-history"
-            aria-label="Transaction history"
-          >
-            {isLoading ? (
-              <TransactionSkeleton />
-            ) : (
-              <TransactionTable />
-            )}
-          </div>
-
-          {/* Breathing room at the bottom of the page */}
-          <div className="h-8" aria-hidden="true" />
-
         </div>
-      </div>
       </main>
     </div>
 
@@ -427,12 +488,6 @@ export function WalletShell() {
       <WalletSettingsModal />
       <DeleteWalletModal />
       <DeleteTransactionModal />
-      {/*
-       * OverdraftWarningModal and CapacityWarningModal are prop-controlled
-       * (not store-driven) and must be rendered by the specific parent flow
-       * that needs them (e.g., AddTransactionModal, WalletCardList).
-       * Do NOT render them here — they require required props.
-       */}
     </>
   );
 }

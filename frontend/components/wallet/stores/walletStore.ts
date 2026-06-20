@@ -30,6 +30,9 @@ import type {
   WalletBootstrapResponse,
   WalletUIState,
   LoadingState,
+  FixedExpense,
+  Loan,
+  FinancialAssumptions,
 } from '@/types/wallet.types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -358,6 +361,75 @@ const MOCK_TRANSACTIONS: Transaction[] = [
   },
 ];
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Mock Baselines Data
+//
+// Math check (consistent with MOCK_WALLETS salary tx of Rp 15.000.000):
+//   Income          : 15,000,000
+//   Fixed expenses  : 2,500,000 + 350,000 + 300,000 + 700,000 = 3,850,000
+//   Loan installments: 400,000 + 500,000 = 900,000
+//   Total fixed     : 3,850,000 + 900,000 = 4,750,000
+//   Savings target  : 2,000,000
+//   Daily budget    : (15,000,000 - 4,750,000 - 2,000,000) / 30 = 274,166 ≈ 274,000
+// ─────────────────────────────────────────────────────────────────────────────
+
+const MOCK_FIXED_EXPENSES: FixedExpense[] = [
+  {
+    id: 'fe-001',
+    name: 'Sewa Kost',
+    amount: 2_500_000,
+    recurrence_type: 'monthly',
+    recurrence_value: 1,
+  },
+  {
+    id: 'fe-002',
+    name: 'Internet Indihome',
+    amount: 350_000,
+    recurrence_type: 'monthly',
+    recurrence_value: 5,
+  },
+  {
+    id: 'fe-003',
+    name: 'Langganan Gym',
+    amount: 300_000,
+    recurrence_type: 'monthly',
+    recurrence_value: 10,
+  },
+  {
+    id: 'fe-004',
+    name: 'Listrik & Air',
+    amount: 700_000,
+    recurrence_type: 'monthly',
+    recurrence_value: 15,
+  },
+];
+
+const MOCK_LOANS: Loan[] = [
+  {
+    id: 'ln-001',
+    name: 'Cicilan HP (36 bulan)',
+    total_amount: 6_000_000,
+    paid_amount: 2_400_000,
+    next_due_date: '2025-06-25',
+    monthly_installment: 400_000,
+  },
+  {
+    id: 'ln-002',
+    name: 'KTA Bank Mandiri',
+    total_amount: 12_000_000,
+    paid_amount: 3_000_000,
+    next_due_date: '2025-06-27',
+    monthly_installment: 500_000,
+  },
+];
+
+const MOCK_FINANCIAL_ASSUMPTIONS: FinancialAssumptions = {
+  expected_monthly_income: 15_000_000,
+  monthly_savings_target: 2_000_000,
+  // (15,000,000 - 4,750,000 - 2,000,000) / 30 = 274,166
+  projected_safe_daily_budget: 274_166,
+};
+
 export const MOCK_WALLET_BOOTSTRAP: WalletBootstrapResponse = {
   wallets: MOCK_WALLETS,
   category_limits: MOCK_CATEGORIES,
@@ -378,6 +450,9 @@ export const MOCK_WALLET_BOOTSTRAP: WalletBootstrapResponse = {
     max_categories: 10,
     analytics_unlocked: false,  // Unlocks at Level 3
   },
+  fixed_expenses: MOCK_FIXED_EXPENSES,
+  active_loans: MOCK_LOANS,
+  financial_assumptions: MOCK_FINANCIAL_ASSUMPTIONS,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -391,6 +466,9 @@ interface WalletStore {
   transactions: Transaction[];
   pagination: Pagination;
   featureUnlocks: FeatureUnlocks;
+  fixedExpenses: FixedExpense[];
+  loans: Loan[];
+  financialAssumptions: FinancialAssumptions;
   /** True once the bootstrap payload has been loaded (real or mock). */
   isBootstrapped: boolean;
 
@@ -456,6 +534,18 @@ interface WalletStore {
   /** Replaces the transaction list with a fresh server page. */
   setTransactions: (transactions: Transaction[], pagination: Pagination) => void;
 
+  // ── Baselines mutations ────────────────────────────────────────────
+
+  setFixedExpenses: (expenses: FixedExpense[]) => void;
+  addFixedExpense: (expense: FixedExpense) => void;
+  removeFixedExpense: (id: string) => void;
+
+  setLoans: (loans: Loan[]) => void;
+  addLoan: (loan: Loan) => void;
+  removeLoan: (id: string) => void;
+
+  updateFinancialAssumptions: (patch: Partial<FinancialAssumptions>) => void;
+
   // ── Wallet mutations ──────────────────────────────────────────────────────
 
   addWallet: (wallet: Wallet) => void;
@@ -511,6 +601,7 @@ const DEFAULT_LOADING: LoadingState = {
   transactions: false,
   categories: false,
   mutation: false,
+  baselines: false,
 };
 
 const DEFAULT_PAGINATION: Pagination = {
@@ -539,6 +630,13 @@ export const useWalletStore = create<WalletStore>()(
         max_categories: 10,
         analytics_unlocked: false,
       },
+      fixedExpenses: [],
+      loans: [],
+      financialAssumptions: {
+        expected_monthly_income: 0,
+        monthly_savings_target: 0,
+        projected_safe_daily_budget: 0,
+      },
       isBootstrapped: false,
       filterState: { sort: 'newest' },
       ui: DEFAULT_UI,
@@ -555,6 +653,13 @@ export const useWalletStore = create<WalletStore>()(
             pagination: data.pagination,
             featureUnlocks: data.feature_unlocks,
             filterState: data.active_filters ?? { sort: 'newest' },
+            fixedExpenses: data.fixed_expenses ?? [],
+            loans: data.active_loans ?? [],
+            financialAssumptions: data.financial_assumptions ?? {
+              expected_monthly_income: 0,
+              monthly_savings_target: 0,
+              projected_safe_daily_budget: 0,
+            },
             isBootstrapped: true,
           },
           false,
@@ -670,7 +775,66 @@ export const useWalletStore = create<WalletStore>()(
       setTransactions: (transactions, pagination) =>
         set({ transactions, pagination }, false, 'wallet/setTransactions'),
 
+      // ── Baselines mutations ─────────────────────────────────────────────────
+
+      setFixedExpenses: (expenses) =>
+        set({ fixedExpenses: expenses }, false, 'wallet/setFixedExpenses'),
+
+      addFixedExpense: (expense) =>
+        set(
+          (s) => ({ fixedExpenses: [...s.fixedExpenses, expense] }),
+          false,
+          'wallet/addFixedExpense',
+        ),
+
+      removeFixedExpense: (id) =>
+        set(
+          (s) => ({ fixedExpenses: s.fixedExpenses.filter((e) => e.id !== id) }),
+          false,
+          'wallet/removeFixedExpense',
+        ),
+
+      setLoans: (loans) =>
+        set({ loans }, false, 'wallet/setLoans'),
+
+      addLoan: (loan) =>
+        set(
+          (s) => ({ loans: [...s.loans, loan] }),
+          false,
+          'wallet/addLoan',
+        ),
+
+      removeLoan: (id) =>
+        set(
+          (s) => ({ loans: s.loans.filter((l) => l.id !== id) }),
+          false,
+          'wallet/removeLoan',
+        ),
+
+      updateFinancialAssumptions: (patch) =>
+        set(
+          (s) => {
+            const merged = { ...s.financialAssumptions, ...patch };
+            // Derive live daily budget preview client-side.
+            // Backend is authoritative on save.
+            const totalFixed =
+              s.fixedExpenses.reduce((sum, e) => sum + e.amount, 0) +
+              s.loans.reduce((sum, l) => sum + l.monthly_installment, 0);
+            const raw =
+              (merged.expected_monthly_income - totalFixed - merged.monthly_savings_target) / 30;
+            return {
+              financialAssumptions: {
+                ...merged,
+                projected_safe_daily_budget: Math.max(0, Math.round(raw)),
+              },
+            };
+          },
+          false,
+          'wallet/updateFinancialAssumptions',
+        ),
+
       // ── Wallet mutations ───────────────────────────────────────────────────
+
 
       addWallet: (wallet) =>
         set(

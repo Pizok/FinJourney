@@ -15,7 +15,7 @@ interface NotificationModalProps {
  */
 export function NotificationModal({ onClose }: NotificationModalProps) {
   return (
-    <div className="bg-canvas-surface border border-tactical-border rounded-xl p-8 w-full max-w-md shadow-xl animate-fade-in">
+    <div className="bg-canvas-surface border border-tactical-border rounded-xl p-8 w-full max-w-lg shadow-xl animate-fade-in">
       {/* Header row */}
       <div className="flex items-start justify-between gap-4 mb-6">
         <div className="w-10 h-10 rounded-lg bg-abyssal-slate border border-tactical-border flex items-center justify-center flex-shrink-0">

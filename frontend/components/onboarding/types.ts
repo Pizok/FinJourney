@@ -10,6 +10,9 @@ export interface BaselineEntry {
 }
 
 export interface OnboardingState {
+  // Step 1
+  username: string;
+
   // Step 2
   selectedPath: 'Sentinel' | 'Catalyst' | 'Phantom' | null;
 
@@ -24,6 +27,7 @@ export interface OnboardingState {
 }
 
 export const INITIAL_STATE: OnboardingState = {
+  username: '',
   selectedPath: null,
   incomeEntries: [{ id: '1', label: 'Monthly Salary', amount: 0 }],
   fixedCostEntries: [

@@ -50,108 +50,7 @@ export const selectPrivacyMode = (state: {
 }) => state.currentSettings.preferences.privacy_mode
 
 // ─── Theme option metadata ────────────────────────────────────────────────────
-
-interface ThemeOption {
-  value: ThemePreference
-  label: string
-  Icon: React.ElementType
-  /** Accessible description for screen readers */
-  description: string
-}
-
-const THEME_OPTIONS: ThemeOption[] = [
-  {
-    value: 'light',
-    label: 'Light',
-    Icon: Sun,
-    description: 'Always use the light theme',
-  },
-  {
-    value: 'dark',
-    label: 'Dark',
-    Icon: Moon,
-    description: 'Always use the dark theme',
-  },
-  {
-    value: 'system',
-    label: 'System',
-    Icon: Monitor,
-    description: 'Follow the operating system setting',
-  },
-]
-
-// ─── ThemeSelector ────────────────────────────────────────────────────────────
-// Custom segmented radio group — not a select/dropdown.
-// Three adjacent buttons sharing a container with rounded-lg edges.
-//
-// Active option: bg-canvas-surface (lighter than the container's abyssal-slate)
-// Inactive option: text-muted-text, hover → text-pearl-text
-
-interface ThemeSelectorProps {
-  value: ThemePreference
-  onChange: (theme: ThemePreference) => void
-}
-
-function ThemeSelector({ value, onChange }: ThemeSelectorProps) {
-  const groupId = useId()
-
-  return (
-    <div
-      role="radiogroup"
-      aria-label="Theme preference"
-      id={groupId}
-      className={[
-        'flex rounded-lg border border-tactical-border',
-        'bg-abyssal-slate p-0.5',
-        // Ensure all options share equal width
-        'w-full sm:w-auto sm:inline-flex',
-      ].join(' ')}
-    >
-      {THEME_OPTIONS.map((opt, index) => {
-        const isActive = value === opt.value
-        const isFirst = index === 0
-        const isLast = index === THEME_OPTIONS.length - 1
-
-        return (
-          <button
-            key={opt.value}
-            type="button"
-            role="radio"
-            aria-checked={isActive}
-            aria-label={opt.description}
-            onClick={() => onChange(opt.value)}
-            className={[
-              'flex flex-1 items-center justify-center gap-1.5',
-              'px-4 py-2 sm:flex-none',
-              'font-sans text-sm font-medium',
-              'transition-colors duration-150',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset',
-              'focus-visible:ring-muted-emerald',
-              // Shape — rounded corners only on first and last to avoid double radius
-              isFirst ? 'rounded-l-md' : '',
-              isLast ? 'rounded-r-md' : '',
-              !isFirst && !isLast ? 'rounded-none' : '',
-              // Colour
-              isActive
-                ? 'bg-canvas-surface text-pearl-text shadow-sm'
-                : 'bg-transparent text-muted-text hover:text-pearl-text',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-          >
-            <opt.Icon
-              className={isActive ? 'text-pearl-text' : 'text-muted-text/70'}
-              size={13}
-              strokeWidth={2}
-              aria-hidden="true"
-            />
-            <span>{opt.label}</span>
-          </button>
-        )
-      })}
-    </div>
-  )
-}
+// (Removed as requested)
 
 // ─── ToggleRow ────────────────────────────────────────────────────────────────
 // Shared pattern for a labelled toggle with a description line.
@@ -239,7 +138,7 @@ export function PreferencesCard() {
     <section
       id="preferences"
       aria-labelledby="preferences-heading"
-      className="rounded-xl border border-tactical-border bg-canvas-surface scroll-mt-8"
+      className="rounded-xl border border-tactical-border bg-canvas-surface scroll-mt-32"
     >
       {/* Card Header */}
       <div className="border-b border-tactical-border px-8 py-6">
@@ -256,28 +155,6 @@ export function PreferencesCard() {
 
       {/* Card Body */}
       <div className="px-8">
-
-        {/* ── Theme ──────────────────────────────────────────────────────── */}
-        <div className="py-5">
-          <div className="mb-3 flex items-center gap-2">
-            <p className="font-sans text-sm font-medium text-pearl-text">
-              Theme
-            </p>
-          </div>
-          <ThemeSelector
-            value={preferences.theme}
-            onChange={(theme) => updatePreferences({ theme })}
-          />
-          <p className="mt-2 font-sans text-xs text-muted-text">
-            {preferences.theme === 'system'
-              ? 'Follows your operating system dark/light preference.'
-              : preferences.theme === 'dark'
-              ? 'Dark theme is always applied regardless of system setting.'
-              : 'Light theme is always applied regardless of system setting.'}
-          </p>
-        </div>
-
-        <div className="border-t border-tactical-border/60" aria-hidden="true" />
 
         {/* ── Reduced Motion ─────────────────────────────────────────────── */}
         <ToggleRow

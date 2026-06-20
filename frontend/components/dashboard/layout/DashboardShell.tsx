@@ -57,14 +57,27 @@ function ModalLayer() {
 
 // ─── Shell ─────────────────────────────────────────────────────────────────────
 
+import { useEffect } from 'react';
+import { useDashboardStore } from '../stores/dashboardStore';
+import type { BootstrapData } from '../types/dashboard.types';
+
 /**
  * Client root for the dashboard route.
  *
- * page.tsx (Server Component) renders this shell unconditionally.
- * The Zustand store initialises with mock data, so all child components
- * render immediately without waiting for any async fetch.
+ * page.tsx (Server Component) renders this shell and passes bootstrapData.
+ * If bootstrapData is provided, the Zustand store is hydrated with it.
  */
-export function DashboardShell() {
+export function DashboardShell({ bootstrapData }: { bootstrapData?: BootstrapData | null }) {
+  const { hydrateMock, setBootstrapData } = useDashboardStore();
+
+  useEffect(() => {
+    if (bootstrapData) {
+      setBootstrapData(bootstrapData);
+    } else {
+      hydrateMock();
+    }
+  }, [bootstrapData, hydrateMock, setBootstrapData]);
+
   return (
     <div className="flex min-h-screen bg-abyssal-slate">
       {/* Sidebar */}

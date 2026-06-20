@@ -222,12 +222,10 @@ function SavingsProgressBar({ progress }: SavingsProgressProps) {
 function AssetBody({ asset }: { asset: AssetHealth }) {
   const {
     liquid_cash,
-    invested_assets,
     survival_runway_months,
     savings_target_progress,
   } = asset
 
-  const hasInvestments     = invested_assets > 0
   const hasSavingsProgress = savings_target_progress > 0
 
   return (
@@ -237,18 +235,6 @@ function AssetBody({ asset }: { asset: AssetHealth }) {
         <MetricRow
           label="Available Cash"
           value={formatCurrency(liquid_cash)}
-        />
-        <MetricRow
-          label="Investment Assets"
-          value={
-            hasInvestments ? (
-              formatCurrency(invested_assets)
-            ) : (
-              <span className="font-sans text-xs font-normal italic text-muted-text">
-                No investment assets have been recorded yet.
-              </span>
-            )
-          }
           isLast
         />
       </div>

@@ -193,7 +193,7 @@ export function CreateWalletModal() {
       isOpen={isAddWalletOpen}
       onClose={handleClose}
       title="Create Wallet"
-      maxWidth="md"
+      maxWidth="lg"
     >
       <div className="flex flex-col gap-5">
 

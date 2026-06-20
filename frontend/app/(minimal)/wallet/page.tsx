@@ -26,10 +26,10 @@
 // =============================================================================
 
 import type { Metadata } from 'next';
-// import { redirect }      from 'next/navigation';
-// import { cookies }       from 'next/headers';
-// import type { WalletBootstrapResponse } from '@/types/wallet.types';
+import { redirect }      from 'next/navigation';
+import type { WalletBootstrapResponse } from '@/components/wallet/types/wallet.types';
 import { WalletShell } from '@/components/wallet/layout/WalletShell';
+import { apiFetchServer } from '@/lib/apiClient';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Metadata
@@ -48,76 +48,21 @@ export const metadata: Metadata = {
 export default async function WalletPage() {
 
   // ===========================================================================
-  // SERVER-SIDE BOOTSTRAP FETCH — COMMENTED OUT (Part 1)
-  //
-  // Uncomment this entire block when:
-  //   (a) The real API endpoint is deployed and reachable from the server.
-  //   (b) WalletShell has been updated to accept an `initialData` prop.
-  //
-  // Implementation notes:
-  //   • Uses Next.js cookies() to forward the Supabase JWT so the API can
-  //     validate the session server-side.
-  //   • `cache: 'no-store'` is mandatory for financial data — we never want
-  //     stale balances from the Next.js fetch cache.
-  //   • Errors are caught gracefully. WalletShell handles empty/error UI.
-  //   • The `redirect()` call guards against reaching this page unauthenticated.
-  //     In production, middleware should handle this before we get here.
+  // SERVER-SIDE BOOTSTRAP FETCH (Part 1)
   // ===========================================================================
 
-  // let initialData: WalletBootstrapResponse | null = null;
-  //
-  // try {
-  //   const cookieStore = await cookies();
-  //   const token = cookieStore.get('sb-access-token')?.value;
-  //
-  //   if (!token) {
-  //     // Auth middleware should catch this first, but guard defensively.
-  //     redirect('/auth/login');
-  //   }
-  //
-  //   const baseUrl =
-  //     process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3000';
-  //
-  //   const response = await fetch(`${baseUrl}/api/v1/wallet/bootstrap`, {
-  //     method: 'GET',
-  //     headers: {
-  //       'Content-Type':  'application/json',
-  //       'Authorization': `Bearer ${token}`,
-  //     },
-  //     // Financial data must never be served stale.
-  //     cache: 'no-store',
-  //   });
-  //
-  //   if (!response.ok) {
-  //     // Log for server-side observability (e.g. Sentry / Datadog).
-  //     // The UI error state handles user-facing feedback.
-  //     console.error(
-  //       `[WalletPage] Bootstrap ${response.status} ${response.statusText}`,
-  //     );
-  //   } else {
-  //     const json = await response.json();
-  //
-  //     // Validate the standard API success envelope.
-  //     if (json?.success === true && json?.data) {
-  //       initialData = json.data as WalletBootstrapResponse;
-  //     } else {
-  //       console.error('[WalletPage] Unexpected bootstrap shape:', json);
-  //     }
-  //   }
-  // } catch (err) {
-  //   // Network failure, DNS error, or JSON parse failure.
-  //   // WalletShell renders a retry affordance for the user.
-  //   console.error('[WalletPage] Bootstrap threw:', err);
-  // }
+  const initialData = await apiFetchServer('wallets') as WalletBootstrapResponse | null;
+
+  if (initialData === null) {
+    // Note: In production, middleware should handle full 401 redirects.
+    // If apiFetchServer returned null due to no token, we can just let
+    // WalletShell render its fallback, or redirect here.
+    // For now, we pass null to WalletShell.
+  }
 
   // ===========================================================================
   // RENDER
-  //
-  // Part 1: no initialData prop — WalletShell falls back to hydrateMock().
-  //
-  // Part 2 (after uncommenting above):
-  //   return <WalletShell initialData={initialData} />;
   // ===========================================================================
 
-  return <WalletShell />;
+  return <WalletShell initialData={initialData} />;
 }

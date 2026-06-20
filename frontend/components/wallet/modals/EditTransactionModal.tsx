@@ -178,7 +178,7 @@ export function EditTransactionModal() {
       isOpen={isEditTransactionOpen}
       onClose={handleClose}
       title="Edit Transaction"
-      maxWidth="md"
+      maxWidth="lg"
     >
       <div className="flex flex-col gap-5">
 

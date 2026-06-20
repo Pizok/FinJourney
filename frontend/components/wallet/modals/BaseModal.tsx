@@ -82,8 +82,8 @@ interface BaseModalProps {
 // ---------------------------------------------------------------------------
 
 const MAX_WIDTH_CLASSES = {
-  sm: 'max-w-sm',
-  md: 'max-w-md',
+  sm: 'max-w-lg',
+  md: 'max-w-lg',
   lg: 'max-w-lg',
 };
 

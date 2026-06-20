@@ -8,18 +8,23 @@
 //   • Decorative divider removed; spacing via mb utilities alone.
 //   • Button: standard PrimaryButton from OnboardingCard primitives.
 
-import React from 'react';
-import { Map } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Map, User } from 'lucide-react';
 import {
   OnboardingCard,
   LabelTag,
   StepHeading,
   StepSubtitle,
   PrimaryButton,
-  GhostButton,
 } from './OnboardingCard';
+import { Input } from '@/components/ui/input';
+import { Label, FieldError } from '@/components/ui/label';
+import { OnboardingState } from './types';
+import { apiFetchClient } from '@/lib/apiClient';
 
 interface StepPrologueProps {
+  state: OnboardingState;
+  onChange: (patch: Partial<OnboardingState>) => void;
   onNext: () => void;
 }
 
@@ -29,7 +34,56 @@ const FEATURES = [
   'Quarterly reviews and challenge events keep you accountable',
 ] as const;
 
-export default function StepPrologue({ onNext }: StepPrologueProps) {
+export default function StepPrologue({ state, onChange, onNext }: StepPrologueProps) {
+  const [isChecking, setIsChecking] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isValid, setIsValid] = useState(false);
+
+  useEffect(() => {
+    const username = state.username.trim();
+    if (username.length === 0) {
+      setErrorMsg(null);
+      setIsValid(false);
+      return;
+    }
+
+    // Client-side regex pre-check
+    const isValidRegex = /^[a-zA-Z0-9_-]+$/.test(username);
+    if (username.length < 3 || username.length > 20 || !isValidRegex) {
+      setErrorMsg('3–20 chars, letters, numbers, -, _ only');
+      setIsValid(false);
+      return;
+    }
+
+    setErrorMsg(null);
+    setIsChecking(true);
+    setIsValid(false);
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await apiFetchClient<{ success: boolean; data: { available: boolean; reason?: string } }>(
+          `profile/check-username?username=${encodeURIComponent(username)}`
+        );
+        if (res && res.data) {
+          if (res.data.available) {
+            setIsValid(true);
+            setErrorMsg(null);
+          } else {
+            setIsValid(false);
+            setErrorMsg(res.data.reason || 'Username is already taken');
+          }
+        }
+      } catch (err) {
+        setErrorMsg('Error checking username');
+        setIsValid(false);
+      } finally {
+        setIsChecking(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [state.username]);
+
   return (
     <OnboardingCard>
       {/* Icon — flat tinted square, no shadow or glow */}
@@ -48,7 +102,7 @@ export default function StepPrologue({ onNext }: StepPrologueProps) {
       </StepSubtitle>
 
       {/* Feature list — dots + muted text, no icons */}
-      <ul className="flex flex-col gap-2.5 mb-8 list-none">
+      <ul className="flex flex-col gap-2.5 mb-6 list-none">
         {FEATURES.map((f) => (
           <li key={f} className="flex items-start gap-2.5 text-[13px] text-muted-text leading-relaxed">
             <span className="w-1.5 h-1.5 rounded-full bg-muted-emerald flex-shrink-0 mt-[6px]" />
@@ -57,9 +111,28 @@ export default function StepPrologue({ onNext }: StepPrologueProps) {
         ))}
       </ul>
 
-      <PrimaryButton onClick={onNext}>Begin setup</PrimaryButton>
+      {/* Username Field */}
+      <div className="flex flex-col gap-1.5 mb-8">
+        <Label htmlFor="username">Choose a username</Label>
+        <Input
+          id="username"
+          type="text"
+          placeholder="your_name"
+          icon={<User size={16} />}
+          value={state.username}
+          onChange={(e) => onChange({ username: e.target.value })}
+          error={!!errorMsg}
+        />
+        {isChecking && <p className="text-xs text-muted-text mt-1">Checking availability...</p>}
+        {errorMsg && <FieldError message={errorMsg} />}
+        {!errorMsg && !isChecking && isValid && (
+          <p className="text-xs text-muted-emerald mt-1">Username is available!</p>
+        )}
+      </div>
 
-
+      <PrimaryButton onClick={onNext} disabled={!isValid || isChecking}>
+        Begin setup
+      </PrimaryButton>
     </OnboardingCard>
   );
 }

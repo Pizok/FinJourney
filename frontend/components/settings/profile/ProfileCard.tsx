@@ -26,8 +26,8 @@
 
 'use client'
 
-import { useId, useRef, useState } from 'react'
-import { Camera, ChevronDown, Lock, Mail } from 'lucide-react'
+import { useEffect, useId, useRef, useState } from 'react'
+import { Camera, ChevronDown, Lock, Mail, X, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   useSettingsStore,
@@ -420,17 +420,251 @@ function PaydaySelector({
   )
 }
 
+// ─── DeleteAccountModal ───────────────────────────────────────────────────────
+
+interface DeleteAccountModalProps {
+  onClose: () => void
+  onSuccess: () => void
+}
+
+const DELETE_KEYWORD = 'DELETE'
+
+function DeleteAccountModal({ onClose, onSuccess }: DeleteAccountModalProps) {
+  const [inputValue, setInputValue] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [apiError, setApiError] = useState<string | null>(null)
+  const titleId = useId()
+  const inputId = useId()
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const isConfirmed = inputValue === DELETE_KEYWORD
+
+  useEffect(() => {
+    const t = setTimeout(() => inputRef.current?.focus(), 50)
+    return () => clearTimeout(t)
+  }, [])
+
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [onClose])
+
+  async function handleDelete() {
+    if (!isConfirmed || isSubmitting) return
+    setIsSubmitting(true)
+    setApiError(null)
+
+    try {
+      // Mocking delete for now since no endpoint is specified
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      onSuccess()
+    } catch {
+      setApiError('Network error. Check your connection and try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-50 bg-abyssal-slate/80"
+        aria-hidden="true"
+        onClick={onClose}
+      />
+
+      {/* Modal */}
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className={[
+          'fixed left-1/2 top-1/2 z-50 w-full max-w-md',
+          '-translate-x-1/2 -translate-y-1/2',
+          'rounded-xl border border-tactical-border bg-canvas-surface',
+          'animate-fade-in',
+        ].join(' ')}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-tactical-border px-6 py-5">
+          <h3
+            id={titleId}
+            className="font-display text-base font-semibold text-terracotta"
+          >
+            Delete Account?
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className={[
+              'rounded-md p-1 text-muted-text',
+              'transition-colors hover:bg-tactical-border/40 hover:text-pearl-text',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted-emerald',
+            ].join(' ')}
+            aria-label="Close dialog"
+          >
+            <X size={16} strokeWidth={2} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-6 py-5">
+          <p className="font-sans text-sm leading-relaxed text-muted-text">
+            This will permanently delete your account, including all{' '}
+            <span className="font-medium text-pearl-text">financial data</span>,{' '}
+            <span className="font-medium text-pearl-text">game progress</span>, and{' '}
+            <span className="font-medium text-pearl-text">settings</span>.
+          </p>
+
+          <div className="mt-3 rounded-lg border border-terracotta/30 bg-terracotta/5 px-4 py-3">
+            <p className="font-sans text-xs leading-relaxed text-terracotta">
+              <span className="font-semibold">Warning:</span> This action cannot be undone. All your data will be permanently lost.
+            </p>
+          </div>
+
+          <div className="mt-5">
+            <label
+              htmlFor={inputId}
+              className="mb-1.5 block font-sans text-xs font-medium text-muted-text"
+            >
+              Type{' '}
+              <span className="font-mono font-semibold text-terracotta">
+                {DELETE_KEYWORD}
+              </span>{' '}
+              to confirm
+            </label>
+            <input
+              ref={inputRef}
+              id={inputId}
+              type="text"
+              value={inputValue}
+              onChange={(e) => {
+                setInputValue(e.target.value.toUpperCase())
+                setApiError(null)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && isConfirmed) handleDelete()
+              }}
+              spellCheck={false}
+              autoComplete="off"
+              placeholder="Type DELETE"
+              className={[
+                'w-full rounded-lg border bg-abyssal-slate px-3 py-2.5',
+                'font-mono text-sm tracking-widest',
+                'transition-colors duration-150',
+                'placeholder:font-sans placeholder:tracking-normal placeholder:text-muted-text/40',
+                'focus:outline-none focus:ring-0',
+                isConfirmed
+                  ? 'border-terracotta/60 text-terracotta'
+                  : 'border-tactical-border text-pearl-text focus:border-terracotta/40',
+              ].join(' ')}
+            />
+          </div>
+
+          {apiError && (
+            <p className="mt-2 font-sans text-xs text-terracotta">
+              {apiError}
+            </p>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-3 border-t border-tactical-border px-6 py-5">
+          <button
+            type="button"
+            onClick={onClose}
+            className={[
+              'flex-1 rounded-lg border border-tactical-border py-2.5',
+              'font-sans text-sm font-medium text-pearl-text',
+              'transition-colors duration-150',
+              'hover:border-pearl-text/30 hover:bg-pearl-text/5',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted-emerald',
+            ].join(' ')}
+          >
+            Cancel
+          </button>
+
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={!isConfirmed || isSubmitting}
+            className={[
+              'flex-1 flex items-center justify-center gap-2 rounded-lg py-2.5',
+              'bg-terracotta font-sans text-sm font-medium text-white',
+              'transition-colors duration-150',
+              'hover:bg-terracotta/90',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta',
+              'focus-visible:ring-offset-2 focus-visible:ring-offset-canvas-surface',
+              'disabled:cursor-not-allowed disabled:opacity-40',
+            ].join(' ')}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="animate-spin" size={14} strokeWidth={2} />
+                <span>Deleting…</span>
+              </>
+            ) : (
+              <span>Delete Account</span>
+            )}
+          </button>
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ─── DangerZone ───────────────────────────────────────────────────────────────
+
+function DangerZone({ onDeleteClick }: { onDeleteClick: () => void }) {
+  return (
+    <div className="border-t border-tactical-border px-8 py-6">
+      <div className="flex items-start justify-between gap-6">
+        <div>
+          <p className="font-sans text-[11px] font-semibold uppercase tracking-widest text-terracotta">
+            Danger Zone
+          </p>
+          <p className="mt-1 font-sans text-xs leading-relaxed text-muted-text">
+            Permanently delete your account and all associated data.
+            This action cannot be undone.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={onDeleteClick}
+          className={[
+            'shrink-0 rounded-lg border border-terracotta/40 px-4 py-2',
+            'font-sans text-sm font-medium text-terracotta',
+            'transition-colors duration-150',
+            'hover:border-terracotta hover:bg-terracotta hover:text-white',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta',
+            'focus-visible:ring-offset-2 focus-visible:ring-offset-canvas-surface',
+          ].join(' ')}
+          aria-label="Delete your account"
+        >
+          Delete Account
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ─── ProfileCard ──────────────────────────────────────────────────────────────
 
 export function ProfileCard() {
   const profile = useSettingsStore(selectCurrentProfile)
   const updateProfile = useSettingsStore((s) => s.updateProfile)
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false)
 
   return (
     <section
       id="profile"
       aria-labelledby="profile-heading"
-      className="rounded-xl border border-tactical-border bg-canvas-surface scroll-mt-8"
+      className="rounded-xl border border-tactical-border bg-canvas-surface scroll-mt-32"
     >
       {/* Card Header */}
       <div className="border-b border-tactical-border px-8 py-6">
@@ -474,6 +708,18 @@ export function ProfileCard() {
           />
         </div>
       </div>
+
+      <DangerZone onDeleteClick={() => setIsDeleteOpen(true)} />
+
+      {isDeleteOpen && (
+        <DeleteAccountModal
+          onClose={() => setIsDeleteOpen(false)}
+          onSuccess={() => {
+            setIsDeleteOpen(false)
+            toast.success('Account deleted successfully')
+          }}
+        />
+      )}
     </section>
   )
 }

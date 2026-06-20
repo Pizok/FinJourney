@@ -290,7 +290,7 @@ export function CashflowChart() {
   return (
     <section
       aria-label="Cashflow Trend"
-      className="rounded-xl border border-tactical-border bg-canvas-surface p-6"
+      className="flex h-full flex-col rounded-xl border border-tactical-border bg-canvas-surface p-6"
     >
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="mb-1 flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">

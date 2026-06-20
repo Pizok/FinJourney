@@ -281,19 +281,6 @@ export function WalletCard({ wallet, isSelected, onSelect, onOpenSettings }: Wal
       aria-pressed={isSelected}
       aria-label={`${wallet.name} wallet, balance ${formatIDR(wallet.balance)}. Click to filter.`}
     >
-      {/*
-       * Active top-line: thin color band at the card's top edge.
-       * Uses token color. NOT a side-stripe — it runs along the top only.
-       * Renders as position:absolute to avoid layout influence.
-       */}
-      {isSelected && (
-        <span
-          aria-hidden="true"
-          className="absolute inset-x-0 top-0 h-0.5 rounded-t-xl"
-          style={{ background: lineColor }}
-        />
-      )}
-
       {/* ------------------------------------------------------------------ */}
       {/* Header row: type icon + three-dot menu                             */}
       {/* ------------------------------------------------------------------ */}
