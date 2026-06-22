@@ -26,7 +26,7 @@ import { PreferencesCard } from '@/components/settings/preferences/PreferencesCa
 import { NotificationSettingsCard } from '@/components/settings/notifications/NotificationSettingsCard'
 import type { Settings } from '@/components/settings/types/settings.types'
 
-import { apiFetchClient } from '@/lib/apiClient'
+import { apiFetchClient } from '@/lib/apiClient.client'
 
 // ─── Data Fetcher ─────────────────────────────────────────────────────────────
 

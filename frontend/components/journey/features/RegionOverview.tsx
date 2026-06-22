@@ -35,7 +35,9 @@ import { useCallback } from "react";
 import { Timer, ChevronRight, Globe } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Progress } from "@/components/ui/Progress";
-import { useOverviewData, useModalActions } from "@/components/journey/stores/journeyStore";
+import { useModalActions } from "@/components/journey/stores/journeyStore";
+import { useJourneyData } from "../layout/JourneyContext";
+import RegionMap from "./RegionMap";
 import { cn } from "@/lib/utils";
 
 // ─── SVG artwork registry ─────────────────────────────────────────────────────
@@ -267,7 +269,7 @@ export interface RegionOverviewProps {
 }
 
 export function RegionOverview({ isLoading = false }: RegionOverviewProps) {
-  const overview = useOverviewData();
+  const overview = useJourneyData();
   const { openRegionModal } = useModalActions();
 
   const handleViewDetails = useCallback(() => {
@@ -298,8 +300,10 @@ export function RegionOverview({ isLoading = false }: RegionOverviewProps) {
       className="overflow-hidden animate-fade-in"
       data-testid="region-overview"
     >
-      {/* ── Artwork — full-bleed, no overlay ───────────────────────────── */}
-      <RegionArtwork regionId={region.id} />
+      {/* ── Region Map ───────────────────────────── */}
+      <div className="p-6 pb-0 bg-abyssal-slate/30">
+        <RegionMap onNodeClick={() => {}} />
+      </div>
 
       {/* ── Content ────────────────────────────────────────────────────── */}
       <div className="p-6 flex flex-col gap-4">

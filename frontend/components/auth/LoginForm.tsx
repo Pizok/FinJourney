@@ -147,7 +147,7 @@ export default function LoginForm({ onSuccess, onSwitchToSignUp }: LoginFormProp
         <Button
           type="button"
           size="lg"
-          variant="outline"
+          variant="ghost"
           className="w-full relative"
           onClick={handleGoogleSignIn}
           disabled={loading}

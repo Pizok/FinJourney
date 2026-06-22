@@ -27,7 +27,7 @@
 import { useState } from 'react'
 import { AlertTriangle, Check, ChevronRight, Loader2 } from 'lucide-react'
 import { Modal } from '../../ui/Modal'
-import { PATH_LIST, COOLDOWN_TOTAL_DAYS } from '../progression/pathCatalog'
+import { PATH_LIST, COOLDOWN_TOTAL_DAYS } from './pathCatalog'
 import type { PathId, ActivePath, PathChangeResponse } from '../types/settings.types'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -280,48 +280,56 @@ export function ChangePathModal({
 
   return (
     <Modal
+      isOpen={true}
       title="Select Your Path"
       onClose={onClose}
       size="lg"
-      footer={footer}
     >
-      {/* Warning banner sits between header and path list */}
-      <WarningBanner />
+      <Modal.Header>
+        <h2 className="font-display text-lg font-semibold text-pearl-text">
+          Select Your Path
+        </h2>
+      </Modal.Header>
+      <Modal.Body scrollable={true}>
+        {/* Warning banner sits between header and path list */}
+        <WarningBanner />
 
-      {/* Path option list */}
-      <div
-        className="flex flex-col gap-3 p-6"
-        role="radiogroup"
-        aria-label="Available paths"
-      >
-        {PATH_LIST.map((meta) => (
-          <PathOption
-            key={meta.id}
-            meta={meta}
-            isCurrent={meta.id === currentPathId}
-            isSelected={selectedId === meta.id}
-            onSelect={() => {
-              if (meta.id !== currentPathId) {
-                setSelectedId(meta.id)
-                setApiError(null)
-              }
-            }}
-          />
-        ))}
-      </div>
-
-      {/* API error — rendered inside the scrollable body, above the footer */}
-      {apiError && (
-        <div className="mx-6 mb-6 flex items-start gap-2 rounded-lg border border-terracotta/30 bg-terracotta/5 px-3 py-2.5">
-          <AlertTriangle
-            className="mt-0.5 shrink-0 text-terracotta"
-            size={13}
-            strokeWidth={2}
-            aria-hidden="true"
-          />
-          <p className="font-sans text-xs text-terracotta">{apiError}</p>
+        {/* Path option list */}
+        <div
+          className="mt-4 flex flex-col gap-3"
+          role="radiogroup"
+          aria-label="Available paths"
+        >
+          {PATH_LIST.map((meta) => (
+            <PathOption
+              key={meta.id}
+              meta={meta}
+              isCurrent={meta.id === currentPathId}
+              isSelected={selectedId === meta.id}
+              onSelect={() => {
+                if (meta.id !== currentPathId) {
+                  setSelectedId(meta.id)
+                  setApiError(null)
+                }
+              }}
+            />
+          ))}
         </div>
-      )}
+
+        {/* API error — rendered inside the scrollable body, above the footer */}
+        {apiError && (
+          <div className="mt-6 flex items-start gap-2 rounded-lg border border-terracotta/30 bg-terracotta/5 px-3 py-2.5">
+            <AlertTriangle
+              className="mt-0.5 shrink-0 text-terracotta"
+              size={13}
+              strokeWidth={2}
+              aria-hidden="true"
+            />
+            <p className="font-sans text-xs text-terracotta">{apiError}</p>
+          </div>
+        )}
+      </Modal.Body>
+      <Modal.Footer>{footer}</Modal.Footer>
     </Modal>
   )
 }

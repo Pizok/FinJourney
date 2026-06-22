@@ -45,7 +45,7 @@
 
 import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
-import { useAnalyticsStore } from '../stores/analyticsStore'
+import { useAnalyticsData } from '../layout/AnalyticsContext'
 import type { IncomeAllocation } from '../types/analytics.types'
 
 // ─── Formatting Utilities ─────────────────────────────────────────────────────
@@ -248,7 +248,7 @@ function AllocationBody({ allocation }: { allocation: IncomeAllocation }) {
 }
 
 export function IncomeAllocationCard() {
-  const allocation = useAnalyticsStore((s) => s.bootstrap?.income_allocation ?? null)
+  const { income_allocation: allocation = null } = useAnalyticsData()
 
   return (
     <section

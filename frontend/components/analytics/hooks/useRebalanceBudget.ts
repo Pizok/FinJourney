@@ -31,7 +31,10 @@
  */
 
 import { useState, useCallback, useMemo } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAnalyticsStore } from '../stores/analyticsStore'
+import { useAnalyticsData } from '../layout/AnalyticsContext'
+import { apiFetchClient } from '@/lib/apiClient.client'
 import type {
   RebalanceStrategy,
   RebalanceAdjustment,
@@ -74,17 +77,16 @@ export interface UseRebalanceBudgetReturn {
   isSubmitting: boolean
   isSuccess:    boolean
   error:        string | null
-  submit:       () => Promise<void>
+  submit:       () => void
   reset:        () => void
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useRebalanceBudget(): UseRebalanceBudgetReturn {
-  const advisory               = useAnalyticsStore((s) => s.bootstrap?.advisory ?? null)
-  const categoryBreakdown      = useAnalyticsStore((s) => s.bootstrap?.category_breakdown ?? [])
-  const markSectionsRefreshing = useAnalyticsStore((s) => s.markSectionsRefreshing)
+  const { advisory = null, category_breakdown: categoryBreakdown = [] } = useAnalyticsData()
   const closeModal             = useAnalyticsStore((s) => s.closeRebalanceModal)
+  const queryClient            = useQueryClient()
 
   // ── Strategy ────────────────────────────────────────────────────────────────
   const [strategy, setStrategy] = useState<RebalanceStrategy>('reduce_others')
@@ -93,24 +95,42 @@ export function useRebalanceBudget(): UseRebalanceBudgetReturn {
   const [adjustments, setAdjustmentsMap] = useState<Record<string, number>>({})
 
   // ── Submission ──────────────────────────────────────────────────────────────
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSuccess,    setIsSuccess   ] = useState(false)
   const [error,        setError       ] = useState<string | null>(null)
+
+  const mutation = useMutation({
+    mutationFn: async (payload: RebalanceBudgetPayload) => {
+      // The apiFetchClient might throw an error if the response is not ok
+      return await apiFetchClient('wallets/rebalance-budget', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
+    },
+    onSuccess: () => {
+      setIsSuccess(true)
+      // Invalidate the analytics overview cache to force a refetch
+      queryClient.invalidateQueries({ queryKey: ['analytics', 'overview'] })
+      setTimeout(closeModal, 1_600)
+    },
+    onError: (err: any) => {
+      setError(err instanceof Error ? err.message : 'Failed to apply adjustments.')
+    },
+  })
 
   // ── Derived: context ────────────────────────────────────────────────────────
 
   const overspentAmount = useMemo(() => {
     if (!advisory?.reduction_targets.length) return 0
-    return advisory.reduction_targets.reduce((sum, t) => sum + t.amount, 0)
+    return advisory.reduction_targets.reduce((sum: number, t: any) => sum + t.amount, 0)
   }, [advisory])
 
   const overspendingCategories = useMemo(
-    () => categoryBreakdown.filter((c) => c.overspending),
+    () => categoryBreakdown.filter((c: CategoryBreakdown) => c.overspending),
     [categoryBreakdown],
   )
 
   const availableCategories = useMemo(
-    () => categoryBreakdown.filter((c) => !c.overspending),
+    () => categoryBreakdown.filter((c: CategoryBreakdown) => !c.overspending),
     [categoryBreakdown],
   )
 
@@ -142,14 +162,14 @@ export function useRebalanceBudget(): UseRebalanceBudgetReturn {
   const reset = useCallback(() => {
     setStrategy('reduce_others')
     setAdjustmentsMap({})
-    setIsSubmitting(false)
     setIsSuccess(false)
     setError(null)
-  }, [])
+    mutation.reset()
+  }, [mutation])
 
   // ── Submit ─────────────────────────────────────────────────────────────────
 
-  async function submit() {
+  function submit() {
     setError(null)
 
     if (!isZeroSumValid) {
@@ -157,53 +177,27 @@ export function useRebalanceBudget(): UseRebalanceBudgetReturn {
       return
     }
 
-    setIsSubmitting(true)
-
-    try {
-      // Build payload from entered adjustments
-      const reductionAdjustments: RebalanceAdjustment[] = Object.entries(adjustments)
-        .filter(([, amount]) => amount > 0)
-        .map(([categoryId, reductionAmount]) => {
-          const cat = categoryBreakdown.find((c) => c.category_id === categoryId)
-          return {
-            category_id:  categoryId,
-            category_name: cat?.category_name ?? '',
-            // amount is used as a proxy for the current limit display.
-            // The backend holds the authoritative limit value.
-            current_limit: cat?.amount ?? 0,
-            new_limit:     Math.max(0, (cat?.amount ?? 0) - reductionAmount),
-          }
-        })
-
-      const payload: RebalanceBudgetPayload = {
-        strategy,
-        adjustments: reductionAdjustments,
-      }
-
-      const response = await fetch(REBALANCE_ENDPOINT, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(payload),
+    // Build payload from entered adjustments
+    const reductionAdjustments: RebalanceAdjustment[] = Object.entries(adjustments)
+      .filter(([, amount]) => amount > 0)
+      .map(([categoryId, reductionAmount]) => {
+        const cat = categoryBreakdown.find((c: CategoryBreakdown) => c.category_id === categoryId)
+        return {
+          category_id:  categoryId,
+          category_name: cat?.category_name ?? '',
+          // amount is used as a proxy for the current limit display.
+          // The backend holds the authoritative limit value.
+          current_limit: cat?.amount ?? 0,
+          new_limit:     Math.max(0, (cat?.amount ?? 0) - reductionAmount),
+        }
       })
 
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}))
-        throw new Error(body?.error?.message ?? 'Failed to apply adjustments.')
-      }
-
-      setIsSuccess(true)
-
-      // Mark sections that need to refetch after rebalance
-      // (per analytics_state_flow.md: Refresh Advisory + Allocation + Categories)
-      markSectionsRefreshing(['advisory', 'income_allocation', 'category_breakdown'])
-
-      // Close modal after brief success display window
-      setTimeout(closeModal, 1_600)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'An unexpected error occurred.')
-    } finally {
-      setIsSubmitting(false)
+    const payload: RebalanceBudgetPayload = {
+      strategy,
+      adjustments: reductionAdjustments,
     }
+
+    mutation.mutate(payload)
   }
 
   return {
@@ -218,7 +212,7 @@ export function useRebalanceBudget(): UseRebalanceBudgetReturn {
     totalAdjusted,
     balance,
     isZeroSumValid,
-    isSubmitting,
+    isSubmitting: mutation.isPending,
     isSuccess,
     error,
     submit,

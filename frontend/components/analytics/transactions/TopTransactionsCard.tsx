@@ -34,7 +34,7 @@
 import { useRouter } from 'next/navigation'
 import { ReceiptText } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useAnalyticsStore } from '../stores/analyticsStore'
+import { useAnalyticsData } from '../layout/AnalyticsContext'
 import type { TopTransaction } from '../types/analytics.types'
 
 // ─── Formatting Utilities ─────────────────────────────────────────────────────
@@ -134,7 +134,7 @@ function TransactionsEmptyState() {
 
 export function TopTransactionsCard() {
   const router    = useRouter()
-  const rawList   = useAnalyticsStore((s) => s.bootstrap?.top_transactions ?? [])
+  const { top_transactions: rawList = [] } = useAnalyticsData()
 
   /*
    * Defensive sort: backend sends highest-expense-first, but the frontend

@@ -22,6 +22,7 @@
 // =============================================================================
 
 import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   BaseModal,
   FormField,
@@ -252,7 +253,7 @@ function RecurrenceValueField({
 // ─── AddFixedExpenseModal ─────────────────────────────────────────────────────
 
 export function AddFixedExpenseModal({ isOpen, onClose }: AddFixedExpenseModalProps) {
-  const { addFixedExpense, loading } = useWalletStore();
+  const { setGlobalError } = useWalletStore();
 
   const [values, setValues] = useState<FormValues>(DEFAULTS);
   const [errors, setErrors] = useState<FormErrors>({});
@@ -309,6 +310,30 @@ export function AddFixedExpenseModal({ isOpen, onClose }: AddFixedExpenseModalPr
     }
   }
 
+  const queryClient = useQueryClient();
+
+  const addFixedExpenseMutation = useMutation({
+    mutationFn: async (payload: any) => {
+      const response = await fetch('/api/v1/fixed-expenses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const json = await response.json();
+      if (!response.ok || !json.success) {
+        throw new Error(json.error?.message || 'Failed to add fixed expense');
+      }
+      return json.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['wallet', 'bootstrap'] });
+      handleClose();
+    },
+    onError: (err: any) => {
+      setGlobalError(err.message);
+    }
+  });
+
   // ── Submit ─────────────────────────────────────────────────────────────────
   const handleSubmit = () => {
     setSubmitted(true);
@@ -316,41 +341,17 @@ export function AddFixedExpenseModal({ isOpen, onClose }: AddFixedExpenseModalPr
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
 
-    const newExpense: FixedExpense = {
-      id: `fe-${Date.now()}`,
+    const payload = {
       name: values.name.trim(),
       amount: parseDigits(values.amount),
       recurrence_type: values.recurrence_type,
       recurrence_value: resolveRecurrenceValue(),
     };
 
-    addFixedExpense(newExpense);
-    handleClose();
-
-    // ── TODO: Uncomment real mutation when API is live ──────────────────────
-    // try {
-    //   const res = await fetch('/api/v1/fixed-expenses', {
-    //     method: 'POST',
-    //     headers: { 'Content-Type': 'application/json' },
-    //     body: JSON.stringify({
-    //       name: newExpense.name,
-    //       amount: newExpense.amount,
-    //       recurrence_type: newExpense.recurrence_type,
-    //       recurrence_value: newExpense.recurrence_value,
-    //     }),
-    //   });
-    //   const json = await res.json();
-    //   if (!json.success) {
-    //     removeFixedExpense(newExpense.id);
-    //     setGlobalError(json.error?.message ?? 'Failed to add expense.');
-    //   }
-    // } catch {
-    //   removeFixedExpense(newExpense.id);
-    //   setGlobalError('Network error — expense could not be saved.');
-    // }
+    addFixedExpenseMutation.mutate(payload);
   };
 
-  const isMutating = loading.baselines;
+  const isMutating = addFixedExpenseMutation.isPending;
   const showTargetField = values.recurrence_type !== 'daily';
 
   return (

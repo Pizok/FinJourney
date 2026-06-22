@@ -29,7 +29,7 @@ import type { Metadata } from 'next';
 import { redirect }      from 'next/navigation';
 import type { WalletBootstrapResponse } from '@/components/wallet/types/wallet.types';
 import { WalletShell } from '@/components/wallet/layout/WalletShell';
-import { apiFetchServer } from '@/lib/apiClient';
+import { apiFetchServer } from '@/lib/apiClient.server';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Metadata

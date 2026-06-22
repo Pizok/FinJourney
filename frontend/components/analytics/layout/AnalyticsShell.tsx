@@ -19,9 +19,9 @@
  */
 
 import React from 'react'
-import { useAnalyticsStore } from '../stores/analyticsStore'
 import { AnalyticsLockedOverlay } from '../access/AnalyticsLockedOverlay'
 import { AnalyticsPreview } from '../access/AnalyticsPreview'
+import type { AnalyticsData } from './AnalyticsContext'
 
 // ─── Inline Loading Skeleton ──────────────────────────────────────────────────
 // Placeholder until AnalyticsSkeleton.tsx is built in Part 2.
@@ -64,41 +64,36 @@ function BootstrapSkeleton() {
 
 interface AnalyticsShellProps {
   children: React.ReactNode
+  isLoading: boolean
+  isError: boolean
+  locked: boolean
+  data?: AnalyticsData | null
 }
 
-export function AnalyticsShell({ children }: AnalyticsShellProps) {
-  const bootstrap = useAnalyticsStore((s) => s.bootstrap)
-  const isLoading = useAnalyticsStore((s) => s.isLoading)
-
+export function AnalyticsShell({ children, isLoading, isError, locked, data }: AnalyticsShellProps) {
   // ── Loading State ──────────────────────────────────────────────────────────
-  // Bootstrap is null on first render before TanStack Query fires.
-  // Show a lightweight skeleton rather than a blank page.
-  if (isLoading || bootstrap === null) {
+  if (isLoading || !data) {
     return <BootstrapSkeleton />
+  }
+  
+  if (isError) {
+    return (
+      <div className="flex h-64 items-center justify-center rounded-xl border border-tactical-border bg-canvas-surface p-6">
+        <p className="font-sans text-sm text-terracotta text-center">Failed to load analytics overview. Please try again later.</p>
+      </div>
+    )
   }
 
   // ── Locked State ──────────────────────────────────────────────────────────
-  // User has not reached Level 3. Render the ghost preview with the
-  // access overlay on top. No data mutations are possible in this state.
-  if (!bootstrap.unlock_status.unlocked) {
+  if (locked) {
     return (
       <div className="relative">
-        {/*
-          AnalyticsPreview is aria-hidden and pointer-events-none.
-          It exists purely as a visual teaser behind the overlay.
-        */}
         <AnalyticsPreview />
-
-        {/*
-          AnalyticsLockedOverlay is positioned absolute inset-0 z-10.
-          It acts as a focus trap and communicates the unlock requirements.
-        */}
-        <AnalyticsLockedOverlay unlock_status={bootstrap.unlock_status} />
+        <AnalyticsLockedOverlay unlock_status={data.unlock_status} />
       </div>
     )
   }
 
   // ── Unlocked State ─────────────────────────────────────────────────────────
-  // Full analytics grid renders as children passed from page.tsx.
   return <>{children}</>
 }

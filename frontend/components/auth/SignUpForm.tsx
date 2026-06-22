@@ -88,7 +88,7 @@ export default function SignUpForm({ onSuccess, onSwitchToLogin }: SignUpFormPro
             We sent a confirmation link to your email address. Please click the link to finish setting up your account.
           </p>
         </div>
-        <Button onClick={onSwitchToLogin} variant="outline" className="mt-4">
+        <Button onClick={onSwitchToLogin} variant="ghost" className="mt-4">
           Return to Sign In
         </Button>
       </div>
@@ -187,7 +187,7 @@ export default function SignUpForm({ onSuccess, onSwitchToLogin }: SignUpFormPro
         <Button
           type="button"
           size="lg"
-          variant="outline"
+          variant="ghost"
           className="w-full relative"
           onClick={handleGoogleSignUp}
           disabled={loading}

@@ -22,6 +22,7 @@
 // =============================================================================
 
 import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   BaseModal,
   FormField,
@@ -157,7 +158,7 @@ interface AddLoanModalProps {
 // ─── AddLoanModal ─────────────────────────────────────────────────────────────
 
 export function AddLoanModal({ isOpen, onClose }: AddLoanModalProps) {
-  const { addLoan, loading } = useWalletStore();
+  const { setGlobalError } = useWalletStore();
 
   const [values, setValues] = useState<FormValues>(DEFAULTS);
   const [errors, setErrors] = useState<FormErrors>({});
@@ -185,6 +186,31 @@ export function AddLoanModal({ isOpen, onClose }: AddLoanModalProps) {
     : 0;
   const showPreview = totalNum > 0;
 
+  const queryClient = useQueryClient();
+
+  const addLoanMutation = useMutation({
+    mutationFn: async (payload: any) => {
+      const response = await fetch('/api/v1/loans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const json = await response.json();
+      if (!response.ok || !json.success) {
+        throw new Error(json.error?.message || 'Failed to add loan');
+      }
+      return json.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['wallet', 'bootstrap'] });
+      handleClose();
+    },
+    onError: (err: any) => {
+      // The old optimistic code rolled back here, but we'll use standard invalidation
+      setGlobalError(err.message);
+    }
+  });
+
   // ── Submit ─────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     setSubmitted(true);
@@ -192,8 +218,7 @@ export function AddLoanModal({ isOpen, onClose }: AddLoanModalProps) {
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
 
-    const newLoan: Loan = {
-      id: `ln-${Date.now()}`,
+    const payload = {
       name: values.name.trim(),
       total_amount: parseDigits(values.total_amount),
       paid_amount: parseDigits(values.paid_amount),
@@ -201,36 +226,10 @@ export function AddLoanModal({ isOpen, onClose }: AddLoanModalProps) {
       monthly_installment: parseDigits(values.monthly_installment),
     };
 
-    // Optimistic — adds immediately
-    addLoan(newLoan);
-    handleClose();
-
-    // ── TODO: Uncomment real mutation when API is live ──────────────────────
-    // try {
-    //   const res = await fetch('/api/v1/loans', {
-    //     method: 'POST',
-    //     headers: { 'Content-Type': 'application/json' },
-    //     body: JSON.stringify({
-    //       name: newLoan.name,
-    //       total_amount: newLoan.total_amount,
-    //       paid_amount: newLoan.paid_amount,
-    //       monthly_installment: newLoan.monthly_installment,
-    //       next_due_date: newLoan.next_due_date,
-    //     }),
-    //   });
-    //   const json = await res.json();
-    //   if (!json.success) {
-    //     removeLoan(newLoan.id);
-    //     setGlobalError(json.error?.message ?? 'Failed to add loan. Please try again.');
-    //   }
-    // } catch {
-    //   removeLoan(newLoan.id);
-    //   setGlobalError('Network error — loan could not be saved.');
-    // }
-    // ─────────────────────────────────────────────────────────────────────────
+    addLoanMutation.mutate(payload);
   };
 
-  const isMutating = loading.baselines;
+  const isMutating = addLoanMutation.isPending;
 
   return (
     <BaseModal

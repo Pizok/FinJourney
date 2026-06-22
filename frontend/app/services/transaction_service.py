@@ -529,6 +529,32 @@ def update_transaction(
     # ── 5. Write ───────────────────────────────────────────────────────────────
     row = _update_transaction_row(client, transaction_id, user_id, updates)
 
+    # ── 6. Log adjustment event ────────────────────────────────────────────────
+    # Record the adjustment in the immutable ledger
+    # Note: progression service would normally compute actual hp/xp delta here
+    # based on the net change in daily budget availability.
+    old_amount = old_txn.get("amount", 0)
+    new_amount = row.get("amount", old_amount)
+    
+    client.table("game_events").insert(
+        {
+            "user_id": user_id,
+            "event_type": "TRANSACTION_ADJUSTMENT",
+            "xp_delta": 0.0,
+            "hp_delta": 0.0,
+            "gold_delta": 0.0,
+            "shield_delta": 0.0,
+            "source_id": transaction_id,
+            "metadata": {
+                "old_amount": old_amount,
+                "new_amount": new_amount,
+                "amount_delta": new_amount - old_amount,
+                "old_wallet": old_txn.get("wallet_id"),
+                "new_wallet": row.get("wallet_id"),
+            },
+        }
+    ).execute()
+
     return TransactionOut.model_validate(row)
 
 

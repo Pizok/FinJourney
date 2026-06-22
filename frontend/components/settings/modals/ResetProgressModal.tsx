@@ -158,120 +158,126 @@ export function ResetProgressModal({ onClose, onSuccess }: ResetProgressModalPro
 
   return (
     <Modal
+      isOpen={true}
       title="Reset Journey Progress?"
-      titleVariant="danger"
       onClose={onClose}
       size="md"
-      footer={footer}
-      // Keyboard users land directly on the confirmation input —
-      // the most critical interactive element in this dialog
-      initialFocusRef={inputRef as React.RefObject<HTMLElement>}
     >
-      <div className="px-6 py-5">
+      <Modal.Header>
+        <h2 className="font-display text-lg font-semibold text-terracotta">
+          Reset Journey Progress?
+        </h2>
+      </Modal.Header>
+      
+      <Modal.Body>
+        <div className="py-2">
 
-        {/* ── What resets ────────────────────────────────────────────────────── */}
-        <p className="font-sans text-sm leading-relaxed text-muted-text">
-          This will reset your{' '}
-          <span className="font-medium text-pearl-text">Level to 1</span>,{' '}
-          <span className="font-medium text-pearl-text">XP to 0</span>, and{' '}
-          <span className="font-medium text-pearl-text">HP to 100</span>. Your
-          region progress will restart.
-        </p>
-
-        {/* ── What does NOT reset ────────────────────────────────────────────── */}
-        {/*
-          Explicitly surfaced as a reassurance block to reduce abandonment.
-          Financial data being untouched is the most common user concern before
-          committing to a destructive progression action.
-        */}
-        <div className="mt-3 rounded-lg border border-tactical-border bg-abyssal-slate px-4 py-3">
-          <p className="font-sans text-xs leading-relaxed text-muted-text">
-            <span className="font-semibold text-pearl-text">
-              Your financial data, wallets, and transaction history will not be
-              deleted.
-            </span>{' '}
-            Loans, categories, and all recorded transactions remain exactly as
-            they are.
+          {/* ── What resets ────────────────────────────────────────────────────── */}
+          <p className="font-sans text-sm leading-relaxed text-muted-text">
+            This will reset your{' '}
+            <span className="font-medium text-pearl-text">Level to 1</span>,{' '}
+            <span className="font-medium text-pearl-text">XP to 0</span>, and{' '}
+            <span className="font-medium text-pearl-text">HP to 100</span>. Your
+            region progress will restart.
           </p>
-        </div>
 
-        {/* ── Typed confirmation ─────────────────────────────────────────────── */}
-        {/*
-          No auto-uppercase coercion. The user must type the exact string.
-          The label shows the target word in monospace terracotta so the
-          visual contrast reinforces the seriousness of the action.
-        */}
-        <div className="mt-5">
-          <label
-            htmlFor={inputId}
-            className="mb-1.5 block font-sans text-xs font-medium text-muted-text"
-          >
-            Type{' '}
-            <span className="font-mono font-semibold text-terracotta">
-              {REQUIRED_KEYWORD}
-            </span>{' '}
-            to enable the confirm button
-          </label>
-
-          <input
-            ref={inputRef}
-            id={inputId}
-            type="text"
-            value={inputValue}
-            onChange={(e) => {
-              // No coercion — raw value only
-              setInputValue(e.target.value)
-              if (apiError) setApiError(null)
-            }}
-            onKeyDown={(e) => {
-              // Allow keyboard submission once confirmed
-              if (e.key === 'Enter' && canSubmit) handleReset()
-            }}
-            spellCheck={false}
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="none"
-            placeholder={REQUIRED_KEYWORD}
-            aria-describedby={apiError ? errorId : undefined}
-            aria-invalid={apiError ? true : undefined}
-            className={[
-              'w-full rounded-lg border bg-abyssal-slate px-3 py-2.5',
-              'font-mono text-sm tracking-widest text-pearl-text',
-              'transition-colors duration-150',
-              'placeholder:font-sans placeholder:tracking-normal placeholder:text-muted-text/30',
-              'focus:outline-none',
-              // Border states: default → terracotta hint when correct → error
-              apiError
-                ? 'border-terracotta ring-1 ring-terracotta/30'
-                : isConfirmed
-                ? 'border-terracotta/60'
-                : 'border-tactical-border focus:border-tactical-border/80',
-            ].join(' ')}
-          />
-
-          {/* Character count guide — helps avoid invisible trailing spaces */}
-          <div className="mt-1.5 flex items-center justify-between">
-            <p
-              id={apiError ? errorId : undefined}
-              role={apiError ? 'alert' : undefined}
-              className="font-sans text-xs text-terracotta"
-            >
-              {apiError ?? (
-                inputValue.length > 0 && !isConfirmed
-                  ? 'Keep typing — must match exactly'
-                  : ''
-              )}
+          {/* ── What does NOT reset ────────────────────────────────────────────── */}
+          {/*
+            Explicitly surfaced as a reassurance block to reduce abandonment.
+            Financial data being untouched is the most common user concern before
+            committing to a destructive progression action.
+          */}
+          <div className="mt-3 rounded-lg border border-tactical-border bg-abyssal-slate px-4 py-3">
+            <p className="font-sans text-xs leading-relaxed text-muted-text">
+              <span className="font-semibold text-pearl-text">
+                Your financial data, wallets, and transaction history will not be
+                deleted.
+              </span>{' '}
+              Loans, categories, and all recorded transactions remain exactly as
+              they are.
             </p>
-            {/* Subtle character counter to catch trailing spaces */}
-            <span
-              className="font-mono text-[11px] tabular-nums text-muted-text/50"
-              aria-hidden="true"
+          </div>
+
+          {/* ── Typed confirmation ─────────────────────────────────────────────── */}
+          {/*
+            No auto-uppercase coercion. The user must type the exact string.
+            The label shows the target word in monospace terracotta so the
+            visual contrast reinforces the seriousness of the action.
+          */}
+          <div className="mt-5">
+            <label
+              htmlFor={inputId}
+              className="mb-1.5 block font-sans text-xs font-medium text-muted-text"
             >
-              {inputValue.length}/{REQUIRED_KEYWORD.length}
-            </span>
+              Type{' '}
+              <span className="font-mono font-semibold text-terracotta">
+                {REQUIRED_KEYWORD}
+              </span>{' '}
+              to enable the confirm button
+            </label>
+
+            <input
+              ref={inputRef}
+              id={inputId}
+              type="text"
+              value={inputValue}
+              onChange={(e) => {
+                // No coercion — raw value only
+                setInputValue(e.target.value)
+                if (apiError) setApiError(null)
+              }}
+              onKeyDown={(e) => {
+                // Allow keyboard submission once confirmed
+                if (e.key === 'Enter' && canSubmit) handleReset()
+              }}
+              spellCheck={false}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="none"
+              placeholder={REQUIRED_KEYWORD}
+              aria-describedby={apiError ? errorId : undefined}
+              aria-invalid={apiError ? true : undefined}
+              className={[
+                'w-full rounded-lg border bg-abyssal-slate px-3 py-2.5',
+                'font-mono text-sm tracking-widest text-pearl-text',
+                'transition-colors duration-150',
+                'placeholder:font-sans placeholder:tracking-normal placeholder:text-muted-text/30',
+                'focus:outline-none',
+                // Border states: default → terracotta hint when correct → error
+                apiError
+                  ? 'border-terracotta ring-1 ring-terracotta/30'
+                  : isConfirmed
+                  ? 'border-terracotta/60'
+                  : 'border-tactical-border focus:border-tactical-border/80',
+              ].join(' ')}
+            />
+
+            {/* Character count guide — helps avoid invisible trailing spaces */}
+            <div className="mt-1.5 flex items-center justify-between">
+              <p
+                id={apiError ? errorId : undefined}
+                role={apiError ? 'alert' : undefined}
+                className="font-sans text-xs text-terracotta"
+              >
+                {apiError ?? (
+                  inputValue.length > 0 && !isConfirmed
+                    ? 'Keep typing — must match exactly'
+                    : ''
+                )}
+              </p>
+              {/* Subtle character counter to catch trailing spaces */}
+              <span
+                className="font-mono text-[11px] tabular-nums text-muted-text/50"
+                aria-hidden="true"
+              >
+                {inputValue.length}/{REQUIRED_KEYWORD.length}
+              </span>
+            </div>
           </div>
         </div>
-      </div>
+      </Modal.Body>
+      
+      <Modal.Footer>{footer}</Modal.Footer>
     </Modal>
   )
 }

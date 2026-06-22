@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { apiFetchServer } from '@/lib/apiClient'
+import { apiFetchServer } from '@/lib/apiClient.server'
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)

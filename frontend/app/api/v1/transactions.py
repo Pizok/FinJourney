@@ -67,6 +67,33 @@ async def post_transaction(
     return {"success": True, "data": result}
 
 
+@router.patch(
+    "/transactions/{tx_id}",
+    status_code=status.HTTP_200_OK,
+    summary="Update a transaction",
+)
+async def patch_transaction(
+    user: CurrentUser,
+    db: DbClient,
+    tx_id: str,
+    payload: dict,
+):
+    """
+    Update a transaction's mutable fields.
+    """
+    from app.schemas.transaction import TransactionUpdate
+    update_payload = TransactionUpdate(**payload)
+    from app.services.transaction_service import update_transaction
+    
+    result = await update_transaction(
+        client=db,
+        transaction_id=tx_id,
+        user_id=user["id"],
+        payload=update_payload,
+    )
+    return {"success": True, "data": result}
+
+
 @router.delete("/transactions/{tx_id}", summary="Soft-delete a transaction")
 async def remove_transaction(user: CurrentUser, db: DbClient, tx_id: str):
     result = await delete_transaction(db, tx_id, user["id"])

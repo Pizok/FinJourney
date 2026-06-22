@@ -16,9 +16,7 @@
  * Canonical path: components/analytics/layout/AnalyticsClientRoot.tsx
  */
 
-import { useEffect } from 'react'
-import { useAnalyticsStore } from '../stores/analyticsStore'
-import { MOCK_BOOTSTRAP_UNLOCKED } from '../store/analyticsStore'
+import { useQuery } from '@tanstack/react-query'
 import { AnalyticsShell } from './AnalyticsShell'
 import { AnalyticsHeader } from './AnalyticsHeader'
 import { DashboardSidebar } from '@/components/dashboard/layout/DashboardSidebar'
@@ -32,6 +30,11 @@ import { AssetHealthCard } from '../assets/AssetHealthCard'
 import { RebalanceBudgetModal } from '../modals/RebalanceBudgetModal'
 import { LoanSimulatorModal } from '../modals/LoanSimulatorModal'
 import { SavingsGoalModal } from '../modals/SavingsGoalModal'
+import { AnalyticsProvider, type AnalyticsData } from './AnalyticsContext'
+import { apiFetchClient } from '@/lib/apiClient.client'
+import { useDashboardStore } from '@/components/dashboard/stores/dashboardStore'
+import { useAnalyticsStore } from '../stores/analyticsStore'
+import { MOCK_BOOTSTRAP_UNLOCKED } from '../store/analyticsStore'
 
 // ─── Analytics Grid ────────────────────────────────────────────────────────────
 // The full bento-box grid rendered when the user is Level 3+.
@@ -42,8 +45,6 @@ import { SavingsGoalModal } from '../modals/SavingsGoalModal'
 //   Row 4 — Debt Health (50%) | Asset Health (50%)
 
 function AnalyticsGrid() {
-  const isLocked = useAnalyticsStore((s) => !s.bootstrap?.unlock_status.unlocked)
-
   return (
     <div className="flex flex-col gap-4">
       {/* Row 1 — Advisory + Financial Stability Score */}
@@ -77,33 +78,29 @@ function AnalyticsGrid() {
 // ─── AnalyticsClientRoot ───────────────────────────────────────────────────────
 
 export function AnalyticsClientRoot() {
-  const { bootstrap, setBootstrap, setLoading, isLoading } = useAnalyticsStore()
+  const { timeRange } = useAnalyticsStore()
+  
+  // Try to get user level from dashboard store
+  // If it's undefined, the user might have navigated directly to /analytics
+  const userLevel = useDashboardStore((s) => s.data.profile.level)
+  const isMockData = process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true'
 
-  // ── Bootstrap on mount ────────────────────────────────────────────────────
-  // Part 1 (now): loads mock data so all UI components render immediately.
-  //
-  // Part 2 (when real API is ready):
-  //   Replace the mock call with:
-  //     const res  = await fetch('/api/v1/analytics/bootstrap')
-  //     const json = await res.json()
-  //     setBootstrap(json.data)
-  // ─────────────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (bootstrap !== null) return  // already hydrated
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['analytics', 'overview', timeRange],
+    queryFn: () => apiFetchClient<AnalyticsData>(`analytics/overview?timeframe=${timeRange}`),
+    enabled: (userLevel ?? 0) >= 3 && !isMockData,
+  })
 
-    setLoading(true)
+  // If mock data is enabled, use the local mock payload
+  const resolvedData = isMockData ? MOCK_BOOTSTRAP_UNLOCKED : data
 
-    // Simulated async delay — mirrors WalletShell pattern.
-    // Remove the setTimeout wrapper when using real API data.
-    const timer = window.setTimeout(() => {
-      setBootstrap(MOCK_BOOTSTRAP_UNLOCKED)
-    }, 400)
-
-    return () => window.clearTimeout(timer)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  const isLocked = !bootstrap?.unlock_status.unlocked
+  // We are locked if:
+  // 1. Data explicitly says locked
+  // 2. Or we know userLevel < 3 and we are not mocking
+  // 3. Or query is loading/idle but user is known to be < 3
+  const isLocked = resolvedData 
+    ? !resolvedData.unlock_status.unlocked 
+    : (userLevel !== undefined && userLevel < 3)
 
   return (
     <div className="flex min-h-screen bg-abyssal-slate">
@@ -116,19 +113,20 @@ export function AnalyticsClientRoot() {
             <AnalyticsHeader isLocked={isLocked} />
 
             {/* Shell — routes to locked overlay or full grid */}
-            <AnalyticsShell>
-              <AnalyticsGrid />
+            <AnalyticsShell isLoading={isLoading && !resolvedData} isError={isError} locked={isLocked} data={resolvedData}>
+              {resolvedData && (
+                <AnalyticsProvider data={resolvedData}>
+                  <AnalyticsGrid />
+                  <RebalanceBudgetModal />
+                  <LoanSimulatorModal />
+                  <SavingsGoalModal />
+                </AnalyticsProvider>
+              )}
             </AnalyticsShell>
 
           </div>
         </div>
       </main>
-
-      {/* ─── Modal Layer ────────────────────────────────────────────────────────── */}
-      {/* Each modal reads its own open/close state from analyticsStore.   */}
-      <RebalanceBudgetModal />
-      <LoanSimulatorModal />
-      <SavingsGoalModal />
     </div>
   )
 }

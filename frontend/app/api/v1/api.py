@@ -60,6 +60,9 @@ api_router.include_router(categories.router)
 api_router.include_router(daily.router)
 api_router.include_router(transactions.router)
 api_router.include_router(endpoints_wallets.router)
+from app.api.v1 import loans, fixed_expenses
+api_router.include_router(loans.router)
+api_router.include_router(fixed_expenses.router)
 
 # Analytics & Reporting
 api_router.include_router(endpoints_analytics.router)
@@ -83,8 +86,7 @@ api_router.include_router(auth.router, tags=["auth"])
 # from app.api.v1 import inventory
 # api_router.include_router(inventory.router)      # TODO: create app/api/v1/inventory.py
 
-# from app.api.v1 import loans
-# api_router.include_router(loans.router)          # TODO: create app/api/v1/loans.py
+# (loans router is implemented)
 
 # from app.api.v1 import regions
 # api_router.include_router(regions.router)        # TODO: create app/api/v1/regions.py

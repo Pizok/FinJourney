@@ -439,3 +439,27 @@ class SimulateLoanResponse(BaseModel):
         ge=0,
         description="Cumulative interest cost in IDR. Null when no interest rate was supplied.",
     )
+
+
+# ── Rebalance Budget ──────────────────────────────────────────────────────────
+
+
+class RebalanceAdjustment(BaseModel):
+    category_id: UUID
+    category_name: str
+    current_limit: int
+    new_limit: int = Field(..., ge=0)
+
+
+class RebalanceBudgetPayload(BaseModel):
+    strategy: str
+    adjustments: list[RebalanceAdjustment]
+
+
+# ── Savings Target ────────────────────────────────────────────────────────────
+
+
+class SavingsTargetPayload(BaseModel):
+    name: str
+    amount: int = Field(..., gt=0)
+    deadline: date

@@ -202,12 +202,19 @@ export interface SavingsTarget {
 // ─── Loan Simulation ──────────────────────────────────────────────────────────
 
 export interface LoanSimulationRequest {
-  monthly_installment: number
+  remaining_debt: number
+  monthly_payment: number
+  annual_interest_rate?: number | null
 }
 
 export interface LoanSimulationResult {
-  projected_dti: number
-  projected_status: HealthStatus
+  remaining_debt: number
+  monthly_payment: number
+  annual_interest_rate?: number | null
+  is_payable: boolean
+  projected_months: number | null
+  debt_free_date: string | null
+  total_interest_paid: number | null
 }
 
 // ─── Rebalance Budget ─────────────────────────────────────────────────────────

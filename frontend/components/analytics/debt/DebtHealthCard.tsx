@@ -48,6 +48,7 @@ import { useState, useEffect } from 'react'
 import { FlaskConical, CheckCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAnalyticsStore } from '../stores/analyticsStore'
+import { useAnalyticsData } from '../layout/AnalyticsContext'
 import type { DebtHealth, HealthStatus } from '../types/analytics.types'
 
 // ─── Status Config ────────────────────────────────────────────────────────────
@@ -268,7 +269,7 @@ function ActiveDebtBody({ debt }: { debt: DebtHealth }) {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function DebtHealthCard() {
-  const debt               = useAnalyticsStore((s) => s.bootstrap?.debt_health ?? null)
+  const { debt_health: debt = null } = useAnalyticsData()
   const openLoanSimulator  = useAnalyticsStore((s) => s.openLoanSimulator)
 
   return (

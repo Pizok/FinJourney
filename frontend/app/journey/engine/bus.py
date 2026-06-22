@@ -323,6 +323,19 @@ class EventBus:
         interface.
         """
         try:
+            # --- DEV ACCOUNT SUPPRESSION ---
+            penalty_events = {"DAILY_BLEED", "GHOST_PENALTY", "GHOST_PENALTY_APPLIED", "STANDBY_USED"}
+            is_hp_loss = ctx.event_type == "HP_CHANGED" and ctx.payload.get("delta", 0) < 0
+            
+            if ctx.event_type in penalty_events or is_hp_loss:
+                resp = await self._db.table("journey_profiles").select("is_dev_account").eq("id", ctx.user_id).maybe_single().execute()
+                if resp.data and resp.data.get("is_dev_account"):
+                    logger.info("EventBus: DEV ACCOUNT SUPPRESSION — skipping %s for user=%s", ctx.event_type, ctx.user_id)
+                    # Mark as published to complete lifecycle, but record suppression in error_log
+                    await self._event_repo.update_event_status(event_id, "PUBLISHED", error_log="SKIPPED (Dev Account)")
+                    return
+            # -------------------------------
+
             logger.debug(
                 "EventBus._dispatch: invoking handler=%s event_id=%s user=%s",
                 handler.__name__,

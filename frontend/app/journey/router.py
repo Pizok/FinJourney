@@ -73,6 +73,7 @@ from .schemas.responses import (
     StandbyUseResponse,
     SuccessResponse,
     ZeroSpendClaimResponse,
+    JourneyOverviewResponse,
 )
 from .repos.event_repo import EventRepository
 from .repos.profile_repo import ProfileRepository
@@ -149,6 +150,147 @@ async def get_bootstrap(
         return await bootstrap_svc.get_full_dashboard(user_id)
     except ValueError as exc:
         _raise_404("PROFILE_NOT_FOUND", str(exc))
+
+
+# ===========================================================================
+# ── OVERVIEW (HISTORICAL & PROGRESSION) ─────────────────────────────────────
+# ===========================================================================
+
+@router.get(
+    "/overview",
+    response_model=JourneyOverviewResponse,
+    summary="Journey historical and progression overview",
+)
+async def get_overview(
+    user_id: CurrentUserID,
+    db: DBClient,
+) -> JourneyOverviewResponse:
+    """
+    Returns the rich historical and progression view for the Journey page.
+    This is kept separate from /bootstrap to keep page hydration lightweight.
+    
+    past_reviews is currently stubbed as an empty array since monthly_reviews 
+    has not yet been modeled in the database schema.
+    """
+    from .repos.profile_repo import ProfileRepository
+    profile_repo = ProfileRepository(db)
+    
+    # We fetch profile to get account creation date for account_days
+    profile = await profile_repo.get_profile(user_id)
+    if not profile:
+        _raise_404("PROFILE_NOT_FOUND", "Profile not found")
+
+    from datetime import datetime, timezone
+    created_at_str = profile.get("created_at")
+    account_days = 0
+    if created_at_str:
+        try:
+            created_at = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
+            account_days = (datetime.now(timezone.utc) - created_at).days
+        except ValueError:
+            pass
+            
+    # Stub response matching the MOCK_JOURNEY_OVERVIEW for MVP
+    # Later, this will be populated from DB queries
+    overview_data = {
+        "current_region": {
+            "id": "quiet_valley",
+            "name": "The Quiet Valley",
+            "description": "A contemplative stretch of steady habits and measured discipline. Here, the path rewards patience over impulse. The valley is calm — but the next region shift looms on the horizon.",
+            "progress_days": 273,
+            "total_days": 365,
+            "days_remaining": 92,
+        },
+        "journey_progress": {
+            "account_days": account_days,
+            "next_milestone_days": 17,
+            "completed_regions": 2,
+        },
+        "active_review": {
+            "id": "review-003",
+            "type": "savings_fortress",
+            "title": "Build the Fortress",
+            "status": "active",
+            "days_remaining": 12,
+            "completion_percentage": 45,
+            "quarter": "Q3",
+            "win_conditions": [
+                {"label": "Save Rp1.000.000", "current": 450000, "target": 1000000},
+                {"label": "Stay under budget 7 days", "current": 4, "target": 7},
+                {"label": "Complete 5 daily tasks", "current": 3, "target": 5},
+            ]
+        },
+        "past_reviews": [], # Stubbed per schema reality check
+        "passport": {
+            "stamps_earned": 3,
+            "total_available": 12,
+            "stamps": [
+                {
+                    "id": "stamp-001",
+                    "region": "Iron Plains",
+                    "date": "Oct 2025",
+                    "challenge": "Debt Clearance",
+                    "type": "completed",
+                },
+                {
+                    "id": "stamp-002",
+                    "region": "Silent Coast",
+                    "date": "Jan 2026",
+                    "challenge": "Emergency Fund",
+                    "type": "completed",
+                },
+                {
+                    "id": "stamp-003",
+                    "region": "The Quiet Valley",
+                    "date": "Apr 2026",
+                    "challenge": "Q1 Review",
+                    "type": "active",
+                },
+            ],
+            "locked": [
+                {"id": "lock-001", "requirement": "Complete Region 4"},
+                {"id": "lock-002", "requirement": "Reach Level 5"},
+                {"id": "lock-003", "requirement": "Complete Q3 Review"},
+                {"id": "lock-004", "requirement": "Reach Level 7"},
+                {"id": "lock-005", "requirement": "Complete Region 5"},
+                {"id": "lock-006", "requirement": "100-Day Streak"},
+                {"id": "lock-007", "requirement": "Complete Boss Fight"},
+                {"id": "lock-008", "requirement": "Reach Level 10"},
+                {"id": "lock-009", "requirement": "Complete the Journey"},
+            ]
+        },
+        "recent_events": [
+            {
+                "id": "evt-001",
+                "type": "achievement",
+                "title": "Stayed Under Budget",
+                "date": "Jun 1, 2026",
+                "xp_change": 10,
+                "hp_change": 0,
+                "severity": "success",
+            },
+            {
+                "id": "evt-002",
+                "type": "penalty",
+                "title": "Ghost Penalty Applied",
+                "date": "May 28, 2026",
+                "xp_change": 0,
+                "hp_change": -10,
+                "severity": "danger",
+            },
+            {
+                "id": "evt-003",
+                "type": "milestone",
+                "title": "Day 270 Milestone Reached",
+                "date": "May 25, 2026",
+                "xp_change": 50,
+                "hp_change": 0,
+                "severity": "milestone",
+            }
+        ]
+    }
+    
+    return JourneyOverviewResponse(**overview_data)
 
 
 # ===========================================================================

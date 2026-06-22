@@ -312,6 +312,7 @@ class PendingUnlockResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # Root Response: Bootstrap
 # ---------------------------------------------------------------------------
 
@@ -334,6 +335,79 @@ class BootstrapResponse(BaseModel):
     recent_logs: RecentLogsResponse
     notifications: NotificationsResponse
     pending_unlocks: list[PendingUnlockResponse] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Root Response: Journey Overview
+# ---------------------------------------------------------------------------
+
+class CurrentRegionResponse(BaseModel):
+    id: str
+    name: str
+    description: str
+    progress_days: int
+    total_days: int
+    days_remaining: int
+
+class JourneyProgressResponse(BaseModel):
+    account_days: int
+    next_milestone_days: int
+    completed_regions: int
+
+class ActiveReviewResponse(BaseModel):
+    id: str
+    type: str
+    title: str
+    status: str
+    days_remaining: int
+    completion_percentage: int
+    quarter: str
+    win_conditions: list[WinConditionResponse] = Field(default_factory=list)
+
+class PastReviewResponse(BaseModel):
+    id: str
+    type: str
+    title: str
+    status: str
+    quarter: str
+    score: int
+
+class PassportStampResponse(BaseModel):
+    id: str
+    region: str
+    date: str
+    challenge: str
+    type: str
+
+class PassportLockedResponse(BaseModel):
+    id: str
+    requirement: str
+
+class PassportResponse(BaseModel):
+    stamps_earned: int
+    total_available: int
+    stamps: list[PassportStampResponse] = Field(default_factory=list)
+    locked: list[PassportLockedResponse] = Field(default_factory=list)
+
+class JourneyEventResponse(BaseModel):
+    id: str
+    type: str
+    title: str
+    date: str
+    xp_change: int
+    hp_change: int
+    severity: str
+
+class JourneyOverviewResponse(BaseModel):
+    """
+    The full historical and progression data payload returned by GET /overview.
+    """
+    current_region: Optional[CurrentRegionResponse] = None
+    journey_progress: JourneyProgressResponse
+    active_review: Optional[ActiveReviewResponse] = None
+    past_reviews: list[PastReviewResponse] = Field(default_factory=list)
+    passport: PassportResponse
+    recent_events: list[JourneyEventResponse] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------

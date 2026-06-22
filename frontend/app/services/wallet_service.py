@@ -38,11 +38,66 @@ _EVENT_TYPE_BUDGET_REBALANCE = "BUDGET_REBALANCE"
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# EXISTING WALLET FUNCTIONS  (stubs — do not modify)
+# WALLET CRUD FUNCTIONS
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-# ... existing create_wallet, update_wallet, delete_wallet, get_wallets ...
-# These functions are unchanged and omitted from this diff.
+from app.db.queries import wallet_queries, transaction_queries
+from app.schemas.wallet import WalletCreate
+from supabase import AsyncClient
+
+async def get_wallets(db: AsyncClient, user_id: str) -> list[dict]:
+    """Fetch all active wallets for a user."""
+    return await wallet_queries.get_wallets_by_user(db, user_id)
+
+async def create_wallet(
+    db: AsyncClient,
+    user_id: str,
+    payload: WalletCreate,
+) -> dict:
+    """Create a new wallet."""
+    return await wallet_queries.insert_wallet(
+        db,
+        user_id=user_id,
+        name=payload.name,
+        wallet_type=payload.wallet_type.value,
+        balance=0,  # Or use a starting balance if provided, schema currently has no starting_balance
+        color_token=payload.icon, # Map icon to color_token per old schema compatibility
+    )
+
+async def update_wallet(
+    db: AsyncClient,
+    wallet_id: str,
+    user_id: str,
+    updates: dict,
+) -> dict:
+    """Update a wallet's mutable presentation fields."""
+    return await wallet_queries.update_wallet(
+        db,
+        wallet_id=wallet_id,
+        user_id=user_id,
+        updates=updates,
+    )
+
+async def delete_wallet(
+    db: AsyncClient,
+    wallet_id: str,
+    user_id: str,
+) -> None:
+    """Soft-delete a wallet, blocked if it has transactions."""
+    transactions = await transaction_queries.fetch_transactions(
+        db,
+        user_id=user_id,
+        wallet_id=wallet_id,
+        limit=1,
+    )
+    if transactions:
+        raise ValueError("Cannot delete wallet with existing transactions.")
+    
+    await wallet_queries.soft_delete_wallet(
+        db,
+        wallet_id=wallet_id,
+        user_id=user_id,
+    )
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

@@ -50,6 +50,7 @@ import { useState, useEffect } from 'react'
 import { Target, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAnalyticsStore } from '../stores/analyticsStore'
+import { useAnalyticsData } from '../layout/AnalyticsContext'
 import type { AssetHealth } from '../types/analytics.types'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -280,7 +281,7 @@ function AssetBody({ asset }: { asset: AssetHealth }) {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function AssetHealthCard() {
-  const asset             = useAnalyticsStore((s) => s.bootstrap?.asset_health ?? null)
+  const { asset_health: asset = null } = useAnalyticsData()
   const openSavingsTarget = useAnalyticsStore((s) => s.openSavingsTarget)
 
   return (

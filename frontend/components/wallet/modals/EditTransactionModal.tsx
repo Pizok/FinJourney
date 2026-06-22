@@ -21,6 +21,7 @@
 // =============================================================================
 
 import { useState, useEffect, useCallback } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   BaseModal, FormField, FormInput, FormTextarea, FormSelect,
   ModalFooter, PrimaryButton, GhostButton,
@@ -78,6 +79,7 @@ export function EditTransactionModal() {
     ui: { isEditTransactionOpen },
     closeEditTransaction,
     optimisticUpdateTransaction,
+    setGlobalError,
   } = useWalletStore();
 
   const transaction = useWalletStore(selectEditTransaction);
@@ -117,6 +119,31 @@ export function EditTransactionModal() {
     });
   };
 
+  const queryClient = useQueryClient();
+
+  const updateTransactionMutation = useMutation({
+    mutationFn: async (payload: any) => {
+      if (!transaction) throw new Error('No transaction selected');
+      const response = await fetch(`/api/v1/transactions/${transaction.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const json = await response.json();
+      if (!response.ok || !json.success) {
+        throw new Error(json.error?.message || 'Failed to update transaction');
+      }
+      return json.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['wallet', 'bootstrap'] });
+      handleClose();
+    },
+    onError: (err: any) => {
+      setGlobalError(err.message);
+    }
+  });
+
   const handleSubmit = () => {
     if (!transaction) return;
     setSubmitted(true);
@@ -124,54 +151,17 @@ export function EditTransactionModal() {
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
 
-    const selectedCategory = categories.find((c) => c.id === values.category_id);
-
-    optimisticUpdateTransaction(transaction.id, {
+    const payload = {
       amount:         parseFloat(values.amount),
       category_id:    values.category_id || undefined,
-      category_name:  selectedCategory?.name,
       payment_method: values.payment_method,
       note:           values.note.trim() || undefined,
-    });
+    };
 
-    handleClose();
-
-    // -----------------------------------------------------------------------
-    // TODO: Uncomment real mutation when API is live
-    // -----------------------------------------------------------------------
-    // try {
-    //   const res = await fetch(`/api/v1/transactions/${transaction.id}`, {
-    //     method: 'PATCH',
-    //     headers: { 'Content-Type': 'application/json' },
-    //     body: JSON.stringify({
-    //       amount: parseFloat(values.amount),
-    //       category_id: values.category_id || undefined,
-    //       payment_method: values.payment_method,
-    //       note: values.note.trim() || undefined,
-    //     }),
-    //   });
-    //   const json = await res.json();
-    //   if (!json.success) {
-    //     // Roll back the optimistic update
-    //     optimisticUpdateTransaction(transaction.id, {
-    //       amount: transaction.amount,
-    //       category_id: transaction.category_id,
-    //       category_name: transaction.category_name,
-    //       payment_method: transaction.payment_method,
-    //       note: transaction.note,
-    //     });
-    //     setGlobalError(json.error?.message ?? 'Failed to update transaction.');
-    //   } else {
-    //     // Confirm with server data
-    //     optimisticUpdateTransaction(transaction.id, json.data);
-    //   }
-    // } catch {
-    //   setGlobalError('Network error — transaction could not be updated.');
-    // }
-    // -----------------------------------------------------------------------
+    updateTransactionMutation.mutate(payload);
   };
 
-  const isMutating = loading.mutation;
+  const isMutating = updateTransactionMutation.isPending;
 
   return (
     <BaseModal

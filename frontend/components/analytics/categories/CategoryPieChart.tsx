@@ -47,7 +47,7 @@ import {
 } from 'recharts'
 import { PieChart as PieChartIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useAnalyticsStore } from '../stores/analyticsStore'
+import { useAnalyticsData } from '../layout/AnalyticsContext'
 import type { CategoryBreakdown } from '../types/analytics.types'
 
 // ─── Chart Colour Palette ─────────────────────────────────────────────────────
@@ -293,9 +293,7 @@ function ChartBody({ data }: ChartBodyProps) {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function CategoryPieChart() {
-  const breakdown = useAnalyticsStore(
-    (s) => s.bootstrap?.category_breakdown ?? [],
-  )
+  const { category_breakdown: breakdown = [] } = useAnalyticsData()
 
   const isEmpty = breakdown.length === 0
 

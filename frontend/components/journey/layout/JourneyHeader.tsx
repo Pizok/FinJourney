@@ -37,7 +37,7 @@
 
 import { Route } from "lucide-react";
 import { Badge, DayBadge } from "@/components/ui/Badge";
-import { useOverviewData } from "@/components/journey/stores/journeyStore";
+import { useJourneyData } from "./JourneyContext";
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
@@ -111,7 +111,7 @@ export interface JourneyHeaderProps {
 }
 
 export function JourneyHeader({ isLoading = false }: JourneyHeaderProps) {
-  const overview = useOverviewData();
+  const overview = useJourneyData();
 
   if (isLoading) return <HeaderSkeleton />;
 

@@ -49,21 +49,21 @@ router = APIRouter(prefix="/wallets", tags=["wallets"])
 
 @router.get(
     "",
-    response_model=list[WalletOut],
+    response_model=dict,
     summary="List all wallets",
 )
 async def list_wallets(
     user: AuthUser,
     db:   DbClient,
-) -> list[WalletOut]:
+) -> dict:
     """Return all active wallets for the authenticated user."""
-    # ... existing implementation unchanged ...
-    raise NotImplementedError  # pragma: no cover
+    wallets = await wallet_service.get_wallets(db, user.user_id)
+    return {"success": True, "data": wallets}
 
 
 @router.post(
     "",
-    response_model=WalletOut,
+    response_model=dict,
     status_code=status.HTTP_201_CREATED,
     summary="Create a wallet (Level 3+)",
 )
@@ -71,10 +71,52 @@ async def create_wallet(
     body: WalletCreate,
     user: AuthUser,
     db:   DbClient,
-) -> WalletOut:
+) -> dict:
     """Create a new wallet. Requires Level 3+."""
-    # ... existing implementation unchanged ...
-    raise NotImplementedError  # pragma: no cover
+    wallet = await wallet_service.create_wallet(db, user.user_id, body)
+    return {"success": True, "data": wallet}
+
+
+@router.patch(
+    "/{wallet_id}",
+    response_model=dict,
+    summary="Update a wallet",
+)
+async def update_wallet(
+    wallet_id: str,
+    body: dict,
+    user: AuthUser,
+    db:   DbClient,
+) -> dict:
+    """Update a wallet's settings."""
+    try:
+        wallet = await wallet_service.update_wallet(db, wallet_id, user.user_id, body)
+        return {"success": True, "data": wallet}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"success": False, "error": {"code": "update_failed", "message": str(e)}}
+        )
+
+@router.delete(
+    "/{wallet_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Soft-delete a wallet",
+)
+async def delete_wallet(
+    wallet_id: str,
+    user: AuthUser,
+    db:   DbClient,
+):
+    """Soft-delete a wallet. Fails if transactions exist."""
+    try:
+        await wallet_service.delete_wallet(db, wallet_id, user.user_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"success": False, "error": {"code": "wallet_has_transactions", "message": str(e)}}
+        )
+
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

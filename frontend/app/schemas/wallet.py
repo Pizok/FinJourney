@@ -73,6 +73,17 @@ class WalletCreate(BaseModel):
 
 # ── Out (read) ────────────────────────────────────────────────────────────────
 
+class WalletUpdate(BaseModel):
+    """
+    Payload for PATCH /api/v1/wallets/{id}.
+    """
+    name: Optional[str] = Field(None, min_length=1, max_length=60)
+    color_token: Optional[str] = None
+    description: Optional[str] = None
+    default_payment_method: Optional[str] = None
+    visible_category_ids: Optional[list[str]] = None
+
+
 
 class WalletOut(BaseModel):
     """

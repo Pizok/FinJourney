@@ -21,6 +21,7 @@
 // =============================================================================
 
 import { useState, useEffect } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   BaseModal, FormField, FormInput, FormTextarea, FormSelect,
   ModalFooter, PrimaryButton, GhostButton, DangerZone,
@@ -75,6 +76,31 @@ export function WalletSettingsModal() {
     );
   };
 
+  const queryClient = useQueryClient();
+
+  const updateWalletMutation = useMutation({
+    mutationFn: async (payload: any) => {
+      if (!wallet) throw new Error('No wallet selected');
+      const response = await fetch(`/api/v1/wallets/${wallet.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const json = await response.json();
+      if (!response.ok || !json.success) {
+        throw new Error(json.error?.message || 'Failed to save wallet settings');
+      }
+      return json.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['wallet', 'bootstrap'] });
+      handleClose();
+    },
+    onError: (err: any) => {
+      setGlobalError(err.message);
+    }
+  });
+
   // -------------------------------------------------------------------------
   // Submit
   // -------------------------------------------------------------------------
@@ -99,50 +125,7 @@ export function WalletSettingsModal() {
       visible_category_ids:    visibleCategoryIds,
     };
 
-    // -----------------------------------------------------------------------
-    // Optimistic update — immediately reflects in UI
-    // -----------------------------------------------------------------------
-    updateWallet(wallet.id, payload);
-    handleClose();
-
-    // -----------------------------------------------------------------------
-    // TODO: Uncomment real mutation when API is live
-    // -----------------------------------------------------------------------
-    // setLoading('mutation', true);
-    // try {
-    //   const response = await fetch(`/api/v1/wallets/${wallet.id}`, {
-    //     method: 'PATCH',
-    //     headers: {
-    //       'Content-Type': 'application/json',
-    //       // Authorization: `Bearer ${supabaseSession.access_token}`,
-    //     },
-    //     body: JSON.stringify(payload),
-    //   });
-    //
-    //   const json = await response.json();
-    //
-    //   if (!json.success) {
-    //     // Roll back optimistic update by re-seeding from original wallet
-    //     updateWallet(wallet.id, {
-    //       name:                   wallet.name,
-    //       description:            wallet.description,
-    //       default_payment_method: wallet.default_payment_method,
-    //       visible_category_ids:   wallet.visible_category_ids,
-    //     });
-    //     setGlobalError(json.error?.message ?? 'Failed to save wallet settings.');
-    //   }
-    // } catch {
-    //   updateWallet(wallet.id, {
-    //     name:                   wallet.name,
-    //     description:            wallet.description,
-    //     default_payment_method: wallet.default_payment_method,
-    //     visible_category_ids:   wallet.visible_category_ids,
-    //   });
-    //   setGlobalError('Network error — settings could not be saved.');
-    // } finally {
-    //   setLoading('mutation', false);
-    // }
-    // -----------------------------------------------------------------------
+    updateWalletMutation.mutate(payload);
   };
 
   // -------------------------------------------------------------------------
@@ -154,7 +137,7 @@ export function WalletSettingsModal() {
     openDeleteWallet(wallet.id);
   };
 
-  const isMutating = loading.mutation;
+  const isMutating = updateWalletMutation.isPending;
 
   if (!wallet) return null;
 

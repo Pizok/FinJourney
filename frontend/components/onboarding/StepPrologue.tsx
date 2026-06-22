@@ -20,7 +20,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label, FieldError } from '@/components/ui/label';
 import { OnboardingState } from './types';
-import { apiFetchClient } from '@/lib/apiClient';
+import { apiFetchClient } from '@/lib/apiClient.client';
 
 interface StepPrologueProps {
   state: OnboardingState;

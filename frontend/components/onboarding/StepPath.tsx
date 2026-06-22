@@ -15,6 +15,7 @@
 //   • Arrow buttons: flat Abyssal Slate bg + Tactical Border.
 
 import React from 'react';
+import Image from 'next/image';
 import {
   Shield, Zap, Ghost,
   ChevronLeft, ChevronRight,
@@ -32,7 +33,7 @@ import type { OnboardingState } from './types';
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type PathKey   = 'Sentinel' | 'Catalyst' | 'Phantom';
-type AvatarKey = 'Kael' | 'Sera' | 'Mira' | 'Roan' | 'Lyss';
+type AvatarKey = 'Roan' | 'Lyss';
 
 // ── Path data ─────────────────────────────────────────────────────────────────
 
@@ -79,66 +80,31 @@ interface AvatarConfig {
 
 const AVATARS: AvatarConfig[] = [
   {
-    key:   'Kael',
-    Icon:  ({ size, strokeWidth, className }) => (
-      // Inline import pattern — replace with real asset when available
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" strokeWidth={strokeWidth}
-        strokeLinecap="round" strokeLinejoin="round" className={className}>
-        <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-      </svg>
-    ),
-    name:  'Kael',
-    story: 'A cautious wanderer who maps every path before stepping forward. He turns patience into power and never spends without purpose.',
-  },
-  {
-    key:   'Sera',
-    Icon:  ({ size, strokeWidth, className }) => (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" strokeWidth={strokeWidth}
-        strokeLinecap="round" strokeLinejoin="round" className={className}>
-        <path d="M12 2c0 6-6 8-6 13a6 6 0 0012 0c0-5-6-7-6-13z"/>
-        <path d="M12 12v4"/><path d="M10 18h4"/>
-      </svg>
-    ),
-    name:  'Sera',
-    story: 'Bold and restless. She builds empires from nothing and burns what holds her back. High risk, high reward — always moving forward.',
-  },
-  {
-    key:   'Mira',
-    Icon:  ({ size, strokeWidth, className }) => (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" strokeWidth={strokeWidth}
-        strokeLinecap="round" strokeLinejoin="round" className={className}>
-        <ellipse cx="12" cy="12" rx="10" ry="6"/><circle cx="12" cy="12" r="2"/>
-      </svg>
-    ),
-    name:  'Mira',
-    story: 'Silent and precise. She sees opportunities others miss and wastes nothing. Every coin is a calculated move toward a longer plan.',
-  },
-  {
     key:   'Roan',
-    Icon:  ({ size, strokeWidth, className }) => (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" strokeWidth={strokeWidth}
-        strokeLinecap="round" strokeLinejoin="round" className={className}>
-        <circle cx="12" cy="12" r="10"/>
-        <path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>
-        <path d="M12 12l3-5"/>
-      </svg>
+    Icon:  ({ size, className }) => (
+      <Image 
+        src="/profil/Untitled design (5).png" 
+        alt="Roan" 
+        width={size} 
+        height={size} 
+        className={`object-cover ${className || ''}`}
+        priority
+      />
     ),
     name:  'Roan',
     story: 'An experienced navigator who reads markets like weather and never panics. Steady hands and a long horizon guide every decision.',
   },
   {
     key:   'Lyss',
-    Icon:  ({ size, strokeWidth, className }) => (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" strokeWidth={strokeWidth}
-        strokeLinecap="round" strokeLinejoin="round" className={className}>
-        <path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/>
-        <line x1="16" y1="8" x2="2" y2="22"/>
-      </svg>
+    Icon:  ({ size, className }) => (
+      <Image 
+        src="/profil/Untitled design (4).png" 
+        alt="Lyss" 
+        width={size} 
+        height={size} 
+        className={`object-cover ${className || ''}`}
+        priority
+      />
     ),
     name:  'Lyss',
     story: 'Light-footed and free. She travels with minimal weight and maximum joy — and somehow always lands exactly where she needs to be.',
@@ -222,8 +188,8 @@ function AvatarPanel() {
       {/* This container is fixed in place — only the icon inside swaps. */}
       <div className="bg-abyssal-slate border border-tactical-border rounded-[10px] p-5 flex flex-col items-center gap-4">
         {/* Image placeholder — 88×88 flat square */}
-        <div className="w-[88px] h-[88px] rounded-[10px] bg-canvas-surface border border-tactical-border flex items-center justify-center">
-          <Icon size={36} strokeWidth={1.75} className="text-muted-emerald" />
+        <div className="w-[88px] h-[88px] rounded-[10px] bg-canvas-surface border border-tactical-border flex items-center justify-center overflow-hidden">
+          <Icon size={88} strokeWidth={1.75} className="" />
         </div>
 
         {/* Arrow controls + pips in one row */}

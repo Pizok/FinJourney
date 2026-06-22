@@ -42,7 +42,7 @@ import { useRef, useEffect, useMemo } from "react";
 import { Route } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { RegionNode, type RegionNodeData, type RegionNodeType } from "./RegionNode";
-import { useOverviewData } from "@/components/journey/stores/journeyStore";
+import { useJourneyData } from "../layout/JourneyContext";
 import { cn } from "@/lib/utils";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -198,12 +198,8 @@ function TimelineEmptyState() {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export interface TimelineSectionProps {
-  isLoading?: boolean;
-}
-
-export function TimelineSection({ isLoading = false }: TimelineSectionProps) {
-  const overview = useOverviewData();
+export function TimelineSection() {
+  const overview = useJourneyData();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const accountDays = overview.journey_progress?.account_days ?? 0;
@@ -239,7 +235,7 @@ export function TimelineSection({ isLoading = false }: TimelineSectionProps) {
     );
   }, [nodes]);
 
-  if (isLoading) return <TimelineSkeleton />;
+
   if (!overview.journey_progress || accountDays === 0) return <TimelineEmptyState />;
 
   /*

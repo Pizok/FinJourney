@@ -233,10 +233,29 @@ async def patch_notifications(db: AsyncClient, user_id: UUID, body: PatchNotific
     return notifs
 
 async def post_path_change(db: AsyncClient, user_id: UUID, body: PathChangeRequest, bus: Any) -> dict[str, Any]:
-    from app.journey.repos.event_repo import EventRepository
+    profile_data = await settings_queries.fetch_settings_profile(db, str(user_id))
+    if not profile_data:
+        raise SettingsDomainError("USER_NOT_FOUND", "Profile not found", http_status=404)
+        
+    old_path = profile_data.get("active_path") or "UNASSIGNED"
     
+    if body.new_path == old_path:
+        raise SettingsDomainError("PATH_ALREADY_ACTIVE", f"Path {body.new_path} is already active.")
+        
+    cooldown_str = profile_data.get("path_cooldown_until")
+    now = _now_utc()
+    if cooldown_str:
+        cooldown_until = datetime.fromisoformat(cooldown_str.replace("Z", "+00:00"))
+        if now < cooldown_until:
+            raise SettingsDomainError("PATH_CHANGE_LOCKED", "Path change is on a 6-month cooldown.")
+            
+    new_cooldown = now + timedelta(days=180)
+    
+    await settings_queries.update_path(db, str(user_id), body.new_path, new_cooldown.isoformat())
+    
+    from app.journey.repos.event_repo import EventRepository
     key = EventRepository.build_idempotency_key(
-        str(user_id), _now_utc().isoformat()[:10], "path_change"
+        str(user_id), now.isoformat()[:10], "path_change", suffix=str(int(now.timestamp()))
     )
     await bus.emit(
         user_id=str(user_id),
@@ -244,17 +263,19 @@ async def post_path_change(db: AsyncClient, user_id: UUID, body: PathChangeReque
         source="SYSTEM",
         severity="INFO",
         idempotency_key=key,
-        payload={"new_path": body.new_path}
+        payload={"old_path": old_path, "new_path": body.new_path}
     )
-    return {"status": "enqueued"}
+    return {"status": "enqueued", "active_path": body.new_path}
 
 async def post_reset_progress(db: AsyncClient, user_id: UUID, body: ResetProgressRequest, bus: Any) -> dict[str, Any]:
-    if body.confirmation != "RESET":
-        raise SettingsDomainError("INVALID_CONFIRMATION", "Confirmation string must be 'RESET'")
+    # 1. Execute database updates in a single transaction via RPC
+    await settings_queries.reset_user_progress_txn(db, str(user_id))
         
+    # 2. Emit PROGRESS_RESET event
     from app.journey.repos.event_repo import EventRepository
+    now = _now_utc()
     key = EventRepository.build_idempotency_key(
-        str(user_id), _now_utc().isoformat()[:10], "progress_reset", suffix=str(int(_now_utc().timestamp()))
+        str(user_id), now.isoformat()[:10], "progress_reset", suffix=str(int(now.timestamp()))
     )
     await bus.emit(
         user_id=str(user_id),
@@ -262,6 +283,6 @@ async def post_reset_progress(db: AsyncClient, user_id: UUID, body: ResetProgres
         source="SYSTEM",
         severity="CRITICAL",
         idempotency_key=key,
-        payload={}
+        payload={"reset_scope": ["hp", "xp", "level", "streak"], "timestamp": now.isoformat()}
     )
-    return {"status": "enqueued"}
+    return {"success": True, "message": "Progress has been reset."}

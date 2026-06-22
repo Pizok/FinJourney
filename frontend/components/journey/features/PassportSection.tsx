@@ -34,7 +34,8 @@ import { useCallback } from "react";
 import { Scroll } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { EarnedStamp, LockedStampTile } from "./PassportStamp";
-import { useOverviewData, useModalActions } from "@/components/journey/stores/journeyStore";
+import { useModalActions } from "@/components/journey/stores/journeyStore";
+import { useJourneyData } from "../layout/JourneyContext";
 import type { PassportStamp } from "@/components/journey/types/journey.types";
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
@@ -98,7 +99,7 @@ export interface PassportSectionProps {
 }
 
 export function PassportSection({ isLoading = false }: PassportSectionProps) {
-  const overview = useOverviewData();
+  const overview = useJourneyData();
   const { openStampModal } = useModalActions();
 
   const handleStampSelect = useCallback(

@@ -26,57 +26,59 @@
  */
 
 import { useState, useMemo, useCallback } from 'react'
-import { useAnalyticsStore } from '../stores/analyticsStore'
-import type { LoanSimulationResult, HealthStatus } from '../types/analytics.types'
+import { useMutation } from '@tanstack/react-query'
+import { apiFetchClient } from '@/lib/apiClient.client'
+import type { LoanSimulationResult, LoanSimulationRequest } from '../types/analytics.types'
 
 // ─── API ──────────────────────────────────────────────────────────────────────
 
 const SIMULATE_ENDPOINT = '/api/v1/analytics/simulate-loan'
 
+// ─── Formatting ───────────────────────────────────────────────────────────────
+
+const formatDate = (dateString: string) => {
+  return new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(new Date(dateString))
+}
+
 // ─── Impact Message Generator ─────────────────────────────────────────────────
 // Pure function — no side effects, safe to call during render.
 
-// Using a Map instead of a plain Record so that STATUS_LABELS[status] bracket
-// access on server-supplied HealthStatus values is replaced with Map.get().
-const STATUS_LABELS = new Map<HealthStatus, string>([
-  ['good',    'Good'],
-  ['warning', 'Warning'],
-  ['bad',     'High Risk'],
-])
-
-function generateImpactMessage(
-  currentDti:      number,
-  projectedDti:    number,
-  currentStatus:   HealthStatus,
-  projectedStatus: HealthStatus,
-): string {
-  const delta         = projectedDti - currentDti
-  const statusChanged = currentStatus !== projectedStatus
-
-  if (delta <= 0) {
-    return `This installment would keep your DTI stable at ${projectedDti.toFixed(1)}%, remaining within the ${STATUS_LABELS.get(projectedStatus)} range.`
+function generateImpactMessage(result: LoanSimulationResult): string {
+  if (!result.is_payable || !result.projected_months || !result.debt_free_date) {
+    return 'The specified monthly payment is too low to cover the interest. The loan principal will never decrease, making it unpayable.'
   }
 
-  if (statusChanged) {
-    return `Adding this installment would increase your DTI by ${delta.toFixed(1)} percentage points, shifting your status from ${STATUS_LABELS.get(currentStatus)} to ${STATUS_LABELS.get(projectedStatus)}. Consider the impact on your financial flexibility before committing.`
+  const durationText = result.projected_months === 1 ? '1 month' : `${result.projected_months} months`
+  const dateText = formatDate(result.debt_free_date)
+
+  if (result.total_interest_paid && result.total_interest_paid > 0) {
+    return `At this rate, you will be debt-free by ${dateText} (in ${durationText}). You will pay an estimated total interest of ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(result.total_interest_paid)}.`
   }
 
-  return `Adding this installment would raise your DTI by ${delta.toFixed(1)} percentage points to ${projectedDti.toFixed(1)}%, remaining within the ${STATUS_LABELS.get(projectedStatus)} range.`
+  return `At this rate, you will be debt-free by ${dateText} (in ${durationText}).`
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface UseLoanSimulatorReturn {
   // ── Input ─────────────────────────────────────────────────────────────────
-  /** Raw string value of the controlled input field */
-  monthlyInstallment:    string
-  setMonthlyInstallment: (v: string) => void
-  /** Parsed numeric value; NaN when input is empty or non-numeric */
-  parsedInstallment:     number
+  /** Raw string value of the monthly payment field */
+  monthlyPayment:        string
+  setMonthlyPayment:     (v: string) => void
+  /** Parsed numeric value of monthly payment */
+  parsedPayment:         number
 
-  // ── Current debt context (read-only from bootstrap) ────────────────────────
-  currentDti:    number | null
-  currentStatus: HealthStatus | null
+  /** Raw string value of the remaining debt field */
+  remainingDebt:         string
+  setRemainingDebt:      (v: string) => void
+  /** Parsed numeric value of remaining debt */
+  parsedDebt:            number
+
+  /** Raw string value of the annual interest rate field */
+  interestRate:          string
+  setInterestRate:       (v: string) => void
+  /** Parsed numeric value of interest rate */
+  parsedInterest:        number
 
   // ── Simulation result ──────────────────────────────────────────────────────
   result:        LoanSimulationResult | null
@@ -87,92 +89,103 @@ export interface UseLoanSimulatorReturn {
   error:     string | null
 
   // ── Actions ───────────────────────────────────────────────────────────────
-  simulate: () => Promise<void>
+  simulate: () => void
   reset:    () => void
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useLoanSimulator(): UseLoanSimulatorReturn {
-  const debtHealth = useAnalyticsStore((s) => s.bootstrap?.debt_health ?? null)
-
-  // Input state — string to handle empty field gracefully
-  const [monthlyInstallment, setMonthlyInstallment] = useState('')
+  // Input state
+  const [remainingDebt, setRemainingDebt] = useState('')
+  const [monthlyPayment, setMonthlyPayment] = useState('')
+  const [interestRate, setInterestRate] = useState('')
 
   // Result state
   const [result,    setResult   ] = useState<LoanSimulationResult | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
   const [error,     setError    ] = useState<string | null>(null)
 
+  const mutation = useMutation({
+    mutationFn: async (payload: LoanSimulationRequest) => {
+      return await apiFetchClient<LoanSimulationResult>('analytics/simulate-loan', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
+    },
+    onSuccess: (data: LoanSimulationResult) => {
+      setResult(data)
+    },
+    onError: (err: any) => {
+      setError(err instanceof Error ? err.message : 'Simulation failed. Please try again.')
+    },
+  })
+
   // Derived values
-  const parsedInstallment = useMemo(
-    () => parseFloat(monthlyInstallment.replace(/[^0-9.]/g, '')) || 0,
-    [monthlyInstallment],
+  const parsedDebt = useMemo(
+    () => parseFloat(remainingDebt.replace(/[^0-9.]/g, '')) || 0,
+    [remainingDebt],
+  )
+  
+  const parsedPayment = useMemo(
+    () => parseFloat(monthlyPayment.replace(/[^0-9.]/g, '')) || 0,
+    [monthlyPayment],
   )
 
-  const currentDti    = debtHealth?.dti_percentage ?? null
-  const currentStatus = debtHealth?.status ?? null
+  const parsedInterest = useMemo(
+    () => parseFloat(interestRate.replace(/[^0-9.]/g, '')) || 0,
+    [interestRate],
+  )
 
-  // Impact message — only when we have a result and current context
+  // Impact message — only when we have a result
   const impactMessage = useMemo(() => {
-    if (!result || currentDti === null || currentStatus === null) return null
-    return generateImpactMessage(
-      currentDti,
-      result.projected_dti,
-      currentStatus,
-      result.projected_status,
-    )
-  }, [result, currentDti, currentStatus])
+    if (!result) return null
+    return generateImpactMessage(result)
+  }, [result])
 
   // ── Actions ─────────────────────────────────────────────────────────────────
 
-  async function simulate() {
-    if (parsedInstallment <= 0) {
-      setError('Please enter a valid monthly installment amount.')
+  function simulate() {
+    if (parsedDebt <= 0) {
+      setError('Please enter a valid loan principal amount.')
+      return
+    }
+    if (parsedPayment <= 0) {
+      setError('Please enter a valid monthly payment amount.')
       return
     }
 
-    setIsLoading(true)
     setError(null)
     setResult(null)
 
-    try {
-      const response = await fetch(SIMULATE_ENDPOINT, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ monthly_installment: parsedInstallment }),
-      })
-
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}))
-        throw new Error(body?.error?.message ?? 'Simulation failed. Please try again.')
-      }
-
-      const data: LoanSimulationResult = await response.json()
-      setResult(data)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'An unexpected error occurred.')
-    } finally {
-      setIsLoading(false)
-    }
+    mutation.mutate({ 
+      remaining_debt: parsedDebt,
+      monthly_payment: parsedPayment,
+      annual_interest_rate: parsedInterest > 0 ? parsedInterest / 100 : 0
+    })
   }
 
   const reset = useCallback(() => {
-    setMonthlyInstallment('')
+    setRemainingDebt('')
+    setMonthlyPayment('')
+    setInterestRate('')
     setResult(null)
-    setIsLoading(false)
     setError(null)
-  }, [])
+    mutation.reset()
+  }, [mutation])
 
   return {
-    monthlyInstallment,
-    setMonthlyInstallment,
-    parsedInstallment,
-    currentDti,
-    currentStatus,
+    monthlyPayment,
+    setMonthlyPayment,
+    parsedPayment,
+    remainingDebt,
+    setRemainingDebt,
+    parsedDebt,
+    interestRate,
+    setInterestRate,
+    parsedInterest,
     result,
     impactMessage,
-    isLoading,
+    isLoading: mutation.isPending,
     error,
     simulate,
     reset,

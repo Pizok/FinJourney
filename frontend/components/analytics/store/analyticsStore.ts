@@ -147,7 +147,7 @@ export const MOCK_BOOTSTRAP_UNLOCKED: AnalyticsBootstrap = {
 
 // ─── Store Interface ───────────────────────────────────────────────────────────
 
-interface AnalyticsState {
+export interface AnalyticsState {
   // ── Time Range ──────────────────────────────────────────────────────────────
   /**
    * Shared time range selector. Changing it triggers re-fetches in all
@@ -156,11 +156,6 @@ interface AnalyticsState {
    */
   timeRange: TimeRange
   setTimeRange: (range: TimeRange) => void
-
-  // ── Bootstrap Data ──────────────────────────────────────────────────────────
-  /** Null until TanStack Query hydrates the store (Part 2). */
-  bootstrap: AnalyticsBootstrap | null
-  setBootstrap: (data: AnalyticsBootstrap) => void
 
   // ── Global Loading ──────────────────────────────────────────────────────────
   /** True only during initial bootstrap fetch. */
@@ -205,15 +200,6 @@ export const useAnalyticsStore = create<AnalyticsState>()(
       timeRange: '1M',
       setTimeRange: (range) =>
         set({ timeRange: range }, false, 'analytics/setTimeRange'),
-
-      // ── Bootstrap ─────────────────────────────────────────────────────────
-      bootstrap: null,
-      setBootstrap: (data) =>
-        set(
-          { bootstrap: data, isLoading: false, error: null },
-          false,
-          'analytics/setBootstrap',
-        ),
 
       // ── Loading ───────────────────────────────────────────────────────────
       isLoading: false,
@@ -286,18 +272,6 @@ export const useAnalyticsStore = create<AnalyticsState>()(
 
 // ─── Typed Selectors ──────────────────────────────────────────────────────────
 // Use these inside components to avoid inline selector logic.
-
-export const selectIsUnlocked = (s: AnalyticsState): boolean =>
-  s.bootstrap?.unlock_status.unlocked ?? false
-
-export const selectUnlockStatus = (s: AnalyticsState) =>
-  s.bootstrap?.unlock_status ?? null
-
-export const selectAdvisory = (s: AnalyticsState) =>
-  s.bootstrap?.advisory ?? null
-
-export const selectFinancialStability = (s: AnalyticsState) =>
-  s.bootstrap?.financial_stability ?? null
 
 export const selectIsSectionRefreshing =
   (section: AnalyticsSectionKey) =>

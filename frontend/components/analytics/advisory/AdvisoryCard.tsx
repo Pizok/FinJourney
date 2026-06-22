@@ -38,7 +38,8 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronUp, ArrowRightLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useAnalyticsStore, selectAdvisory, selectFinancialStability } from '../stores/analyticsStore'
+import { useAnalyticsStore } from '../stores/analyticsStore'
+import { useAnalyticsData } from '../layout/AnalyticsContext'
 import type { AdvisoryPriority, ReductionTarget } from '../types/analytics.types'
 import { FinancialStabilityScore } from './FinancialStabilityScore'
 import { RecommendationsPanel, EXAMPLE_RECOMMENDATIONS } from './RecommendationsPanel'
@@ -92,7 +93,7 @@ function ReductionTargetRow({ target }: { target: ReductionTarget }) {
  * Contains the reduction targets and Rebalance Budget button.
  */
 function AdvisoryActionColumn() {
-  const advisory           = useAnalyticsStore(selectAdvisory)
+  const { advisory }       = useAnalyticsData()
   const openRebalanceModal = useAnalyticsStore((s) => s.openRebalanceModal)
 
   if (!advisory || advisory.reduction_targets.length === 0) return null
@@ -106,7 +107,7 @@ function AdvisoryActionColumn() {
 
       {/* ── Reduction targets ─────────────────────────────────────────── */}
       <div className="space-y-2">
-        {advisory.reduction_targets.map((target) => (
+        {advisory.reduction_targets.map((target: ReductionTarget) => (
           <ReductionTargetRow key={target.category_name} target={target} />
         ))}
       </div>
@@ -133,8 +134,7 @@ function AdvisoryActionColumn() {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export function AdvisoryCard() {
-  const advisory    = useAnalyticsStore(selectAdvisory)
-  const stability   = useAnalyticsStore(selectFinancialStability)
+  const { advisory, financial_stability: stability } = useAnalyticsData()
 
   const [isPanelOpen, setIsPanelOpen] = useState(false)
 

@@ -68,15 +68,13 @@ import type { BootstrapData } from '../types/dashboard.types';
  * If bootstrapData is provided, the Zustand store is hydrated with it.
  */
 export function DashboardShell({ bootstrapData }: { bootstrapData?: BootstrapData | null }) {
-  const { hydrateMock, setBootstrapData } = useDashboardStore();
+  const { setData } = useDashboardStore();
 
   useEffect(() => {
     if (bootstrapData) {
-      setBootstrapData(bootstrapData);
-    } else {
-      hydrateMock();
+      setData(bootstrapData);
     }
-  }, [bootstrapData, hydrateMock, setBootstrapData]);
+  }, [bootstrapData, setData]);
 
   return (
     <div className="flex min-h-screen bg-abyssal-slate">

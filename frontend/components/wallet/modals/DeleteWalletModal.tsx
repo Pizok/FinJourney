@@ -26,6 +26,7 @@
 // =============================================================================
 
 import { useState, useEffect } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   BaseModal, GhostButton, PrimaryButton, inputBase,
 } from './BaseModal';
@@ -62,43 +63,38 @@ export function DeleteWalletModal() {
     closeDeleteWallet();
   };
 
+  const queryClient = useQueryClient();
+
+  const deleteWalletMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/v1/wallets/${id}`, {
+        method: 'DELETE',
+      });
+      // 204 No Content for success
+      if (!response.ok) {
+        let errorMsg = 'Failed to delete wallet';
+        try {
+          const json = await response.json();
+          errorMsg = json.error?.message || errorMsg;
+        } catch {}
+        throw new Error(errorMsg);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['wallet', 'bootstrap'] });
+      handleClose();
+    },
+    onError: (err: any) => {
+      setGlobalError(err.message);
+    }
+  });
+
   // -------------------------------------------------------------------------
   // Delete handler
   // -------------------------------------------------------------------------
   const handleDelete = async () => {
     if (!wallet || !canDelete) return;
-
-    // -----------------------------------------------------------------------
-    // Optimistic remove — wallet disappears immediately from the card list.
-    // If the server call fails, the wallet is re-added.
-    // -----------------------------------------------------------------------
-    removeWallet(wallet.id);
-    handleClose();
-
-    // -----------------------------------------------------------------------
-    // TODO: Uncomment real mutation when API is live
-    // -----------------------------------------------------------------------
-    // setLoading('mutation', true);
-    // try {
-    //   const response = await fetch(`/api/v1/wallets/${wallet.id}`, {
-    //     method: 'DELETE',
-    //     headers: {
-    //       // Authorization: `Bearer ${supabaseSession.access_token}`,
-    //     },
-    //   });
-    //   const json = await response.json();
-    //   if (!json.success) {
-    //     // Re-add the wallet — server did not delete it
-    //     addWallet(wallet);
-    //     setGlobalError(json.error?.message ?? 'Failed to delete wallet. Please try again.');
-    //   }
-    // } catch {
-    //   addWallet(wallet);
-    //   setGlobalError('Network error — wallet could not be deleted.');
-    // } finally {
-    //   setLoading('mutation', false);
-    // }
-    // -----------------------------------------------------------------------
+    deleteWalletMutation.mutate(wallet.id);
   };
 
   if (!wallet) return null;
@@ -217,19 +213,19 @@ export function DeleteWalletModal() {
 
       {/* Footer */}
       <div className="mt-4 flex items-center justify-end gap-3 border-t border-[var(--color-tactical-border)] px-6 py-4">
-        <GhostButton onClick={handleClose} disabled={loading.mutation}>
+        <GhostButton onClick={handleClose} disabled={deleteWalletMutation.isPending}>
           Cancel
         </GhostButton>
 
         {/* Exact CTA copy per spec: "Delete Wallet" */}
         <PrimaryButton
           onClick={handleDelete}
-          disabled={!canDelete}
+          disabled={!canDelete || deleteWalletMutation.isPending}
           danger
-          aria-disabled={!canDelete}
-          aria-busy={loading.mutation}
+          aria-disabled={!canDelete || deleteWalletMutation.isPending}
+          aria-busy={deleteWalletMutation.isPending}
         >
-          {loading.mutation ? 'Deleting…' : 'Delete Wallet'}
+          {deleteWalletMutation.isPending ? 'Deleting…' : 'Delete Wallet'}
         </PrimaryButton>
       </div>
     </BaseModal>

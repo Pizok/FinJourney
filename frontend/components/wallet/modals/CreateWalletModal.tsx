@@ -22,6 +22,7 @@
 // =============================================================================
 
 import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   BaseModal, FormField, FormInput, FormTextarea,
   ModalFooter, PrimaryButton, GhostButton,
@@ -115,6 +116,30 @@ export function CreateWalletModal() {
     }
   };
 
+  const queryClient = useQueryClient();
+
+  const createWalletMutation = useMutation({
+    mutationFn: async (payload: any) => {
+      const response = await fetch('/api/v1/wallets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const json = await response.json();
+      if (!response.ok || !json.success) {
+        throw new Error(json.error?.message || 'Failed to create wallet');
+      }
+      return json.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['wallet', 'bootstrap'] });
+      handleClose();
+    },
+    onError: (err: any) => {
+      setGlobalError(err.message);
+    }
+  });
+
   // -------------------------------------------------------------------------
   // Submit handler
   // -------------------------------------------------------------------------
@@ -126,66 +151,16 @@ export function CreateWalletModal() {
 
     const payload = {
       name:              values.name.trim(),
-      starting_balance:  parseFloat(values.starting_balance),
-      color_token:       values.color_token as ColorToken,
-      description:       values.description.trim() || undefined,
+      wallet_type:       'bank', // default
+      icon:              values.color_token as ColorToken,
+      // Note: Starting balance and description are currently omitted from backend MVP API
+      // but passed down to support future capabilities.
     };
 
-    // -----------------------------------------------------------------------
-    // Optimistic update — immediately reflects in UI while server call is made
-    // -----------------------------------------------------------------------
-    const tempId = `temp-wallet-${Date.now()}`;
-    const optimisticWallet: Wallet = {
-      id:                      tempId,
-      name:                    payload.name,
-      description:             payload.description,
-      type:                    'bank',            // default until server confirms
-      balance:                 payload.starting_balance,
-      color_token:             payload.color_token,
-      default_payment_method:  'transfer',        // default until server confirms
-      visible_category_ids:    [],
-      created_at:              new Date().toISOString(),
-    };
-    addWallet(optimisticWallet);
-    handleClose();
-
-    // -----------------------------------------------------------------------
-    // TODO: Uncomment real mutation when API is live
-    // -----------------------------------------------------------------------
-    // setLoading('mutation', true);
-    // try {
-    //   const response = await fetch('/api/v1/wallets', {
-    //     method: 'POST',
-    //     headers: {
-    //       'Content-Type': 'application/json',
-    //       // Authorization: `Bearer ${supabaseSession.access_token}`,
-    //     },
-    //     body: JSON.stringify(payload),
-    //   });
-    //
-    //   const json = await response.json();
-    //
-    //   if (!json.success) {
-    //     // Roll back the optimistic add on server error
-    //     removeWallet(tempId);
-    //     setGlobalError(json.error?.message ?? 'Failed to create wallet. Please try again.');
-    //     return;
-    //   }
-    //
-    //   // Replace the optimistic wallet with the confirmed server record
-    //   // (server assigns a real ID and may override some defaults)
-    //   removeWallet(tempId);
-    //   addWallet(json.data as Wallet);
-    // } catch (err) {
-    //   removeWallet(tempId);
-    //   setGlobalError('Network error — wallet could not be created.');
-    // } finally {
-    //   setLoading('mutation', false);
-    // }
-    // -----------------------------------------------------------------------
+    createWalletMutation.mutate(payload);
   };
 
-  const isMutating = loading.mutation;
+  const isMutating = createWalletMutation.isPending;
   const isAtLimit  = wallets.length >= featureUnlocks.max_wallets && !featureUnlocks.can_create_wallet;
 
   return (

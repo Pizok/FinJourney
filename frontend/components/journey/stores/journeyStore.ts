@@ -342,7 +342,6 @@ interface JourneyStore {
   // These are populated when TanStack Query resolves, so components
   // don't need to prop-drill the payload through the tree.
   bootstrap: BootstrapPayload | null;
-  overview: JourneyOverview | null;
 
   // ── Notification state ────────────────────────────────────────────────────
   /** Optimistically track which notification IDs the user has seen */
@@ -359,9 +358,6 @@ interface JourneyStore {
 
   /** Hydrate the store from a resolved bootstrap API response */
   setBootstrap: (data: BootstrapPayload) => void;
-
-  /** Hydrate the store from a resolved journey overview API response */
-  setOverview: (data: JourneyOverview) => void;
 
   /** Open the Region Detail modal with optimistic summary data */
   openRegionModal: (regionId: string, summary: CurrentRegion) => void;
@@ -393,16 +389,12 @@ export const useJourneyStore = create<JourneyStore>()(
       // ── Initial state ────────────────────────────────────────────────────
       useMockData: process.env.NODE_ENV === "development",
       bootstrap: null,
-      overview: null,
       readNotificationIds: new Set<string>(),
       activeModal: null,
 
       // ── Data hydration ────────────────────────────────────────────────────
       setBootstrap: (data) =>
         set({ bootstrap: data }, false, "journey/setBootstrap"),
-
-      setOverview: (data) =>
-        set({ overview: data }, false, "journey/setOverview"),
 
       // ── Modal actions ──────────────────────────────────────────────────────
       openRegionModal: (regionId, summary) =>
@@ -488,12 +480,6 @@ export const useModalActions = () =>
 export const useBootstrapData = (): BootstrapPayload =>
   useJourneyStore((s) =>
     s.useMockData ? MOCK_BOOTSTRAP : (s.bootstrap ?? MOCK_BOOTSTRAP)
-  );
-
-/** Returns the effective journey overview data — live API or mock */
-export const useOverviewData = (): JourneyOverview =>
-  useJourneyStore((s) =>
-    s.useMockData ? MOCK_JOURNEY_OVERVIEW : (s.overview ?? MOCK_JOURNEY_OVERVIEW)
   );
 
 /** Returns unread notification count adjusted for optimistic reads */

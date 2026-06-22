@@ -29,11 +29,13 @@
 
 import { useEffect, useRef, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { X, CheckCircle, AlertCircle, Target, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAnalyticsStore } from '../stores/analyticsStore'
+import { apiFetchClient } from '@/lib/apiClient.client'
 
 // ─── Zod Schema ───────────────────────────────────────────────────────────────
 
@@ -177,7 +179,7 @@ function SuccessState({ onClose }: { onClose: () => void }) {
 // ─── Modal Body ───────────────────────────────────────────────────────────────
 
 function ModalBody({ onClose }: { onClose: () => void }) {
-  const markSectionsRefreshing = useAnalyticsStore((s) => s.markSectionsRefreshing)
+  const queryClient = useQueryClient()
 
   const [isSuccess,    setIsSuccess   ] = useState(false)
   const [submitError,  setSubmitError ] = useState<string | null>(null)
@@ -206,32 +208,30 @@ function ModalBody({ onClose }: { onClose: () => void }) {
       ? formatCurrency(Number(watchedAmount))
       : null
 
-  async function onSubmit(data: SavingsGoalFormData) {
-    setSubmitError(null)
-
-    try {
-      const response = await fetch('/api/v1/analytics/savings-target', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
+  const mutation = useMutation({
+    mutationFn: async (data: SavingsGoalFormData) => {
+      return await apiFetchClient('analytics/savings-target', {
+        method: 'POST',
+        body: JSON.stringify({
           name:     data.name.trim(),
           amount:   data.amount,
           deadline: data.deadline,
         }),
       })
-
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}))
-        throw new Error(body?.error?.message ?? 'Failed to save goal.')
-      }
-
+    },
+    onSuccess: () => {
       setIsSuccess(true)
-      // asset_health.savings_target_progress updates after this action
-      markSectionsRefreshing(['asset_health'])
+      queryClient.invalidateQueries({ queryKey: ['analytics', 'overview'] })
       setTimeout(onClose, 2_000)
-    } catch (e) {
+    },
+    onError: (e: any) => {
       setSubmitError(e instanceof Error ? e.message : 'An unexpected error occurred.')
-    }
+    },
+  })
+
+  function onSubmit(data: SavingsGoalFormData) {
+    setSubmitError(null)
+    mutation.mutate(data)
   }
 
   if (isSuccess) return <SuccessState onClose={onClose} />
@@ -348,7 +348,7 @@ function ModalBody({ onClose }: { onClose: () => void }) {
         </button>
         <button
           type="submit"
-          disabled={isSubmitting}
+          disabled={mutation.isPending}
           className={cn(
             'rounded-lg bg-muted-emerald px-5 py-2.5',
             'font-display text-sm font-semibold text-pearl-text',
@@ -356,7 +356,7 @@ function ModalBody({ onClose }: { onClose: () => void }) {
             'disabled:cursor-not-allowed disabled:opacity-40',
           )}
         >
-          {isSubmitting ? 'Saving…' : 'Save Goal'}
+          {mutation.isPending ? 'Saving…' : 'Save Goal'}
         </button>
       </div>
     </form>

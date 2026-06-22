@@ -45,10 +45,8 @@ import { BookOpen, RefreshCw } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { HistoryEvent } from "./HistoryEvent";
-import {
-  useOverviewData,
-  useJourneyStore,
-} from "@/components/journey/stores/journeyStore";
+import { useJourneyStore } from "@/components/journey/stores/journeyStore";
+import { useJourneyData } from "../layout/JourneyContext";
 import {
   JOURNEY_QUERY_KEYS,
   type HistoryPage,
@@ -177,7 +175,7 @@ export interface HistorySectionProps {
 }
 
 export function HistorySection({ isLoading = false }: HistorySectionProps) {
-  const overview = useOverviewData();
+  const overview = useJourneyData();
   const useMockData = useJourneyStore((s) => s.useMockData);
 
   // ── Mock mode state ──────────────────────────────────────────────────────

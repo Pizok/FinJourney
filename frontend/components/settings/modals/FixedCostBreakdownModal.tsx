@@ -329,25 +329,35 @@ export function FixedCostBreakdownModal({ onClose }: FixedCostBreakdownModalProp
 
   return (
     <Modal
+      isOpen={true}
       title="Fixed Costs Breakdown"
       onClose={onClose}
       size="md"
-      footer={footer}
     >
-      {isLoading && <LoadingState />}
+      <Modal.Header>
+        <h2 className="font-display text-lg font-semibold text-pearl-text">
+          Fixed Costs Breakdown
+        </h2>
+      </Modal.Header>
+      
+      <Modal.Body>
+        {isLoading && <LoadingState />}
 
-      {isError && (
-        <ErrorState
-          message={
-            error instanceof Error
-              ? error.message
-              : 'Something went wrong loading the breakdown.'
-          }
-          onRetry={() => refetch()}
-        />
-      )}
+        {isError && (
+          <ErrorState
+            message={
+              error instanceof Error
+                ? error.message
+                : 'Something went wrong loading the breakdown.'
+            }
+            onRetry={() => refetch()}
+          />
+        )}
 
-      {data && <BreakdownContent data={data} />}
+        {data && <BreakdownContent data={data} />}
+      </Modal.Body>
+      
+      <Modal.Footer>{footer}</Modal.Footer>
     </Modal>
   )
 }

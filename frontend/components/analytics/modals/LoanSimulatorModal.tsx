@@ -41,11 +41,11 @@
  */
 
 import { useEffect, useRef } from 'react'
-import { X, TrendingUp, TrendingDown, Minus, AlertCircle, FlaskConical } from 'lucide-react'
+import { X, Calendar, AlertCircle, FlaskConical, AlertTriangle, CheckCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAnalyticsStore } from '../stores/analyticsStore'
 import { useLoanSimulator } from '../hooks/useLoanSimulator'
-import type { HealthStatus } from '../types/analytics.types'
+import type { LoanSimulationResult } from '../types/analytics.types'
 
 // ─── Formatting ───────────────────────────────────────────────────────────────
 
@@ -57,28 +57,21 @@ const formatCurrency = (amount: number): string =>
 
 // ─── Status Config ────────────────────────────────────────────────────────────
 
-// Using a Map instead of a plain Record so that STATUS_CONFIG[status] bracket
-// access on server-supplied HealthStatus values is replaced with Map.get().
-const STATUS_CONFIG = new Map<HealthStatus, { label: string; badgeClass: string }>([
-  ['good',    { label: 'Good',      badgeClass: 'bg-muted-emerald/10 text-muted-emerald border-muted-emerald/20'  }],
-  ['warning', { label: 'Warning',   badgeClass: 'bg-dawn-gold/10 text-dawn-gold border-dawn-gold/20'             }],
-  ['bad',     { label: 'High Risk', badgeClass: 'bg-terracotta/10 text-terracotta border-terracotta/20'           }],
-])
+// Removed STATUS_CONFIG as it's no longer used for HealthStatus.
 
-function StatusBadge({ status }: { status: HealthStatus }) {
-  // Map.get() — no bracket notation on server-supplied status value (CWE-94 safe).
-  const cfg = STATUS_CONFIG.get(status)!
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-md border px-2 py-0.5',
-        'font-sans text-xs font-medium',
-        cfg.badgeClass,
-      )}
-    >
-      {cfg.label}
-    </span>
-  )
+// ─── Formatting ───────────────────────────────────────────────────────────────
+
+const formatMonthDuration = (months: number): string => {
+  if (months === 1) return '1 month'
+  if (months < 12) return `${months} months`
+  const years = Math.floor(months / 12)
+  const remainingMonths = months % 12
+  if (remainingMonths === 0) return years === 1 ? '1 year' : `${years} years`
+  return `${years}y ${remainingMonths}m`
+}
+
+const formatDate = (dateString: string) => {
+  return new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(new Date(dateString))
 }
 
 // ─── Modal Shell ──────────────────────────────────────────────────────────────
@@ -115,51 +108,59 @@ function ModalShell({ onClose, children }: { onClose: () => void; children: Reac
   )
 }
 
-// ─── Result Panel ─────────────────────────────────────────────────────────────
-
 interface ResultPanelProps {
-  currentDti:    number
-  currentStatus: HealthStatus
-  projectedDti:  number
-  projectedStatus: HealthStatus
+  result: LoanSimulationResult
   impactMessage: string
 }
 
 function ResultPanel({
-  currentDti,
-  currentStatus,
-  projectedDti,
-  projectedStatus,
+  result,
   impactMessage,
 }: ResultPanelProps) {
-  const delta      = projectedDti - currentDti
-  const DeltaIcon  = delta > 0 ? TrendingUp : delta < 0 ? TrendingDown : Minus
-  const deltaClass = delta > 0 ? 'text-terracotta' : delta < 0 ? 'text-muted-emerald' : 'text-muted-text'
+  if (!result.is_payable) {
+    return (
+      <div className="space-y-4">
+        {/* Unpayable Status */}
+        <div className="rounded-lg border border-terracotta/30 bg-terracotta/10 p-4">
+          <div className="mb-3 flex items-center gap-2 text-terracotta">
+            <AlertTriangle className="h-5 w-5" strokeWidth={2} />
+            <h3 className="font-display text-base font-semibold">Unpayable Loan</h3>
+          </div>
+          <p className="font-sans text-sm leading-relaxed text-terracotta/90">
+            {impactMessage}
+          </p>
+        </div>
+        {/* No-mutation notice */}
+        <p className="font-sans text-xs text-muted-text/60">
+          This is a simulation only. No loan has been created and no financial
+          data has been modified.
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4">
-      {/* Projected DTI Status */}
+      {/* Projected Payoff Timeline */}
       <div className="rounded-lg border border-tactical-border bg-abyssal-slate/50 p-4">
-        <p className="mb-3 font-sans text-xs uppercase tracking-wide text-muted-text">
-          Projected Debt-to-Income Status
-        </p>
-
-        {/* DTI numbers — current → projected */}
-        <div className="mb-3 flex items-center gap-3">
-          <span className="font-display text-2xl font-semibold text-pearl-text">
-            {currentDti.toFixed(1)}%
-          </span>
-          <DeltaIcon className={cn('h-4 w-4 shrink-0', deltaClass)} strokeWidth={2} />
-          <span className={cn('font-display text-2xl font-semibold', deltaClass)}>
-            {projectedDti.toFixed(1)}%
-          </span>
-        </div>
-
-        {/* Status badges — current → projected */}
-        <div className="flex items-center gap-2">
-          <StatusBadge status={currentStatus} />
-          <span className="font-sans text-xs text-muted-text">→</span>
-          <StatusBadge status={projectedStatus} />
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="mb-1 font-sans text-xs uppercase tracking-wide text-muted-text">
+              Projected Payoff Timeline
+            </p>
+            <div className="flex items-baseline gap-2">
+              <span className="font-display text-2xl font-semibold text-pearl-text">
+                {formatMonthDuration(result.projected_months || 0)}
+              </span>
+              <span className="font-sans text-sm text-muted-text">
+                ({formatDate(result.debt_free_date || '')})
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 rounded-full bg-muted-emerald/10 px-2.5 py-1 text-muted-emerald">
+            <CheckCircle className="h-4 w-4" strokeWidth={2} />
+            <span className="font-sans text-xs font-medium">Payable</span>
+          </div>
         </div>
       </div>
 
@@ -186,9 +187,9 @@ function ResultPanel({
 
 function ModalBody({ onClose }: { onClose: () => void }) {
   const {
-    monthlyInstallment, setMonthlyInstallment,
-    parsedInstallment,
-    currentDti, currentStatus,
+    monthlyPayment, setMonthlyPayment, parsedPayment,
+    remainingDebt, setRemainingDebt, parsedDebt,
+    interestRate, setInterestRate, parsedInterest,
     result, impactMessage,
     isLoading, error,
     simulate, reset,
@@ -224,58 +225,108 @@ function ModalBody({ onClose }: { onClose: () => void }) {
       {/* ── Content ─────────────────────────────────────────────────────── */}
       <div className="space-y-5 p-6">
 
-        {/* Input + simulate button */}
-        <div>
-          <label
-            htmlFor="monthly-installment"
-            className="mb-1.5 block font-sans text-sm font-medium text-muted-text"
-          >
-            Monthly Installment
-          </label>
-          <div className="flex gap-3">
-            <div className="relative flex-1">
+        {/* Inputs */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {/* Principal */}
+          <div className="sm:col-span-2">
+            <label htmlFor="remaining-debt" className="mb-1.5 block font-sans text-sm font-medium text-muted-text">
+              Loan Principal <span className="text-terracotta">*</span>
+            </label>
+            <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 font-sans text-sm text-muted-text">
                 Rp
               </span>
               <input
-                id="monthly-installment"
+                id="remaining-debt"
+                type="number"
+                min={0}
+                step={100_000}
+                value={remainingDebt}
+                onChange={(e) => setRemainingDebt(e.target.value)}
+                placeholder="10,000,000"
+                className={cn(
+                  'w-full rounded-lg border border-tactical-border bg-abyssal-slate py-2.5 pl-9 pr-4',
+                  'font-sans text-sm text-pearl-text placeholder:text-muted-text/40',
+                  'focus:border-muted-emerald/50 focus:outline-none transition-colors duration-150',
+                )}
+              />
+            </div>
+          </div>
+
+          {/* Monthly Payment */}
+          <div>
+            <label htmlFor="monthly-payment" className="mb-1.5 block font-sans text-sm font-medium text-muted-text">
+              Monthly Payment <span className="text-terracotta">*</span>
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 font-sans text-sm text-muted-text">
+                Rp
+              </span>
+              <input
+                id="monthly-payment"
                 type="number"
                 min={0}
                 step={50_000}
-                value={monthlyInstallment}
-                onChange={(e) => setMonthlyInstallment(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && simulate()}
+                value={monthlyPayment}
+                onChange={(e) => setMonthlyPayment(e.target.value)}
                 placeholder="500,000"
                 className={cn(
                   'w-full rounded-lg border border-tactical-border bg-abyssal-slate py-2.5 pl-9 pr-4',
                   'font-sans text-sm text-pearl-text placeholder:text-muted-text/40',
                   'focus:border-muted-emerald/50 focus:outline-none transition-colors duration-150',
-                  error && !result && 'border-terracotta/50',
                 )}
               />
             </div>
-            <button
-              type="button"
-              onClick={simulate}
-              disabled={isLoading || parsedInstallment <= 0}
-              className={cn(
-                'flex shrink-0 items-center gap-2 rounded-lg px-4 py-2.5',
-                'border border-tactical-border font-display text-sm font-medium text-muted-text',
-                'transition-colors duration-150 hover:border-steel-violet/40 hover:text-pearl-text',
-                'disabled:cursor-not-allowed disabled:opacity-40',
-              )}
-            >
-              <FlaskConical className="h-4 w-4" strokeWidth={2} />
-              {isLoading ? 'Running…' : 'Simulate'}
-            </button>
           </div>
 
-          {/* Formatted value preview */}
-          {parsedInstallment > 0 && (
-            <p className="mt-1.5 font-sans text-xs text-muted-text">
-              {formatCurrency(parsedInstallment)} per month
-            </p>
-          )}
+          {/* Interest Rate */}
+          <div>
+            <label htmlFor="interest-rate" className="mb-1.5 block font-sans text-sm font-medium text-muted-text">
+              Interest Rate (Annual)
+            </label>
+            <div className="relative">
+              <input
+                id="interest-rate"
+                type="number"
+                min={0}
+                step={0.1}
+                value={interestRate}
+                onChange={(e) => setInterestRate(e.target.value)}
+                placeholder="10.5"
+                className={cn(
+                  'w-full rounded-lg border border-tactical-border bg-abyssal-slate py-2.5 pl-4 pr-8',
+                  'font-sans text-sm text-pearl-text placeholder:text-muted-text/40',
+                  'focus:border-muted-emerald/50 focus:outline-none transition-colors duration-150',
+                )}
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 font-sans text-sm text-muted-text">
+                %
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Simulate Button Container */}
+        <div className="flex items-center justify-between">
+          <div className="text-xs text-muted-text/60">
+            {parsedDebt > 0 && parsedPayment > 0 && (
+              <span>Ready to project payoff timeline.</span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={simulate}
+            disabled={isLoading || parsedDebt <= 0 || parsedPayment <= 0}
+            className={cn(
+              'flex shrink-0 items-center gap-2 rounded-lg bg-muted-emerald px-4 py-2.5',
+              'font-display text-sm font-semibold text-pearl-text',
+              'transition-colors duration-150 hover:bg-muted-emerald/90',
+              'disabled:cursor-not-allowed disabled:opacity-40',
+            )}
+          >
+            <FlaskConical className="h-4 w-4" strokeWidth={2} />
+            {isLoading ? 'Running…' : 'Simulate'}
+          </button>
         </div>
 
         {/* Error */}
@@ -290,18 +341,15 @@ function ModalBody({ onClose }: { onClose: () => void }) {
         {!result && !error && (
           <div className="flex items-center justify-center rounded-lg border border-tactical-border/50 bg-abyssal-slate/30 py-8">
             <p className="font-sans text-sm text-muted-text/60">
-              Enter an installment amount and run a simulation to see results.
+              Enter the loan details and run a simulation to see results.
             </p>
           </div>
         )}
 
         {/* Result panel — rendered only after successful simulation */}
-        {result && currentDti !== null && currentStatus !== null && impactMessage && (
+        {result && impactMessage && (
           <ResultPanel
-            currentDti={currentDti}
-            currentStatus={currentStatus}
-            projectedDti={result.projected_dti}
-            projectedStatus={result.projected_status}
+            result={result}
             impactMessage={impactMessage}
           />
         )}

@@ -23,6 +23,7 @@
 // =============================================================================
 
 import { useState, useCallback } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   BaseModal, FormField, FormInput, FormTextarea, FormSelect,
   ModalFooter, PrimaryButton, GhostButton,
@@ -123,6 +124,7 @@ export function AddTransactionModal() {
     ui: { isAddTransactionOpen },
     closeAddTransaction,
     optimisticAddTransaction,
+    setGlobalError,
   } = useWalletStore();
 
   const [values, setValues] = useState<FormValues>(defaultValues);
@@ -148,67 +150,52 @@ export function AddTransactionModal() {
     });
   };
 
+  const queryClient = useQueryClient();
+
+  const addTransactionMutation = useMutation({
+    mutationFn: async (payload: any) => {
+      const response = await fetch('/api/v1/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const json = await response.json();
+      if (!response.ok || !json.success) {
+        throw new Error(json.error?.message || 'Failed to add transaction');
+      }
+      return json.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['wallet', 'bootstrap'] });
+      handleClose();
+    },
+    onError: (err: any) => {
+      // rollback is handled automatically if we don't optimistically update,
+      // but since we want consistency, we'll just invalidate instead of custom rolling back.
+      setGlobalError(err.message);
+    }
+  });
+
   const handleSubmit = () => {
     setSubmitted(true);
     const errs = validate(values);
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
 
-    const selectedWallet = wallets.find((w) => w.id === values.wallet_id);
-    if (!selectedWallet) return;
-
-    const selectedCategory = categories.find((c) => c.id === values.category_id);
-
-    const tempId = `temp-tx-${Date.now()}`;
-    const newTx: Transaction = {
-      id:                  tempId,
-      type:                values.type,
-      amount:              parseFloat(values.amount),
-      wallet_id:           values.wallet_id,
-      wallet_name:         selectedWallet.name,
-      category_id:         values.category_id || undefined,
-      category_name:       selectedCategory?.name,
-      payment_method:      values.payment_method,
-      note:                values.note.trim() || undefined,
-      created_at:          new Date(values.transaction_date).toISOString(),
-      is_adjustment_event: false,
+    const payload = {
+      type: values.type,
+      amount: parseFloat(values.amount),
+      wallet_id: values.wallet_id,
+      category_id: values.category_id || undefined,
+      payment_method: values.payment_method,
+      note: values.note.trim() || undefined,
+      transaction_date: values.transaction_date,
     };
 
-    optimisticAddTransaction(newTx);
-    handleClose();
-
-    // -----------------------------------------------------------------------
-    // TODO: Uncomment real mutation when API is live
-    // -----------------------------------------------------------------------
-    // try {
-    //   const res = await fetch('/api/v1/transactions', {
-    //     method: 'POST',
-    //     headers: { 'Content-Type': 'application/json' },
-    //     body: JSON.stringify({
-    //       type: values.type,
-    //       amount: parseFloat(values.amount),
-    //       wallet_id: values.wallet_id,
-    //       category_id: values.category_id || undefined,
-    //       payment_method: values.payment_method,
-    //       note: values.note.trim() || undefined,
-    //       transaction_date: values.transaction_date,
-    //     }),
-    //   });
-    //   const json = await res.json();
-    //   if (!json.success) {
-    //     rollbackTransaction(tempId);
-    //     setGlobalError(json.error?.message ?? 'Failed to add transaction.');
-    //   } else {
-    //     confirmTransaction(tempId, json.data);
-    //   }
-    // } catch {
-    //   rollbackTransaction(tempId);
-    //   setGlobalError('Network error — transaction could not be saved.');
-    // }
-    // -----------------------------------------------------------------------
+    addTransactionMutation.mutate(payload);
   };
 
-  const isMutating = loading.mutation;
+  const isMutating = addTransactionMutation.isPending;
 
   return (
     <BaseModal

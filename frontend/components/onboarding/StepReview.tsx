@@ -153,7 +153,7 @@ function ConfirmModal({
           ))}
         </div>
 
-        <PrimaryButton onClick={onConfirm} disabled={isSubmitting} loading={isSubmitting}>
+        <PrimaryButton onClick={onConfirm} disabled={isSubmitting}>
           {isSubmitting ? 'Entering...' : 'Enter dashboard'}
         </PrimaryButton>
         <GhostButton

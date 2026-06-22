@@ -60,6 +60,8 @@ import { TimelineSection } from "../features/TimelineSection";
 import { QuarterlyReviewSection } from "../features/QuarterlyReviewSection";
 import { PassportSection } from "../features/PassportSection";
 import { HistorySection } from "../features/HistorySection";
+import { JourneyProvider } from "./JourneyContext";
+import { MOCK_JOURNEY_OVERVIEW } from "../stores/journeyStore";
 
 // ── Modal import (Part 4) ───────────────────────────────────────────────────────────
 import { JourneyModals } from "../modals/JourneyModals";
@@ -208,11 +210,11 @@ function CriticalFailureOverlay() {
 // ─── JourneyPageClient ────────────────────────────────────────────────────────
 
 export function JourneyPageClient() {
-  const { setOverview } = useJourneyStore();
   const activeModal = useActiveModal();
   const { closeModal } = useModalActions();
-  const bootstrapData = useBootstrapData();
   const queryClient = useQueryClient();
+
+  const isMockData = process.env.NEXT_PUBLIC_USE_MOCK_DATA === "true";
 
   // ── TanStack Query — GET /api/v1/journey/overview ─────────────────────────
   const { data, isLoading, isError, refetch } = useQuery({
@@ -220,14 +222,10 @@ export function JourneyPageClient() {
     queryFn: fetchJourneyOverview,
     staleTime: 60_000,
     refetchOnWindowFocus: true,
+    enabled: !isMockData,
   });
 
-  // ── Store hydration ───────────────────────────────────────────────────────
-  useEffect(() => {
-    if (data) {
-      setOverview(data);
-    }
-  }, [data, setOverview]);
+  const resolvedData = isMockData ? MOCK_JOURNEY_OVERVIEW : data;
 
   // ── Keyboard: Escape → closeModal ─────────────────────────────────────────
   useEffect(() => {
@@ -241,7 +239,7 @@ export function JourneyPageClient() {
   }, [activeModal, closeModal]);
 
   // ── Loading state ─────────────────────────────────────────────────────────
-  if (isLoading && !bootstrapData) {
+  if (isLoading && !resolvedData) {
     return (
       <div
         className="flex flex-col gap-8 animate-pulse py-8"
@@ -263,11 +261,12 @@ export function JourneyPageClient() {
   }
 
   // ── Error state ───────────────────────────────────────────────────────────
-  if (isError && !bootstrapData) {
+  if (isError && !resolvedData) {
     return <PageError onRetry={() => refetch()} />;
   }
 
   // ── Critical failure overlay ──────────────────────────────────────────────
+  const bootstrapData = useBootstrapData();
   const isCriticalFailure = bootstrapData?.player_state?.critical_failure === true;
 
   return (
@@ -275,26 +274,30 @@ export function JourneyPageClient() {
       {/* Critical failure overlay — dims and freezes progression */}
       {isCriticalFailure && <CriticalFailureOverlay />}
 
-      {/* Section 1 — Header (level, XP, HP, path) */}
-      <JourneyHeader isLoading={isLoading} />
+      {resolvedData && (
+        <JourneyProvider overview={resolvedData}>
+          {/* Section 1 — Header (level, XP, HP, path) */}
+          <JourneyHeader isLoading={isLoading} />
 
-      {/* Section 2 — Region Overview (current region + progress) */}
-      <RegionOverview />
+          {/* Section 2 — Region Overview (current region + progress) */}
+          <RegionOverview />
 
-      {/* Section 3 — 12-Month Timeline */}
-      <TimelineSection />
+          {/* Section 3 — 12-Month Timeline */}
+          <TimelineSection />
 
-      {/* Section 4 — Quarterly Review */}
-      <QuarterlyReviewSection />
+          {/* Section 4 — Quarterly Review */}
+          <QuarterlyReviewSection />
 
-      {/* Section 5 — Passport Stamps */}
-      <PassportSection />
+          {/* Section 5 — Passport Stamps */}
+          <PassportSection />
 
-      {/* Section 6 — Journey History (last 30 events) */}
-      <HistorySection />
+          {/* Section 6 — Journey History (last 30 events) */}
+          <HistorySection />
 
-      {/* Modal portal (RegionDetailModal, ReviewDetailModal, PassportDetailModal) */}
-      <JourneyModals />
+          {/* Modal portal (RegionDetailModal, ReviewDetailModal, PassportDetailModal) */}
+          <JourneyModals />
+        </JourneyProvider>
+      )}
     </div>
   );
 }

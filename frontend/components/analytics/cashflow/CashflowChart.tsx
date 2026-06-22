@@ -45,6 +45,7 @@ import {
 import { TrendingUp, TrendingDown, BarChart2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAnalyticsStore } from '../stores/analyticsStore'
+import { useAnalyticsData } from '../layout/AnalyticsContext'
 import type { TimeRange, CashflowDataPoint } from '../types/analytics.types'
 
 // ─── Formatting Utilities ─────────────────────────────────────────────────────
@@ -282,7 +283,7 @@ function CashflowChartBody({ series, timeRange }: CashflowChartBodyProps) {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function CashflowChart() {
-  const cashflow  = useAnalyticsStore((s) => s.bootstrap?.cashflow ?? null)
+  const { cashflow } = useAnalyticsData()
   const timeRange = useAnalyticsStore((s) => s.timeRange)
 
   const isEmpty = !cashflow || cashflow.series.length === 0

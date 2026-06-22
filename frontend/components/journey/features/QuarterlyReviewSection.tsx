@@ -30,7 +30,8 @@ import { Trophy } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Card } from "@/components/ui/Card";
 import { ReviewCard } from "./ReviewCard";
-import { useOverviewData, useModalActions } from "@/components/journey/stores/journeyStore";
+import { useModalActions } from "@/components/journey/stores/journeyStore";
+import { useJourneyData } from "../layout/JourneyContext";
 import type { QuarterlyReview } from "@/components/journey/types/journey.types";
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
@@ -99,7 +100,7 @@ export interface QuarterlyReviewSectionProps {
 export function QuarterlyReviewSection({
   isLoading = false,
 }: QuarterlyReviewSectionProps) {
-  const overview = useOverviewData();
+  const overview = useJourneyData();
   const { openReviewModal } = useModalActions();
 
   const handleReviewClick = useCallback(

@@ -25,6 +25,7 @@
 // =============================================================================
 
 import { useWalletStore } from '@/components/wallet/stores/walletStore';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   BaseModal, ModalFooter, GhostButton, PrimaryButton,
 } from './BaseModal';
@@ -92,49 +93,37 @@ export function DeleteTransactionModal() {
 
   const handleClose = () => closeDeleteTransaction();
 
+  const queryClient = useQueryClient();
+
+  const deleteTransactionMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/v1/transactions/${id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        let errorMsg = 'Failed to delete transaction';
+        try {
+          const json = await response.json();
+          errorMsg = json.error?.message || errorMsg;
+        } catch {}
+        throw new Error(errorMsg);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['wallet', 'bootstrap'] });
+      handleClose();
+    },
+    onError: (err: any) => {
+      setGlobalError(err.message);
+    }
+  });
+
   // -------------------------------------------------------------------------
   // Delete handler
   // -------------------------------------------------------------------------
   const handleDelete = async () => {
     if (!transaction) return;
-
-    // -----------------------------------------------------------------------
-    // Optimistic remove — row vanishes from the table immediately.
-    // The server executes a soft delete + adjustment event.
-    // If the server call fails, the UI is re-synced on next fetch.
-    // -----------------------------------------------------------------------
-    optimisticDeleteTransaction(transaction.id);
-    handleClose();
-
-    // -----------------------------------------------------------------------
-    // TODO: Uncomment real mutation when API is live
-    // -----------------------------------------------------------------------
-    // setLoading('mutation', true);
-    // try {
-    //   const response = await fetch(`/api/v1/transactions/${transaction.id}`, {
-    //     method: 'DELETE',
-    //     headers: {
-    //       // Authorization: `Bearer ${supabaseSession.access_token}`,
-    //     },
-    //   });
-    //   const json = await response.json();
-    //
-    //   if (!json.success) {
-    //     // The row was not deleted — re-fetch to reconcile local state.
-    //     // We don't attempt to re-insert manually because the adjustment
-    //     // event may have partially applied on the server.
-    //     setGlobalError(
-    //       json.error?.message ?? 'Failed to delete transaction. Please refresh and try again.',
-    //     );
-    //   }
-    //   // On success: the adjustment event was created server-side.
-    //   // The original daily_snapshot remains locked — no HP/XP reversal.
-    // } catch {
-    //   setGlobalError('Network error — transaction could not be deleted.');
-    // } finally {
-    //   setLoading('mutation', false);
-    // }
-    // -----------------------------------------------------------------------
+    deleteTransactionMutation.mutate(transaction.id);
   };
 
   return (
@@ -238,16 +227,16 @@ export function DeleteTransactionModal() {
 
       {/* Footer — exact CTA copy per spec */}
       <ModalFooter>
-        <GhostButton onClick={handleClose} disabled={loading.mutation}>
+        <GhostButton onClick={handleClose} disabled={deleteTransactionMutation.isPending}>
           Cancel
         </GhostButton>
         <PrimaryButton
           onClick={handleDelete}
-          disabled={!transaction || loading.mutation}
+          disabled={!transaction || deleteTransactionMutation.isPending}
           danger
-          aria-busy={loading.mutation}
+          aria-busy={deleteTransactionMutation.isPending}
         >
-          {loading.mutation ? 'Deleting…' : 'Delete Transaction'}
+          {deleteTransactionMutation.isPending ? 'Deleting…' : 'Delete Transaction'}
         </PrimaryButton>
       </ModalFooter>
     </BaseModal>

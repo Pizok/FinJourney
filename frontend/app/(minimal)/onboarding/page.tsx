@@ -20,7 +20,7 @@ import StepReview       from '@/components/onboarding/StepReview';
 
 import { INITIAL_STATE, OnboardingState } from '@/components/onboarding/types';
 
-import { apiFetchClient } from '@/lib/apiClient';
+import { apiFetchClient } from '@/lib/apiClient.client';
 
 // Wizard steps:
 //  1 = Prologue

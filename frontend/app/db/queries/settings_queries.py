@@ -108,3 +108,22 @@ async def fetch_fixed_costs(db: AsyncClient, user_id: str) -> dict[str, Any]:
         "loans": active_loans,
         "total_fixed_costs": total_costs
     }
+
+async def update_path(db: AsyncClient, user_id: str, active_path: str, cooldown_until: str) -> dict | None:
+    result = await (
+        db.table("journey_profiles")
+        .update({
+            "active_path": active_path,
+            "path_cooldown_until": cooldown_until
+        })
+        .eq("id", user_id)
+        .execute()
+    )
+    return result.data[0] if result.data else None
+
+async def reset_user_progress_txn(db: AsyncClient, user_id: str) -> None:
+    """
+    Executes a transaction via an RPC to reset user progression and soft-cancel challenges/regions.
+    Requires the 'reset_user_progress' RPC to exist in the database.
+    """
+    await db.rpc("reset_user_progress", {"p_user_id": user_id}).execute()

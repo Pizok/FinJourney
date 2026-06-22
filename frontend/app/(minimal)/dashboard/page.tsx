@@ -18,7 +18,7 @@
 
 import type { BootstrapData } from '@/components/dashboard/types/dashboard.types';
 import { DashboardShell } from '@/components/dashboard/layout/DashboardShell';
-import { apiFetchServer } from '@/lib/apiClient';
+import { apiFetchServer } from '@/lib/apiClient.server';
 
 // ─── Metadata ──────────────────────────────────────────────────────────────────
 
