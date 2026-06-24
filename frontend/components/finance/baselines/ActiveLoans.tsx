@@ -18,10 +18,10 @@
 
 import { useState } from 'react';
 import { CalendarClock, PlusCircle, TrendingDown } from 'lucide-react';
-import { useWalletStore } from '@/components/wallet/stores/walletStore';
+import { useWalletStore } from '@/components/finance/stores/walletStore';
 import { Progress } from '@/components/ui/Progress';
 import type { Loan } from '@/types/wallet.types';
-import { AddLoanModal } from '@/components/wallet/modals/AddLoanModal';
+import { AddLoanModal } from '@/components/finance/modals/AddLoanModal';
 import { toast } from 'sonner';
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
@@ -254,4 +254,5 @@ export function ActiveLoans() {
     </>
   );
 }
+
 

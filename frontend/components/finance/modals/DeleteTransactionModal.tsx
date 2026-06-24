@@ -24,7 +24,7 @@
 //   visible list immediately.
 // =============================================================================
 
-import { useWalletStore } from '@/components/wallet/stores/walletStore';
+import { useWalletStore } from '@/components/finance/stores/walletStore';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   BaseModal, ModalFooter, GhostButton, PrimaryButton,
@@ -242,3 +242,4 @@ export function DeleteTransactionModal() {
     </BaseModal>
   );
 }
+

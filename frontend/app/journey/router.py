@@ -158,13 +158,12 @@ async def get_bootstrap(
 
 @router.get(
     "/overview",
-    response_model=JourneyOverviewResponse,
     summary="Journey historical and progression overview",
 )
 async def get_overview(
     user_id: CurrentUserID,
     db: DBClient,
-) -> JourneyOverviewResponse:
+) -> dict[str, Any]:
     """
     Returns the rich historical and progression view for the Journey page.
     This is kept separate from /bootstrap to keep page hydration lightweight.
@@ -290,7 +289,7 @@ async def get_overview(
         ]
     }
     
-    return JourneyOverviewResponse(**overview_data)
+    return _success(JourneyOverviewResponse(**overview_data).model_dump(mode="json"))
 
 
 # ===========================================================================

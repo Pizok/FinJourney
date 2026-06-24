@@ -30,7 +30,7 @@
 // =============================================================================
 
 import { useShallow } from 'zustand/shallow';
-import { useWalletStore, selectVisibleCategories } from '@/components/wallet/stores/walletStore';
+import { useWalletStore, selectVisibleCategories } from '@/components/finance/stores/walletStore';
 import type { Category } from '@/types/wallet.types';
 
 // ---------------------------------------------------------------------------
@@ -390,3 +390,4 @@ export function CategoryTrackingSection() {
     </section>
   );
 }
+

@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
-  Wallet,
+  Landmark,
   Route,
   SlidersHorizontal,
   BarChart3,
@@ -28,7 +28,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Wallet', href: '/wallet', icon: Wallet },
+  { label: 'Finance', href: '/finance', icon: Landmark },
   { label: 'Analytics', href: '/analytics', icon: BarChart3, locked: false, lockLabel: 'Level 3' },
   { label: 'Journey', href: '/journey', icon: Route },
 ];

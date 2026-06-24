@@ -27,7 +27,7 @@ import {
   BaseModal, FormField, FormInput, FormTextarea,
   ModalFooter, PrimaryButton, GhostButton,
 } from './BaseModal';
-import { useWalletStore } from '@/components/wallet/stores/walletStore';
+import { useWalletStore } from '@/components/finance/stores/walletStore';
 import type { ColorToken, Wallet } from '@/types/wallet.types';
 
 // ---------------------------------------------------------------------------
@@ -306,3 +306,4 @@ export function CreateWalletModal() {
     </BaseModal>
   );
 }
+

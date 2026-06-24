@@ -15,9 +15,9 @@
 
 import { useState } from 'react';
 import { Calendar, PlusCircle, Receipt, Trash2 } from 'lucide-react';
-import { useWalletStore } from '@/components/wallet/stores/walletStore';
+import { useWalletStore } from '@/components/finance/stores/walletStore';
 import type { FixedExpense } from '@/types/wallet.types';
-import { AddFixedExpenseModal } from '@/components/wallet/modals/AddFixedExpenseModal';
+import { AddFixedExpenseModal } from '@/components/finance/modals/AddFixedExpenseModal';
 import { toast } from 'sonner';
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
@@ -266,4 +266,5 @@ export function FixedExpenses() {
     </>
   );
 }
+
 

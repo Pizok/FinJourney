@@ -27,8 +27,8 @@
 
 import type { Metadata } from 'next';
 import { redirect }      from 'next/navigation';
-import type { WalletBootstrapResponse } from '@/components/wallet/types/wallet.types';
-import { WalletShell } from '@/components/wallet/layout/WalletShell';
+import type { WalletBootstrapResponse } from '@/components/finance/types/wallet.types';
+import { WalletShell } from '@/components/finance/layout/WalletShell';
 import { apiFetchServer } from '@/lib/apiClient.server';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -36,9 +36,9 @@ import { apiFetchServer } from '@/lib/apiClient.server';
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const metadata: Metadata = {
-  title: 'Wallet — FinJourney',
+  title: 'Finance — FinJourney',
   description:
-    'View your liquid balances, track spending limits, and manage your full transaction history.',
+    'Manage balances, transactions, budgets, and financial obligations.',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -51,13 +51,13 @@ export default async function WalletPage() {
   // SERVER-SIDE BOOTSTRAP FETCH (Part 1)
   // ===========================================================================
 
-  const initialData = await apiFetchServer('wallets') as WalletBootstrapResponse | null;
+  // Fetching from 'wallets' currently only returns a list of wallets,
+  // not the full WalletBootstrapResponse object (with transactions, categories, etc).
+  // Until the backend endpoint is fully built, we force it to null if it's missing the required keys so it safely falls back to mock data.
+  let initialData = await apiFetchServer('wallets') as WalletBootstrapResponse | null;
 
-  if (initialData === null) {
-    // Note: In production, middleware should handle full 401 redirects.
-    // If apiFetchServer returned null due to no token, we can just let
-    // WalletShell render its fallback, or redirect here.
-    // For now, we pass null to WalletShell.
+  if (initialData && !initialData.recent_transactions) {
+    initialData = null; // Force fallback to MOCK data
   }
 
   // ===========================================================================
@@ -66,3 +66,4 @@ export default async function WalletPage() {
 
   return <WalletShell initialData={initialData} />;
 }
+

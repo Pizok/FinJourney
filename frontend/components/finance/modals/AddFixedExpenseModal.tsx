@@ -32,7 +32,7 @@ import {
   PrimaryButton,
   GhostButton,
 } from './BaseModal';
-import { useWalletStore } from '@/components/wallet/stores/walletStore';
+import { useWalletStore } from '@/components/finance/stores/walletStore';
 import type { FixedExpense } from '@/types/wallet.types';
 
 // ─── Static option lists ──────────────────────────────────────────────────────
@@ -461,3 +461,4 @@ export function AddFixedExpenseModal({ isOpen, onClose }: AddFixedExpenseModalPr
     </BaseModal>
   );
 }
+

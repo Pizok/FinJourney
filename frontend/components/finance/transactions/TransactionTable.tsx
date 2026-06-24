@@ -28,7 +28,7 @@
 // =============================================================================
 
 import { useShallow } from 'zustand/shallow';
-import { useWalletStore, selectFilteredTransactions } from '@/components/wallet/stores/walletStore';
+import { useWalletStore, selectFilteredTransactions } from '@/components/finance/stores/walletStore';
 import { TransactionFilters } from './TransactionFilters';
 import type { Transaction, TransactionType, PaymentMethod } from '@/types/wallet.types';
 
@@ -736,3 +736,4 @@ export function TransactionTable() {
     </section>
   );
 }
+

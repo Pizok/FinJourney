@@ -24,7 +24,7 @@
 // =============================================================================
 
 import { useState, useEffect, useRef, useId } from 'react';
-import { useWalletStore } from '@/components/wallet/stores/walletStore';
+import { useWalletStore } from '@/components/finance/stores/walletStore';
 import type { TransactionType, PaymentMethod, SortOption, FilterState } from '@/types/wallet.types';
 
 // ---------------------------------------------------------------------------
@@ -346,3 +346,4 @@ export function TransactionFilters() {
     </div>
   );
 }
+

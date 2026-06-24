@@ -17,7 +17,7 @@
 
 import { useId } from 'react';
 import { AlertTriangle, TrendingUp } from 'lucide-react';
-import { useWalletStore } from '@/components/wallet/stores/walletStore';
+import { useWalletStore } from '@/components/finance/stores/walletStore';
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
 
@@ -219,3 +219,4 @@ export function FinancialAssumptionsCard() {
     </div>
   );
 }
+

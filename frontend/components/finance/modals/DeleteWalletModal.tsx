@@ -30,7 +30,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   BaseModal, GhostButton, PrimaryButton, inputBase,
 } from './BaseModal';
-import { useWalletStore } from '@/components/wallet/stores/walletStore';
+import { useWalletStore } from '@/components/finance/stores/walletStore';
 
 export function DeleteWalletModal() {
   const {
@@ -231,3 +231,4 @@ export function DeleteWalletModal() {
     </BaseModal>
   );
 }
+

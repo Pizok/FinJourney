@@ -297,7 +297,7 @@ export function RegionOverview({ isLoading = false }: RegionOverviewProps) {
   return (
     <Card
       padding="none"
-      className="overflow-hidden animate-fade-in"
+      className="overflow-hidden animate-fade-in h-full flex flex-col"
       data-testid="region-overview"
     >
       {/* ── Region Map ───────────────────────────── */}
@@ -306,7 +306,7 @@ export function RegionOverview({ isLoading = false }: RegionOverviewProps) {
       </div>
 
       {/* ── Content ────────────────────────────────────────────────────── */}
-      <div className="p-6 flex flex-col gap-4">
+      <div className="p-6 flex flex-col gap-4 flex-1">
 
         {/* ── Header row: name + details button ──────────────────────── */}
         <div className="flex items-start justify-between gap-4">

@@ -216,6 +216,9 @@ export function JourneyPageClient() {
 
   const isMockData = process.env.NEXT_PUBLIC_USE_MOCK_DATA === "true";
 
+  const bootstrapData = useBootstrapData();
+  const isCriticalFailure = bootstrapData?.player_state?.critical_failure === true;
+
   // ── TanStack Query — GET /api/v1/journey/overview ─────────────────────────
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: JOURNEY_QUERY_KEYS.overview(),
@@ -266,33 +269,43 @@ export function JourneyPageClient() {
   }
 
   // ── Critical failure overlay ──────────────────────────────────────────────
-  const bootstrapData = useBootstrapData();
-  const isCriticalFailure = bootstrapData?.player_state?.critical_failure === true;
 
   return (
-    <div className="relative flex flex-col gap-8 py-8">
+    <div className="relative grid grid-cols-1 gap-6 lg:grid-cols-12">
       {/* Critical failure overlay — dims and freezes progression */}
       {isCriticalFailure && <CriticalFailureOverlay />}
 
       {resolvedData && (
         <JourneyProvider overview={resolvedData}>
-          {/* Section 1 — Header (level, XP, HP, path) */}
-          <JourneyHeader isLoading={isLoading} />
+          {/* Row 1 — Header (level, XP, HP, path) */}
+          <div className="col-span-1 lg:col-span-12">
+            <JourneyHeader isLoading={isLoading} />
+          </div>
 
-          {/* Section 2 — Region Overview (current region + progress) */}
-          <RegionOverview />
+          {/* Row 2 — Region Overview (current region + progress) */}
+          <div className="col-span-1 lg:col-span-8 flex flex-col">
+            <RegionOverview />
+          </div>
 
-          {/* Section 3 — 12-Month Timeline */}
-          <TimelineSection />
+          {/* Row 2 — Quarterly Review */}
+          <div className="col-span-1 lg:col-span-4 flex flex-col">
+            <QuarterlyReviewSection />
+          </div>
 
-          {/* Section 4 — Quarterly Review */}
-          <QuarterlyReviewSection />
+          {/* Row 3 — 12-Month Timeline */}
+          <div className="col-span-1 lg:col-span-12">
+            <TimelineSection />
+          </div>
 
-          {/* Section 5 — Passport Stamps */}
-          <PassportSection />
+          {/* Row 4 — Passport Stamps */}
+          <div className="col-span-1 lg:col-span-7 flex flex-col">
+            <PassportSection />
+          </div>
 
-          {/* Section 6 — Journey History (last 30 events) */}
-          <HistorySection />
+          {/* Row 4 — Journey History (last 30 events) */}
+          <div className="col-span-1 lg:col-span-5 flex flex-col">
+            <HistorySection />
+          </div>
 
           {/* Modal portal (RegionDetailModal, ReviewDetailModal, PassportDetailModal) */}
           <JourneyModals />

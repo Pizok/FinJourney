@@ -47,7 +47,7 @@ export default function JourneyPage() {
     <div className="flex min-h-screen bg-abyssal-slate">
       <DashboardSidebar />
       <main className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-[920px] px-5 sm:px-6 lg:px-8">
+        <div className="max-w-[1440px] mx-auto px-8 py-8">
           <JourneyPageClient />
         </div>
       </main>

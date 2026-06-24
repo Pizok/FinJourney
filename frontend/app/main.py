@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.db.supabase import init_supabase
 from app.api.v1.api import api_router
+from app.journey.router import router as journey_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -29,6 +30,7 @@ app.add_middleware(
 
 # Mount the central v1 API assembly
 app.include_router(api_router, prefix="/api/v1")
+app.include_router(journey_router)
 
 @app.get("/health")
 async def health_check():

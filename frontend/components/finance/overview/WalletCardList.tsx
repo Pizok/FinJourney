@@ -29,7 +29,7 @@
 import {
   useWalletStore,
   selectTotalBalance,
-} from '@/components/wallet/stores/walletStore';
+} from '@/components/finance/stores/walletStore';
 import { TotalBalanceCard } from './TotalBalanceCard';
 import { WalletCard } from './WalletCard';
 
@@ -307,3 +307,4 @@ export function WalletCardList() {
     </section>
   );
 }
+

@@ -204,7 +204,7 @@ function Connector({ completed }: ConnectorProps) {
     <div
       aria-hidden="true"
       className={cn(
-        "w-7 h-[2px] shrink-0",
+        "flex-1 min-w-[28px] h-[2px]",
         completed ? "bg-muted-emerald opacity-60" : "bg-tactical-border opacity-30"
       )}
     />
@@ -238,7 +238,7 @@ export function RegionNode({
 
   return (
     <div
-      className="flex items-center"
+      className={cn("flex items-center", showConnector && "flex-1")}
       role="listitem"
     >
       {/* ── Node + label column ─────────────────────────────────────────── */}

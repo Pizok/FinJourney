@@ -29,18 +29,18 @@
 // =============================================================================
 
 import { useEffect } from 'react';
-import { useWalletStore } from '@/components/wallet/stores/walletStore';
+import { useWalletStore } from '@/components/finance/stores/walletStore';
 import { DashboardSidebar } from '@/components/dashboard/layout/DashboardSidebar';
-import { WalletCardList } from '@/components/wallet/overview/WalletCardList';
-import { CategoryTrackingSection } from '@/components/wallet/categories/CategoryTrackingSection';
-import { TransactionTable } from '@/components/wallet/transactions/TransactionTable';
-import { CreateWalletModal } from '@/components/wallet/modals/CreateWalletModal';
-import { WalletSettingsModal } from '@/components/wallet/modals/WalletSettingsModal';
-import { DeleteWalletModal } from '@/components/wallet/modals/DeleteWalletModal';
-import { DeleteTransactionModal } from '@/components/wallet/modals/DeleteTransactionModal';
-import { AddTransactionModal } from '@/components/wallet/modals/AddTransactionModal';
-import { EditTransactionModal } from '@/components/wallet/modals/EditTransactionModal';
-import { BaselinesTab } from '@/components/wallet/baselines/BaselinesTab';
+import { WalletCardList } from '@/components/finance/overview/WalletCardList';
+import { CategoryTrackingSection } from '@/components/finance/categories/CategoryTrackingSection';
+import { TransactionTable } from '@/components/finance/transactions/TransactionTable';
+import { CreateWalletModal } from '@/components/finance/modals/CreateWalletModal';
+import { WalletSettingsModal } from '@/components/finance/modals/WalletSettingsModal';
+import { DeleteWalletModal } from '@/components/finance/modals/DeleteWalletModal';
+import { DeleteTransactionModal } from '@/components/finance/modals/DeleteTransactionModal';
+import { AddTransactionModal } from '@/components/finance/modals/AddTransactionModal';
+import { EditTransactionModal } from '@/components/finance/modals/EditTransactionModal';
+import { BaselinesTab } from '@/components/finance/baselines/BaselinesTab';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -317,13 +317,13 @@ function PageHeader() {
         className="font-display text-2xl font-semibold tracking-tight text-[var(--color-pearl-text)]"
         style={{ fontFamily: 'var(--font-display)' }}
       >
-        Wallet
+        Finance
       </h1>
       <p
         className="mt-1 text-sm text-[var(--color-muted-text)]"
         style={{ fontFamily: 'var(--font-sans)' }}
       >
-        Balances, spending limits, transactions, and financial baselines.
+        Manage balances, transactions, budgets, and financial obligations.
       </p>
     </header>
   );
@@ -333,7 +333,7 @@ function PageHeader() {
 // WalletShell — main export
 // ─────────────────────────────────────────────────────────────────────────────
 
-import type { WalletBootstrapResponse } from '@/components/wallet/types/wallet.types';
+import type { WalletBootstrapResponse } from '@/components/finance/types/wallet.types';
 
 export function WalletShell({ initialData }: { initialData?: WalletBootstrapResponse | null }) {
   const {
@@ -491,3 +491,4 @@ export function WalletShell({ initialData }: { initialData?: WalletBootstrapResp
     </>
   );
 }
+

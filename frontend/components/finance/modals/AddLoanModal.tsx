@@ -31,7 +31,7 @@ import {
   PrimaryButton,
   GhostButton,
 } from './BaseModal';
-import { useWalletStore } from '@/components/wallet/stores/walletStore';
+import { useWalletStore } from '@/components/finance/stores/walletStore';
 import { Progress } from '@/components/ui/Progress';
 import type { Loan } from '@/types/wallet.types';
 
@@ -370,3 +370,4 @@ export function AddLoanModal({ isOpen, onClose }: AddLoanModalProps) {
     </BaseModal>
   );
 }
+

@@ -26,7 +26,7 @@ import {
   BaseModal, FormField, FormInput, FormTextarea, FormSelect,
   ModalFooter, PrimaryButton, GhostButton, DangerZone,
 } from './BaseModal';
-import { useWalletStore, selectSettingsWallet } from '@/components/wallet/stores/walletStore';
+import { useWalletStore, selectSettingsWallet } from '@/components/finance/stores/walletStore';
 import type { PaymentMethod } from '@/types/wallet.types';
 
 // ---------------------------------------------------------------------------
@@ -330,3 +330,4 @@ export function WalletSettingsModal() {
     </BaseModal>
   );
 }
+

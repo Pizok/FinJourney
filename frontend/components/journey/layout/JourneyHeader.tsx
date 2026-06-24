@@ -44,7 +44,7 @@ import { useJourneyData } from "./JourneyContext";
 function HeaderSkeleton() {
   return (
     <div
-      className="pt-8 pb-6"
+      className="pb-6"
       aria-busy="true"
       aria-label="Loading journey header"
       data-testid="journey-header-skeleton"
@@ -129,7 +129,7 @@ export function JourneyHeader({ isLoading = false }: JourneyHeaderProps) {
 
   return (
     <header
-      className="pt-8 pb-6 animate-fade-in"
+      className="pb-6 animate-fade-in"
       data-testid="journey-header"
     >
       {/* ── Badge row ───────────────────────────────────────────────────── */}

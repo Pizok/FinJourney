@@ -26,7 +26,7 @@ import {
   BaseModal, FormField, FormInput, FormTextarea, FormSelect,
   ModalFooter, PrimaryButton, GhostButton,
 } from './BaseModal';
-import { useWalletStore, selectEditTransaction } from '@/components/wallet/stores/walletStore';
+import { useWalletStore, selectEditTransaction } from '@/components/finance/stores/walletStore';
 import type { PaymentMethod } from '@/types/wallet.types';
 
 // ---------------------------------------------------------------------------
@@ -294,3 +294,4 @@ export function EditTransactionModal() {
     </BaseModal>
   );
 }
+

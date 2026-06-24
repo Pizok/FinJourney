@@ -20,7 +20,7 @@
 //   - Indicator label:  "Net Change Today"
 // =============================================================================
 
-import { useWalletStore, selectTotalBalance } from '@/components/wallet/stores/walletStore';
+import { useWalletStore, selectTotalBalance } from '@/components/finance/stores/walletStore';
 
 // ---------------------------------------------------------------------------
 // Currency Formatters
@@ -250,3 +250,4 @@ export function TotalBalanceCard() {
     </button>
   );
 }
+
