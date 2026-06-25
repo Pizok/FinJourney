@@ -69,7 +69,7 @@ export default function OnboardingPage() {
         body: JSON.stringify({
           incomeEntries: formState.incomeEntries,
           fixedCostEntries: formState.fixedCostEntries,
-          savingsTarget: formState.savingsTarget,
+          savingsTarget: formState.savingsEntries.reduce((acc, entry) => acc + entry.target_amount, 0),
         })
       });
 

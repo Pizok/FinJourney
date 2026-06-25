@@ -52,5 +52,5 @@ export async function apiFetchClient<T = unknown>(endpoint: string, options: Req
     throw new Error(json.error?.message ?? 'Unknown API Error')
   }
 
-  return json ? json.data : null
+  return (json ? json.data : null) as T
 }

@@ -13,11 +13,11 @@ This document provides a concise overview of the FinJourney frontend structure f
 ## Directory Structure (`frontend/`)
 - `app/`: Next.js App Router structure.
   - `(main)/`: Public-facing pages (marketing, news, pricing).
-  - `(minimal)/`: The core authenticated application (dashboard, finance, settings, analytics). Uses a minimal shell/sidebar layout.
+  - `(minimal)/`: The core authenticated application (`analytics`, `auth`, `dashboard`, `finance`, `journey`, `onboarding`, `settings`). Uses a minimal shell/sidebar layout.
   - `api/`: Next.js API routes (if any) or proxy configuration. *(Note: Python backend also shares the `frontend/app/` namespace but runs separately).*
 - `components/`: React components grouped by feature domain.
   - `ui/`: Generic, reusable, dumb components (Buttons, Inputs, Dialogs).
-  - `dashboard/`, `finance/`, `journey/`, `settings/`: Feature-specific compound components.
+  - `analytics/`, `auth/`, `dashboard/`, `finance/`, `journey/`, `onboarding/`, `settings/`: Feature-specific compound components.
 - `lib/`: Utilities and API client wrappers.
   - `apiClient.client.ts`: Wrapper for `fetch` used in React Client Components (e.g., inside TanStack Query). Passes Supabase JWT to the backend.
   - `apiClient.server.ts`: Wrapper for `fetch` used in React Server Components.

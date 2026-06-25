@@ -34,6 +34,8 @@ export interface ReviewDetailData extends QuarterlyReview {
   days_remaining?: number;
   /** Overall completion percentage (active reviews). */
   completion_percentage?: number;
+  /** Whether the rewards for this review have been claimed. */
+  rewards_claimed?: boolean;
 }
 
 // ─── API fetcher ──────────────────────────────────────────────────────────────
