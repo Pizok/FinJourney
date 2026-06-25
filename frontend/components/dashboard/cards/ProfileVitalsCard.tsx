@@ -94,8 +94,8 @@ export function ProfileVitalsCard() {
         {/* Avatar */}
         <div className="w-10 h-10 rounded-full bg-abyssal-slate border border-tactical-border flex items-center justify-center flex-shrink-0 overflow-hidden">
           <Image 
-            src={`/avatar/${player_state.avatar_key || 'Roan'}.png`} 
-            alt={player_state.avatar_key || 'Roan'} 
+            src={`/avatar/${profile.avatar_key || 'Roan'}.png`} 
+            alt={profile.avatar_key || 'Roan'} 
             width={40} 
             height={40} 
             className="object-cover"

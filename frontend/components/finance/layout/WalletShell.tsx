@@ -32,7 +32,7 @@ import { useEffect } from 'react';
 import { useWalletStore } from '@/components/finance/stores/walletStore';
 import { DashboardSidebar } from '@/components/dashboard/layout/DashboardSidebar';
 import { WalletCardList } from '@/components/finance/overview/WalletCardList';
-import { WalletEmptyState } from './WalletEmptyState';
+import { WalletEmptyState } from './WalletEmptyState'; // Cache burst
 import { CategoryTrackingSection } from '@/components/finance/categories/CategoryTrackingSection';
 import { TransactionTable } from '@/components/finance/transactions/TransactionTable';
 import { CreateWalletModal } from '@/components/finance/modals/CreateWalletModal';
@@ -338,13 +338,13 @@ import type { WalletBootstrapResponse } from '@/components/finance/types/wallet.
 
 export function WalletShell({ initialData }: { initialData?: WalletBootstrapResponse | null }) {
   const {
-    isBootstrapped,
-    loading,
     ui,
     hydrate,
     setGlobalError,
     setLoading,
-    data,
+    wallets,
+    isBootstrapped,
+    loading,
   } = useWalletStore();
 
   // ── Bootstrap on mount ──────────────────────────────────────────────────
@@ -426,7 +426,7 @@ export function WalletShell({ initialData }: { initialData?: WalletBootstrapResp
                     data-section="wallet-overview"
                     aria-label="Wallet overview"
                   >
-                    {isLoading ? <OverviewSkeleton /> : (!data || data.wallets.length === 0 ? <WalletEmptyState /> : <WalletCardList />)}
+                    {isLoading ? <OverviewSkeleton /> : (!isBootstrapped || wallets.length === 0 ? <WalletEmptyState /> : <WalletCardList />)}
                   </div>
 
                   {/* SECTION 2 — Category Tracking */}

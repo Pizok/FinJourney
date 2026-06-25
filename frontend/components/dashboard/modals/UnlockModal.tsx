@@ -1,4 +1,4 @@
-'use client';
+'use client'; // Force IDE cache refresh
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useDashboardModals } from '../hooks/useDashboardModals';

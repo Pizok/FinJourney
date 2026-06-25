@@ -28,6 +28,7 @@ import type {
 
 export const MOCK_SETTINGS: Settings = {
   profile: {
+    avatar_key: 'Roan',
     avatar_url: '/avatars/default.png',
     username: 'Pi',
     email: 'user@email.com',

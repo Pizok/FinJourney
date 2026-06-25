@@ -37,6 +37,7 @@ export interface Profile {
   setup_status: SetupStatus;
   active_theme: string;
   current_region_id: string | null;
+  avatar_key: string;
 }
 
 export interface PlayerState {

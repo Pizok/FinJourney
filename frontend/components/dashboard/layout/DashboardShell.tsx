@@ -8,7 +8,7 @@ import { DangerModal } from '../modals/DangerModal';
 import { AddTransactionModal } from '../modals/AddTransactionModal';
 import { NotificationModal } from '../modals/NotificationModal';
 import { ZeroSpendModal } from '../modals/ZeroSpendModal';
-import { UnlockModal } from '../modals/UnlockModal';
+import { UnlockModal } from '../modals/UnlockModal'; // Fix module resolution cache
 import { AuditModal } from '../modals/AuditModal';
 import { useDashboardModals } from '../hooks/useDashboardModals';
 

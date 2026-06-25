@@ -17,12 +17,8 @@
 //   When the user clicks "Load more", GET /api/v1/journey/history?page=2
 //   is fetched via useInfiniteQuery, and subsequent pages follow.
 //
-//   Mock mode (useMockData === true):
-//     Paginates the mock recent_events array locally.
-//     INITIAL_VISIBLE events are shown; "Load more" reveals the rest.
-//     No network requests are made.
 //
-//   Live mode (useMockData === false):
+//   Live mode:
 //     overview.recent_events seeds page 1.
 //     useInfiniteQuery is enabled on first "Load more" click,
 //     starting from page 2. The button disappears when hasNextPage is false.
@@ -176,11 +172,6 @@ export interface HistorySectionProps {
 
 export function HistorySection({ isLoading = false }: HistorySectionProps) {
   const overview = useJourneyData();
-  const useMockData = useJourneyStore((s) => s.useMockData);
-
-  // ── Mock mode state ──────────────────────────────────────────────────────
-  // Locally pages the mock array without any network requests.
-  const [mockExpanded, setMockExpanded] = useState(false);
 
   // ── Live mode state ──────────────────────────────────────────────────────
   // Deferred: the infinite query is only enabled after the first "Load more".
@@ -202,7 +193,7 @@ export function HistorySection({ isLoading = false }: HistorySectionProps) {
       lastPage.next_page != null ? lastPage.next_page : undefined,
     staleTime: 60_000,
     // Only fire when the user has clicked "Load more" at least once
-    enabled: liveEnabled && !useMockData,
+    enabled: liveEnabled,
   });
 
   // ── Event list assembly ──────────────────────────────────────────────────
@@ -210,31 +201,15 @@ export function HistorySection({ isLoading = false }: HistorySectionProps) {
   const additionalEvents =
     infiniteData?.pages.flatMap((page) => page.events) ?? [];
 
-  const mockEvents = mockExpanded
-    ? overviewEvents
-    : overviewEvents.slice(0, INITIAL_VISIBLE);
-
-  const liveEvents = [...overviewEvents, ...additionalEvents];
-
-  const events = useMockData ? mockEvents : liveEvents;
+  const events = [...overviewEvents, ...additionalEvents];
 
   // ── "Load more" visibility ────────────────────────────────────────────────
-  const mockHasMore =
-    useMockData && !mockExpanded && overviewEvents.length > INITIAL_VISIBLE;
-
-  // In live mode, show the button until we know for certain there are no
+  // Show the button until we know for certain there are no
   // more pages (i.e., after the first fetch returns hasNextPage === false).
-  const liveHasMore =
-    !useMockData && (!liveEnabled || (hasNextPage ?? false));
-
-  const showLoadMore = mockHasMore || liveHasMore;
-  const isLoadingMore = !useMockData && isFetchingNextPage;
+  const showLoadMore = !liveEnabled || (hasNextPage ?? false);
+  const isLoadingMore = isFetchingNextPage;
 
   function handleLoadMore() {
-    if (useMockData) {
-      setMockExpanded(true);
-      return;
-    }
     if (!liveEnabled) {
       // First click: enable the query (it immediately fetches page 2)
       setLiveEnabled(true);

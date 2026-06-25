@@ -6,6 +6,7 @@
 // ── Profile ──────────────────────────────────────────────────────────────────
 
 export interface ProfileSettings {
+  avatar_key: string
   avatar_url: string
   username: string
   /** Read-only. Managed by the auth provider. */
@@ -92,6 +93,7 @@ export interface ProfileSettingsUpdate {
   username: string
   timezone: string
   primary_payday: number
+  avatar_key: string
 }
 
 /** PATCH /api/v1/settings/financials */
