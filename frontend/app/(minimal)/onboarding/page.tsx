@@ -57,6 +57,7 @@ export default function OnboardingPage() {
         body: JSON.stringify({
           username: formState.username,
           avatar_class: formState.selectedPath || 'Sentinel',
+          avatar_key: formState.selectedAvatar || 'Roan',
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         })
       });

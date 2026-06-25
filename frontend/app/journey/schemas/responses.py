@@ -142,6 +142,7 @@ class PlayerStateResponse(BaseModel):
         description="True when HP == 0. Certain endpoints return 403 while this is active."
     )
     path: PathInfoResponse
+    avatar_key: str = Field(default="Roan", description="Chosen avatar key.")
 
 
 # ---------------------------------------------------------------------------

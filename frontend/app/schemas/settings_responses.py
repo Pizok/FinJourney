@@ -95,6 +95,7 @@ class ProfilePayload(BaseModel):
     user_id:        UUID
     username:       str
     avatar_class:   str
+    avatar_key:     str
     timezone:       str
     primary_payday: int | None = None
     setup_status:   str

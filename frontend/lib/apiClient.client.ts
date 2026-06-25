@@ -32,14 +32,25 @@ export async function apiFetchClient<T = unknown>(endpoint: string, options: Req
     },
   })
 
+  let json;
+  try {
+    json = await response.json()
+  } catch (e) {
+    // If not json, throw generic error below
+  }
+
   if (!response.ok) {
+    if (json?.error?.message) {
+      throw new Error(json.error.message)
+    } else if (json?.detail) {
+      throw new Error(json.detail)
+    }
     throw new Error(`Failed to load data (${response.status})`)
   }
 
-  const json = await response.json()
-  if (!json.success) {
+  if (json && !json.success) {
     throw new Error(json.error?.message ?? 'Unknown API Error')
   }
 
-  return json.data
+  return json ? json.data : null
 }

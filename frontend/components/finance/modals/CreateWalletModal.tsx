@@ -29,6 +29,7 @@ import {
 } from './BaseModal';
 import { useWalletStore } from '@/components/finance/stores/walletStore';
 import type { ColorToken, Wallet } from '@/types/wallet.types';
+import { apiFetchClient } from '@/lib/apiClient.client';
 
 // ---------------------------------------------------------------------------
 // Color accent options
@@ -120,16 +121,12 @@ export function CreateWalletModal() {
 
   const createWalletMutation = useMutation({
     mutationFn: async (payload: any) => {
-      const response = await fetch('/api/v1/wallets', {
+      const response = await apiFetchClient('wallets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const json = await response.json();
-      if (!response.ok || !json.success) {
-        throw new Error(json.error?.message || 'Failed to create wallet');
-      }
-      return json.data;
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wallet', 'bootstrap'] });

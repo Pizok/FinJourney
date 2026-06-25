@@ -15,9 +15,27 @@
 //   fixed_costs_total = sum(fixed_expenses[].amount) + sum(loans[].monthly_installment)
 // =============================================================================
 
-import { useId } from 'react';
-import { AlertTriangle, TrendingUp } from 'lucide-react';
+import { useId, useState } from 'react';
+import { AlertTriangle, TrendingUp, Plus, Trash2, PiggyBank } from 'lucide-react';
 import { useWalletStore } from '@/components/finance/stores/walletStore';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiFetchClient } from '@/lib/apiClient.client';
+import { LogSavingsModal } from '../modals/LogSavingsModal';
+
+export interface IncomeStream {
+  id: string;
+  name: string;
+  amount: number;
+}
+
+export interface SavingsTarget {
+  id: string;
+  name: string;
+  target_amount: number;
+  current_amount: number;
+  monthly_contribution: number;
+  deadline: string;
+}
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
 
@@ -103,26 +121,46 @@ export function FinancialAssumptionsCard() {
   const financialAssumptions = useWalletStore((s) => s.financialAssumptions);
   const fixedExpenses = useWalletStore((s) => s.fixedExpenses);
   const loans = useWalletStore((s) => s.loans);
-  const updateFinancialAssumptions = useWalletStore((s) => s.updateFinancialAssumptions);
+  
+  const queryClient = useQueryClient();
 
-  const incomeId = useId();
-  const savingsId = useId();
-  const savingsErrorId = useId();
+  const { data: incomeStreams = [] } = useQuery<IncomeStream[]>({
+    queryKey: ['income_streams'],
+    queryFn: () => apiFetchClient<IncomeStream[]>('income-streams/'),
+  });
+
+  const { data: savingsTargets = [] } = useQuery<SavingsTarget[]>({
+    queryKey: ['savings_targets'],
+    queryFn: () => apiFetchClient<SavingsTarget[]>('savings-targets/'),
+  });
+
+  const [selectedTarget, setSelectedTarget] = useState<SavingsTarget | null>(null);
+  const [isLogSavingsOpen, setIsLogSavingsOpen] = useState(false);
+
+  const openLogSavings = (target: SavingsTarget) => {
+    setSelectedTarget(target);
+    setIsLogSavingsOpen(true);
+  };
 
   const totalFixed = computeTotalFixed(fixedExpenses, loans);
-  const available = financialAssumptions.expected_monthly_income - totalFixed;
-  const savingsExceedsAvailable = financialAssumptions.monthly_savings_target > available;
+  const totalIncome = incomeStreams.reduce((s, i) => s + i.amount, 0);
+  const totalSavings = savingsTargets.reduce((s, t) => s + t.monthly_contribution, 0);
+
+  const available = totalIncome - totalFixed;
+  const savingsExceedsAvailable = totalSavings > available;
   const savingsError = savingsExceedsAvailable
     ? `Exceeds available. After fixed costs: ${formatRupiah(Math.max(0, available))}`
     : null;
 
+  // Real projected budget using actual lists
+  const projectedDailyBudget = Math.max(0, (totalIncome - totalFixed - totalSavings) / 30);
   return (
     <div
-      className="rounded-xl border border-[var(--color-tactical-border)] bg-[var(--color-canvas-surface)]"
+      className="rounded-xl border border-[var(--color-tactical-border)] bg-[var(--color-canvas-surface)] flex flex-col h-full"
       style={{ fontFamily: 'var(--font-sans)' }}
     >
       {/* Header */}
-      <div className="flex items-start gap-3 border-b border-[var(--color-tactical-border)] px-6 py-5">
+      <div className="flex items-start gap-3 border-b border-[var(--color-tactical-border)] px-6 py-5 shrink-0">
         <div
           aria-hidden="true"
           className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--color-muted-emerald)]/10"
@@ -138,7 +176,7 @@ export function FinancialAssumptionsCard() {
             className="font-display text-[15px] font-semibold text-[var(--color-pearl-text)]"
             style={{ fontFamily: 'var(--font-display)' }}
           >
-            Financial Assumptions
+            Income & Savings
           </h2>
           <p className="mt-0.5 text-sm text-[var(--color-muted-text)]">
             Powers the Projected Safe Daily Budget calculation.
@@ -147,57 +185,87 @@ export function FinancialAssumptionsCard() {
       </div>
 
       {/* Body */}
-      <div className="flex flex-col gap-6 px-6 py-5">
-        {/* Income + Savings inputs — two columns on sm+ */}
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          {/* Income */}
-          <div>
-            <FieldLabel htmlFor={incomeId}>Expected Monthly Income</FieldLabel>
-            <CurrencyInput
-              id={incomeId}
-              value={financialAssumptions.expected_monthly_income}
-              onChange={(expected_monthly_income) =>
-                updateFinancialAssumptions({ expected_monthly_income })
-              }
-            />
-            <p className="mt-1.5 text-xs leading-relaxed text-[var(--color-muted-text)]">
-              Your baseline gross income for the month.
-            </p>
+      <div className="flex flex-col flex-1 px-6 py-5">
+        
+        {/* Layout: Vertical split for desktop, simple stack for mobile */}
+        <div className="flex flex-col gap-6 lg:flex-row flex-1">
+          {/* Income Column */}
+          <div className="flex-1 border-r-0 lg:border-r border-[var(--color-tactical-border)]/60 pr-0 lg:pr-6 pb-6 lg:pb-0 border-b lg:border-b-0">
+            <h3 className="font-display text-sm font-semibold text-[var(--color-pearl-text)] mb-3">Income Streams</h3>
+            <div className="space-y-3">
+              {incomeStreams.map((stream) => (
+                <div key={stream.id} className="flex justify-between items-center p-3 rounded-lg border border-[var(--color-tactical-border)] bg-[var(--color-abyssal-slate)]">
+                  <div>
+                    <p className="text-sm text-[var(--color-pearl-text)]">{stream.name}</p>
+                    <p className="text-xs text-[var(--color-muted-text)]">{formatRupiah(stream.amount)} / month</p>
+                  </div>
+                </div>
+              ))}
+              {incomeStreams.length === 0 && (
+                <p className="text-xs text-[var(--color-muted-text)] italic">No income streams found.</p>
+              )}
+            </div>
           </div>
 
-          {/* Savings */}
-          <div>
-            <FieldLabel htmlFor={savingsId}>Monthly Savings Target</FieldLabel>
-            <CurrencyInput
-              id={savingsId}
-              value={financialAssumptions.monthly_savings_target}
-              onChange={(monthly_savings_target) =>
-                updateFinancialAssumptions({ monthly_savings_target })
-              }
-              hasError={!!savingsError}
-              aria-describedby={savingsError ? savingsErrorId : undefined}
-            />
-            {savingsError ? (
-              <p
-                id={savingsErrorId}
-                role="alert"
-                className="mt-1.5 flex items-start gap-1.5 text-xs leading-relaxed text-[var(--color-terracotta)]"
-              >
+          {/* Savings Column */}
+          <div className="flex-1 lg:pl-6 pb-6 lg:pb-0">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="font-display text-sm font-semibold text-[var(--color-pearl-text)]">Savings Targets</h3>
+            </div>
+            
+            <div className="space-y-3">
+              {savingsTargets.map((target) => {
+                const progressPct = target.target_amount > 0 ? (target.current_amount / target.target_amount) * 100 : 0;
+                return (
+                  <div key={target.id} className="p-3 rounded-lg border border-[var(--color-tactical-border)] bg-[var(--color-abyssal-slate)]">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <p className="text-sm font-medium text-[var(--color-pearl-text)]">{target.name}</p>
+                        <p className="text-xs text-[var(--color-muted-text)]">Goal: {formatRupiah(target.target_amount)}</p>
+                      </div>
+                      <p className="text-xs font-semibold text-[var(--color-dawn-gold)]">{formatRupiah(target.monthly_contribution)} / mo</p>
+                    </div>
+                    
+                    <div className="mt-2 flex items-center justify-between gap-4">
+                      <div className="flex-1 space-y-1">
+                        <div className="flex justify-between text-[10px] text-[var(--color-muted-text)]">
+                          <span>{formatRupiah(target.current_amount)}</span>
+                          <span>{progressPct.toFixed(0)}%</span>
+                        </div>
+                        <div className="h-1.5 w-full rounded-full bg-[var(--color-tactical-border)] overflow-hidden">
+                          <div 
+                            className="h-full rounded-full bg-[var(--color-dawn-gold)]"
+                            style={{ width: `${Math.min(100, progressPct)}%` }}
+                          />
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => openLogSavings(target)}
+                        className="flex h-7 items-center justify-center rounded border border-[var(--color-tactical-border)] px-2 text-xs font-medium text-[var(--color-pearl-text)] transition-colors hover:border-[var(--color-dawn-gold)] hover:text-[var(--color-dawn-gold)] shrink-0"
+                      >
+                        <Plus className="mr-1 h-3 w-3" />
+                        Log
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              {savingsTargets.length === 0 && (
+                <p className="text-xs text-[var(--color-muted-text)] italic">No savings targets found.</p>
+              )}
+            </div>
+            
+            {savingsError && (
+              <p role="alert" className="mt-3 flex items-start gap-1.5 text-xs leading-relaxed text-[var(--color-terracotta)]">
                 <AlertTriangle className="mt-0.5 shrink-0" size={12} strokeWidth={2} aria-hidden="true" />
                 <span>{savingsError}</span>
-              </p>
-            ) : (
-              <p className="mt-1.5 text-xs leading-relaxed text-[var(--color-muted-text)]">
-                Deducted before discretionary spending is calculated.
               </p>
             )}
           </div>
         </div>
 
-        <div className="border-t border-[var(--color-tactical-border)]/60" aria-hidden="true" />
-
-        {/* Projected Daily Budget — read-only hero metric */}
-        <div className="rounded-lg border border-[var(--color-tactical-border)] bg-[var(--color-abyssal-slate)] px-4 py-4">
+        {/* Projected Daily Budget — read-only hero metric at bottom */}
+        <div className="mt-6 rounded-lg border border-[var(--color-tactical-border)] bg-[var(--color-abyssal-slate)] px-4 py-4 shrink-0">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-muted-text)]">
             Projected Safe Daily Budget
           </p>
@@ -205,17 +273,22 @@ export function FinancialAssumptionsCard() {
             className="mt-1.5 text-2xl font-semibold tabular-nums text-[var(--color-muted-emerald)]"
             style={{ fontFamily: 'var(--font-display)' }}
           >
-            {formatRupiah(financialAssumptions.projected_safe_daily_budget)}
+            {formatRupiah(projectedDailyBudget)}
             <span className="ml-1.5 font-sans text-sm font-normal text-[var(--color-muted-text)]">
               / day
             </span>
           </p>
           <p className="mt-2 text-xs leading-relaxed text-[var(--color-muted-text)]">
-            (Income − Fixed Costs − Savings) ÷ 30. Recalculates instantly as you
-            edit. Fixed costs include your expenses and loan installments below.
+            (Income − Fixed Costs − Savings) ÷ 30. Recalculates based on your streams and targets.
           </p>
         </div>
       </div>
+
+      <LogSavingsModal
+        isOpen={isLogSavingsOpen}
+        onClose={() => setIsLogSavingsOpen(false)}
+        target={selectedTarget}
+      />
     </div>
   );
 }

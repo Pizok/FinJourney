@@ -36,9 +36,9 @@
 //   visible beneath it so the user can still read their history.
 // =============================================================================
 
-import { useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, RefreshCw } from "lucide-react";
+import { AlertTriangle, RefreshCw, Loader2 } from "lucide-react";
 
 import {
   useJourneyStore,
@@ -62,6 +62,7 @@ import { PassportSection } from "../features/PassportSection";
 import { HistorySection } from "../features/HistorySection";
 import { JourneyProvider } from "./JourneyContext";
 import { MOCK_JOURNEY_OVERVIEW } from "../stores/journeyStore";
+import { apiFetchClient } from "@/lib/apiClient.client";
 
 // ── Modal import (Part 4) ───────────────────────────────────────────────────────────
 import { JourneyModals } from "../modals/JourneyModals";
@@ -136,7 +137,29 @@ function PageError({ onRetry }: PageErrorProps) {
 // view transactions). XP gain and challenge progression are frozen server-side.
 // The "[Review & Revive]" action calls the Financial Audit endpoint (Part 4).
 
-function CriticalFailureOverlay() {
+function CriticalFailureOverlay({ onReviveSuccess }: { onReviveSuccess: () => void }) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  async function handleRevive() {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    setApiError(null);
+
+    try {
+      await apiFetchClient("journey/revive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audit_acknowledged: true }),
+      });
+      onReviveSuccess();
+    } catch (err: any) {
+      setApiError(err?.message || "Failed to complete audit. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   return (
     <div
       className={cn(
@@ -178,24 +201,36 @@ function CriticalFailureOverlay() {
           challenge progression are frozen until you complete an audit.
         </p>
 
+        {apiError && (
+          <p className="text-xs text-terracotta bg-terracotta/10 px-3 py-2 rounded-md">
+            {apiError}
+          </p>
+        )}
+
         {/* [Review & Revive] action button — exact label per PRD §5 */}
         <button
           type="button"
-          onClick={() => {
-            // TODO (Part 4): call Financial Audit endpoint
-            // POST /api/v1/journey/financial-audit → restores +10 HP
-          }}
+          onClick={handleRevive}
+          disabled={isSubmitting}
           className={cn(
-            "w-full rounded-lg px-5 py-2.5",
+            "w-full flex items-center justify-center gap-2 rounded-lg px-5 py-2.5",
             "bg-terracotta/10 border border-terracotta/50",
             "font-sans text-sm font-medium text-terracotta",
             "hover:bg-terracotta/20 transition-colors duration-200",
             "focus-visible:outline-none focus-visible:ring-2",
             "focus-visible:ring-terracotta focus-visible:ring-offset-2",
-            "focus-visible:ring-offset-canvas-surface"
+            "focus-visible:ring-offset-canvas-surface",
+            "disabled:opacity-50 disabled:cursor-not-allowed"
           )}
         >
-          Review &amp; Revive
+          {isSubmitting ? (
+            <>
+              <Loader2 className="animate-spin" size={14} strokeWidth={2} />
+              <span>Auditing...</span>
+            </>
+          ) : (
+            <span>Review &amp; Revive</span>
+          )}
         </button>
 
         {/* Allowed actions reminder */}
@@ -230,7 +265,6 @@ export function JourneyPageClient() {
 
   const resolvedData = isMockData ? MOCK_JOURNEY_OVERVIEW : data;
 
-  // ── Keyboard: Escape → closeModal ─────────────────────────────────────────
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape' && activeModal) {
@@ -273,7 +307,7 @@ export function JourneyPageClient() {
   return (
     <div className="relative grid grid-cols-1 gap-6 lg:grid-cols-12">
       {/* Critical failure overlay — dims and freezes progression */}
-      {isCriticalFailure && <CriticalFailureOverlay />}
+      {isCriticalFailure && <CriticalFailureOverlay onReviveSuccess={() => queryClient.invalidateQueries({ queryKey: ['journey'] })} />}
 
       {resolvedData && (
         <JourneyProvider overview={resolvedData}>

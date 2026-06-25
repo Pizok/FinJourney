@@ -27,6 +27,7 @@
 'use client'
 
 import { useEffect, useId, useRef, useState } from 'react'
+import Image from 'next/image'
 import { Camera, ChevronDown, Lock, Mail, X, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -104,81 +105,50 @@ function HelperText({ children }: { children: React.ReactNode }) {
   )
 }
 
-// ─── AvatarUploader ───────────────────────────────────────────────────────────
+// ─── AvatarSelector ────────────────────────────────────────────────────────────
 
-function AvatarUploader({ avatarUrl }: { avatarUrl: string }) {
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-
-  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please select an image file.')
-      return
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image must be smaller than 5MB.')
-      return
-    }
-
-    // Local preview only — actual upload endpoint TBD.
-    const reader = new FileReader()
-    reader.onload = () => setPreviewUrl(reader.result as string)
-    reader.readAsDataURL(file)
-
-    // TODO: once an avatar upload endpoint exists, POST the file here and
-    // call updateProfile({ avatar_url: <returned url> }) on success.
-    toast.info('Avatar preview updated. Upload syncing is not yet connected.')
-  }
-
-  const displaySrc = previewUrl ?? avatarUrl
+function AvatarSelector({ avatarKey, onChange }: { avatarKey: string; onChange: (key: string) => void }) {
+  const isRoan = avatarKey === 'Roan'
+  const isLyss = avatarKey === 'Lyss'
 
   return (
     <div className="flex items-center gap-4">
       {/* Avatar preview */}
       <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border border-tactical-border bg-abyssal-slate">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={displaySrc}
+        <Image
+          src={`/avatar/${avatarKey || 'Roan'}.png`}
           alt="Profile avatar"
+          width={64}
+          height={64}
           className="h-full w-full object-cover"
-          onError={(e) => {
-            // Graceful fallback if avatar_url 404s
-            ;(e.target as HTMLImageElement).style.display = 'none'
-          }}
         />
       </div>
 
-      {/* Upload trigger */}
-      <div>
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className={[
-            'flex items-center gap-2 rounded-lg border border-tactical-border px-3 py-2',
-            'font-sans text-sm font-medium text-pearl-text',
-            'transition-colors duration-150',
-            'hover:border-pearl-text/30 hover:bg-pearl-text/5',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted-emerald',
-            'focus-visible:ring-offset-2 focus-visible:ring-offset-canvas-surface',
-          ].join(' ')}
-        >
-          <Camera size={14} strokeWidth={2} aria-hidden="true" />
-          Change Avatar
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/png,image/jpeg,image/webp"
-          onChange={handleFileSelect}
-          className="hidden"
-          aria-label="Upload new avatar image"
-        />
-        <p className="mt-1.5 font-sans text-xs text-muted-text">
-          PNG, JPG, or WebP. Max 5MB.
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => onChange('Roan')}
+            className={[
+              'flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+              isRoan ? 'border-muted-emerald bg-muted-emerald/10 text-muted-emerald' : 'border-tactical-border text-muted-text hover:border-pearl-text/30 hover:text-pearl-text'
+            ].join(' ')}
+          >
+            Roan
+          </button>
+          <button
+            type="button"
+            onClick={() => onChange('Lyss')}
+            className={[
+              'flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+              isLyss ? 'border-muted-emerald bg-muted-emerald/10 text-muted-emerald' : 'border-tactical-border text-muted-text hover:border-pearl-text/30 hover:text-pearl-text'
+            ].join(' ')}
+          >
+            Lyss
+          </button>
+        </div>
+        <p className="font-sans text-xs text-muted-text">
+          Choose your traveler avatar. Cosmetic only.
         </p>
       </div>
     </div>
@@ -682,7 +652,10 @@ export function ProfileCard() {
       {/* Card Body */}
       <div className="flex flex-col gap-6 px-8 py-6">
         {/* Avatar — full width row */}
-        <AvatarUploader avatarUrl={profile.avatar_url} />
+        <AvatarSelector
+          avatarKey={profile.avatar_key || 'Roan'}
+          onChange={(avatar_key) => updateProfile({ avatar_key })}
+        />
 
         <div className="border-t border-tactical-border/60" aria-hidden="true" />
 

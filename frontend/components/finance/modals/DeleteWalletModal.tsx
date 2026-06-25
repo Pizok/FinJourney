@@ -31,6 +31,7 @@ import {
   BaseModal, GhostButton, PrimaryButton, inputBase,
 } from './BaseModal';
 import { useWalletStore } from '@/components/finance/stores/walletStore';
+import { apiFetchClient } from '@/lib/apiClient.client';
 
 export function DeleteWalletModal() {
   const {
@@ -49,6 +50,7 @@ export function DeleteWalletModal() {
     : null;
 
   const [confirmText, setConfirmText]   = useState('');
+  const [deleteError, setDeleteError]   = useState('');
   const isLastWallet  = wallets.length <= 1;
   const nameMatches   = confirmText.trim() === wallet?.name.trim();
   const canDelete     = nameMatches && !isLastWallet && !loading.mutation;
@@ -60,6 +62,7 @@ export function DeleteWalletModal() {
 
   const handleClose = () => {
     setConfirmText('');
+    setDeleteError('');
     closeDeleteWallet();
   };
 
@@ -67,25 +70,20 @@ export function DeleteWalletModal() {
 
   const deleteWalletMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetch(`/api/v1/wallets/${id}`, {
+      await apiFetchClient(`wallets/${id}`, {
         method: 'DELETE',
       });
-      // 204 No Content for success
-      if (!response.ok) {
-        let errorMsg = 'Failed to delete wallet';
-        try {
-          const json = await response.json();
-          errorMsg = json.error?.message || errorMsg;
-        } catch {}
-        throw new Error(errorMsg);
-      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wallet', 'bootstrap'] });
       handleClose();
     },
     onError: (err: any) => {
-      setGlobalError(err.message);
+      if (err.message && err.message.includes('transactions')) {
+        setDeleteError('This wallet has existing transactions. Please delete or reassign them first.');
+      } else {
+        setGlobalError(err.message);
+      }
     }
   });
 
@@ -163,6 +161,11 @@ export function DeleteWalletModal() {
 
         {/* Name confirmation input */}
         <div className="flex flex-col gap-1.5">
+          {deleteError && (
+            <div className="mb-2 rounded border border-[var(--color-terracotta)]/50 bg-[var(--color-terracotta)]/10 px-3 py-2 text-sm text-[var(--color-terracotta)]" style={{ fontFamily: 'var(--font-sans)' }}>
+              {deleteError}
+            </div>
+          )}
           <label
             htmlFor="delete-wallet-confirm"
             className="text-sm font-medium text-[var(--color-pearl-text)]"

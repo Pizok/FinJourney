@@ -45,6 +45,8 @@ from typing import TYPE_CHECKING, Any, Awaitable, Callable, ClassVar
 from supabase import AsyncClient
 
 from ..repos.event_repo import EventRepository
+from fastapi import BackgroundTasks
+from app.journey.services.advancement_svc import evaluate_node_advancement
 
 if TYPE_CHECKING:
     pass  # No circular types needed from this side.
@@ -161,9 +163,10 @@ class EventBus:
     # Class-level registry cache — populated once, shared across all instances.
     _handler_registry: ClassVar[dict[str, HandlerFn] | None] = None
 
-    def __init__(self, db: AsyncClient) -> None:
+    def __init__(self, db: AsyncClient, background_tasks: BackgroundTasks | None = None) -> None:
         self._db = db
         self._event_repo = EventRepository(db)
+        self._background_tasks = background_tasks
 
     # ------------------------------------------------------------------
     # Handler Registry — Lazy Load
@@ -345,6 +348,14 @@ class EventBus:
             await handler(ctx)
             await self._mark_processed(event_id)
             await self._mark_published(event_id)
+            
+            # Post-processing hooks
+            if self._background_tasks:
+                self._background_tasks.add_task(evaluate_node_advancement, self._db, ctx.user_id)
+            else:
+                # Fallback if no background_tasks (e.g. tests)
+                evaluate_node_advancement(self._db, ctx.user_id)
+
             logger.debug(
                 "EventBus._dispatch: completed — type=%s id=%s user=%s",
                 ctx.event_type,

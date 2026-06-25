@@ -48,8 +48,8 @@
 
 import { useState, useEffect } from 'react'
 import { Target, Info } from 'lucide-react'
+import Link from 'next/link'
 import { cn } from '@/lib/utils'
-import { useAnalyticsStore } from '../stores/analyticsStore'
 import { useAnalyticsData } from '../layout/AnalyticsContext'
 import type { AssetHealth } from '../types/analytics.types'
 
@@ -282,7 +282,6 @@ function AssetBody({ asset }: { asset: AssetHealth }) {
 
 export function AssetHealthCard() {
   const { asset_health: asset = null } = useAnalyticsData()
-  const openSavingsTarget = useAnalyticsStore((s) => s.openSavingsTarget)
 
   return (
     <section
@@ -318,9 +317,8 @@ export function AssetHealthCard() {
        * reinforces the savings/milestone semantic for this action.
        */}
       <div className="mt-6 border-t border-tactical-border/50 pt-5">
-        <button
-          type="button"
-          onClick={openSavingsTarget}
+        <Link
+          href="/finance?tab=baselines"
           className={cn(
             'flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5',
             'border border-tactical-border font-display text-sm font-medium text-muted-text',
@@ -330,7 +328,7 @@ export function AssetHealthCard() {
         >
           <Target className="h-4 w-4" strokeWidth={2} />
           Manage Savings Goals
-        </button>
+        </Link>
       </div>
     </section>
   )

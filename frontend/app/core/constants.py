@@ -118,6 +118,39 @@ HP_GHOST_PENALTY_DAILY: int = 10
 # Maximum standby tokens available per year.
 STANDBY_TOKENS_PER_YEAR: int = 7
 
+# Map node advancement thresholds (cumulative total_xp)
+# Used as a fallback if system_flags fails to load.
+NODE_XP_THRESHOLDS: dict[str, int] = {
+    "1-1": 100,
+    "1-2": 200,
+    "1-3": 350,
+    "1-4": 500,
+    "1-5": 700,
+    "2-1": 950,
+    "2-2": 1250,
+    "2-3": 1600,
+    "2-4": 2000,
+    "2-5": 2450,
+    "2-6": 2950,
+    "3-1": 3500,
+    "3-2": 4200,
+    "3-3": 5000,
+    "3-4": 5900,
+    "3-5": 6900,
+    "3-6": 8000,
+    "4-1": 8800,
+    "4-2": 9700,
+    "4-3": 10700,
+    "4-4": 11800,
+    "4-5": 13000,
+    "5-1": 14500,
+    "5-2": 16000,
+    "5-3": 17750,
+    "5-4": 19750,
+    "5-5": 22000,
+    "5-6": 25000,
+}
+
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # ECONOMY / FINANCIAL THRESHOLDS
@@ -155,11 +188,13 @@ class GameEvent(str, Enum):
     CLEAN_CODE     = "CLEAN_CODE"
     GHOST_PENALTY  = "GHOST_PENALTY"
     LEVEL_UP       = "LEVEL_UP"
-    BOSS_DEFEATED  = "BOSS_DEFEATED"
-    REGION_SHIFT   = "REGION_SHIFT"
-    LOAN_CLEARED   = "LOAN_CLEARED"
-    STANDBY_USED   = "STANDBY_USED"
-    THEME_UNLOCKED = "THEME_UNLOCKED"
+    BOSS_DEFEATED    = "BOSS_DEFEATED"
+    NODE_SHIFTED     = "NODE_SHIFTED"
+    NODE_UNLOCKED    = "NODE_UNLOCKED"
+    REGION_COMPLETED = "REGION_COMPLETED"
+    LOAN_CLEARED     = "LOAN_CLEARED"
+    STANDBY_USED     = "STANDBY_USED"
+    THEME_UNLOCKED   = "THEME_UNLOCKED"
 
     # Analytics-specific event (no HP/XP/gold effects — pure audit).
     BUDGET_REBALANCE = "BUDGET_REBALANCE"

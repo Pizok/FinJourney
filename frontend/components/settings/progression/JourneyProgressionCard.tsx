@@ -32,10 +32,12 @@ import {
   ChevronRight,
   Lock,
 } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   useSettingsStore,
   selectCurrentProgression,
 } from '../store/settingsStore'
+import { apiFetchClient } from '@/lib/apiClient.client'
 import type { PathId, ActivePath } from '../types/settings.types'
 
 // ─── Path Catalog ─────────────────────────────────────────────────────────────
@@ -282,23 +284,16 @@ function ChangePathModal({
     setApiError(null)
 
     try {
-      const res = await fetch('/api/v1/settings/path/change', {
+      const data: any = await apiFetchClient('settings/path/change', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ path_id: selectedId }),
       })
-      const json = await res.json()
-
-      if (!json.success) {
-        setApiError(json.error?.message ?? 'Path change failed. Please try again.')
-        return
-      }
 
       // Notify parent; parent invalidates ['settings'] query and closes modal
-      onSuccess(json.active_path, json.cooldown_days)
-    } catch {
-      setApiError('Network error. Check your connection and try again.')
+      onSuccess(data.active_path, data.cooldown_days)
+    } catch (err: any) {
+      setApiError(err?.message || 'Path change failed. Please try again.')
     } finally {
       setIsSubmitting(false)
     }
@@ -563,22 +558,15 @@ function ResetProgressModal({ onClose, onSuccess }: ResetProgressModalProps) {
     setApiError(null)
 
     try {
-      const res = await fetch('/api/v1/settings/reset-progress', {
+      await apiFetchClient('settings/reset-progress', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ confirmation: RESET_KEYWORD }),
       })
-      const json = await res.json()
-
-      if (!json.success) {
-        setApiError(json.error?.message ?? 'Reset failed. Please try again.')
-        return
-      }
 
       onSuccess()
-    } catch {
-      setApiError('Network error. Check your connection and try again.')
+    } catch (err: any) {
+      setApiError(err?.message || 'Reset failed. Please try again.')
     } finally {
       setIsSubmitting(false)
     }
@@ -790,6 +778,7 @@ function DangerZone({ onResetClick }: { onResetClick: () => void }) {
 // ─── JourneyProgressionCard ───────────────────────────────────────────────────
 
 export function JourneyProgressionCard() {
+  const queryClient = useQueryClient()
   const progression = useSettingsStore(selectCurrentProgression)
   const [isChangePathOpen, setIsChangePathOpen] = useState(false)
   const [isResetOpen, setIsResetOpen] = useState(false)
@@ -806,7 +795,7 @@ export function JourneyProgressionCard() {
       `[PathChange] Changed to ${newPath.name}. Cooldown: ${cooldownDays} days.`,
     )
     setIsChangePathOpen(false)
-    // TODO: Invalidate ['settings'] TanStack Query key to refresh bootstrap state
+    queryClient.invalidateQueries({ queryKey: ['settings'] })
   }
 
   function handleResetSuccess() {
@@ -814,7 +803,8 @@ export function JourneyProgressionCard() {
     // and redirect the user to the dashboard (progression has restarted).
     console.info('[ResetProgress] Journey reset confirmed.')
     setIsResetOpen(false)
-    // TODO: Invalidate ['settings'] and redirect to /dashboard
+    queryClient.invalidateQueries({ queryKey: ['settings'] })
+    window.location.href = '/dashboard'
   }
 
   return (

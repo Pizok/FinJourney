@@ -85,6 +85,7 @@ class TransactionCreate(BaseModel):
     # --- Core fields (income / expense) ---
     wallet_id:   Optional[UUID] = Field(default=None)
     category_id: Optional[UUID] = Field(default=None)
+    savings_target_id: Optional[UUID] = Field(default=None)
 
     # --- Transfer fields ---
     source_wallet_id:      Optional[UUID] = Field(default=None)
@@ -129,9 +130,9 @@ class TransactionCreate(BaseModel):
                 raise ValueError(
                     f"wallet_id is required for type '{t.value}'."
                 )
-            if self.category_id is None:
+            if self.category_id is None and self.savings_target_id is None:
                 raise ValueError(
-                    f"category_id is required for type '{t.value}'."
+                    f"Either category_id or savings_target_id is required for type '{t.value}'."
                 )
             # Transfer-specific fields must be absent
             if self.source_wallet_id is not None:
@@ -259,6 +260,7 @@ class TransactionOut(BaseModel):
     # income / expense
     wallet_id:   Optional[UUID]
     category_id: Optional[UUID]
+    savings_target_id: Optional[UUID] = None
 
     # transfer
     source_wallet_id:      Optional[UUID]

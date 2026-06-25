@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { apiFetchClient } from '@/lib/apiClient.client';
 import { useDashboardData } from './useDashboardData';
 import { useDashboardModals } from './useDashboardModals';
 import { parseAmount } from '../utils/dashboard.helpers';
@@ -43,6 +45,7 @@ const EMPTY_FORM: AddTransactionPayload = {
 export function useTransactionModal(): UseTransactionModalReturn {
   const { data } = useDashboardData();
   const { closeModal } = useDashboardModals();
+  const queryClient = useQueryClient();
 
   const [form, setForm] = useState<AddTransactionPayload>(EMPTY_FORM);
   const [errors, setErrors] = useState<AddTransactionErrors>({});
@@ -92,20 +95,19 @@ export function useTransactionModal(): UseTransactionModalReturn {
 
     setIsSubmitting(true);
     try {
-      // TODO: replace with real API call
-      // await fetch('/api/v1/transactions', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ ...form, amount: parseAmount(form.amount) }),
-      // });
-      console.info('[useTransactionModal] Payload:', {
-        ...form,
-        amount: parseAmount(form.amount),
+      await apiFetchClient('transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...form, amount: parseAmount(form.amount) }),
       });
+      
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'bootstrap'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics'] });
+      
       reset();
       closeModal();
-    } catch {
-      setErrors({ general: 'Something went wrong. Please try again.' });
+    } catch (err: any) {
+      setErrors({ general: err?.message || 'Something went wrong. Please try again.' });
     } finally {
       setIsSubmitting(false);
     }

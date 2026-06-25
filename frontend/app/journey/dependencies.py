@@ -7,7 +7,7 @@ import logging
 import os
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request, status, BackgroundTasks
 from supabase import AsyncClient
 
 from app.api.v1.dependencies import (
@@ -303,12 +303,15 @@ QStashVerified = Annotated[None, Depends(verify_qstash_signature)]
 # ---------------------------------------------------------------------------
 
 
-async def get_event_bus(db: DBClient) -> EventBus:
+async def get_event_bus(
+    db: DBClient,
+    background_tasks: BackgroundTasks,
+) -> EventBus:
     """
     Provides the EventBus dispatcher for the current request.
     Shares the same db client used by all repos in this request context.
     """
-    return EventBus(db)
+    return EventBus(db, background_tasks)
 
 
 async def get_xp_service(

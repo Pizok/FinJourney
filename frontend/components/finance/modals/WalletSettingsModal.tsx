@@ -28,6 +28,7 @@ import {
 } from './BaseModal';
 import { useWalletStore, selectSettingsWallet } from '@/components/finance/stores/walletStore';
 import type { PaymentMethod } from '@/types/wallet.types';
+import { apiFetchClient } from '@/lib/apiClient.client';
 
 // ---------------------------------------------------------------------------
 // WalletSettingsModal
@@ -81,16 +82,12 @@ export function WalletSettingsModal() {
   const updateWalletMutation = useMutation({
     mutationFn: async (payload: any) => {
       if (!wallet) throw new Error('No wallet selected');
-      const response = await fetch(`/api/v1/wallets/${wallet.id}`, {
+      const response = await apiFetchClient(`wallets/${wallet.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const json = await response.json();
-      if (!response.ok || !json.success) {
-        throw new Error(json.error?.message || 'Failed to save wallet settings');
-      }
-      return json.data;
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wallet', 'bootstrap'] });

@@ -115,6 +115,31 @@ def _require_category(
         )
     return category
 
+def _require_savings_target(
+    client: Client,
+    target_id: str,
+    user_id: str,
+) -> dict[str, Any]:
+    """Assert a savings target exists and belongs to user_id. Raises HTTP 403 on failure."""
+    response = (
+        client.table("savings_targets")
+        .select("*")
+        .eq("id", target_id)
+        .eq("user_id", user_id)
+        .is_("deleted_at", "null")
+        .single()
+        .execute()
+    )
+    if not response.data:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "SAVINGS_TARGET_OWNERSHIP_VIOLATION",
+                "message": "The savings target referenced does not exist or does not belong to you.",
+            },
+        )
+    return response.data
+
 
 # ---------------------------------------------------------------------------
 # Internal DB helpers
@@ -402,7 +427,10 @@ def create_transaction(
 
     if txn_type in (_INCOME.value, _EXPENSE.value):
         _require_wallet(client, str(payload.wallet_id), user_id, "wallet_id")
-        _require_category(client, str(payload.category_id), user_id)
+        if payload.category_id:
+            _require_category(client, str(payload.category_id), user_id)
+        if payload.savings_target_id:
+            _require_savings_target(client, str(payload.savings_target_id), user_id)
 
     elif txn_type == _TRANSFER.value:
         _require_wallet(client, str(payload.source_wallet_id), user_id, "source_wallet_id")
@@ -418,6 +446,7 @@ def create_transaction(
         "note":                   payload.note,
         "wallet_id":              str(payload.wallet_id)              if payload.wallet_id              else None,
         "category_id":            str(payload.category_id)            if payload.category_id            else None,
+        "savings_target_id":      str(payload.savings_target_id)      if payload.savings_target_id      else None,
         "source_wallet_id":       str(payload.source_wallet_id)       if payload.source_wallet_id       else None,
         "destination_wallet_id":  str(payload.destination_wallet_id)  if payload.destination_wallet_id  else None,
         "transfer_group_id":      transfer_group_id,
@@ -484,8 +513,10 @@ def update_transaction(
         if payload.wallet_id is not None:
             new_wallet_id_str = str(payload.wallet_id)
             _require_wallet(client, new_wallet_id_str, user_id, "wallet_id")
-        if payload.category_id is not None:
+        if getattr(payload, "category_id", None) is not None:
             _require_category(client, str(payload.category_id), user_id)
+        if getattr(payload, "savings_target_id", None) is not None:
+            _require_savings_target(client, str(payload.savings_target_id), user_id)
 
     elif txn_type == _TRANSFER.value:
         # wallet_id, source_wallet_id, destination_wallet_id are all locked.
@@ -515,8 +546,10 @@ def update_transaction(
     updates: dict[str, Any] = {}
     if payload.amount is not None:
         updates["amount"] = payload.amount
-    if payload.category_id is not None:
+    if getattr(payload, "category_id", None) is not None:
         updates["category_id"] = str(payload.category_id)
+    if getattr(payload, "savings_target_id", None) is not None:
+        updates["savings_target_id"] = str(payload.savings_target_id)
     if payload.wallet_id is not None and txn_type != _TRANSFER.value:
         updates["wallet_id"] = new_wallet_id_str
     if payload.payment_method is not None:

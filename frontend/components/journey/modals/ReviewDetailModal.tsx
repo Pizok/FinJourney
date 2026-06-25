@@ -46,6 +46,8 @@ import type {
   QuarterlyReview,
   WinCondition,
 } from "@/components/journey/types/journey.types";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiFetchClient } from "@/lib/apiClient.client";
 
 // ─── Urgency countdown ────────────────────────────────────────────────────────
 
@@ -203,7 +205,7 @@ function OutcomeTile({ kind, xpOrHp, extras = [] }: OutcomeTileProps) {
 
 // ─── Full modal content ───────────────────────────────────────────────────────
 
-function ReviewDetailContent({ data }: { data: ReviewDetailData }) {
+function ReviewDetailContent({ data, onClose }: { data: ReviewDetailData; onClose?: () => void }) {
   const isActive = data.status === "active";
   const isCompleted = data.status === "completed";
   const conditions = data.win_conditions ?? [];
@@ -213,6 +215,24 @@ function ReviewDetailContent({ data }: { data: ReviewDetailData }) {
   const rewardGold = data.reward_gold ?? 50;
   const penaltyHp = data.penalty_hp ?? 20;
   const penaltyEffects = data.penalty_effects ?? ["Shield destroyed"];
+
+  const queryClient = useQueryClient();
+
+  const claimMutation = useMutation({
+    mutationFn: async () => {
+      await apiFetchClient(`journey/rewards/claim`, {
+        method: "POST",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["journey"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "bootstrap"] });
+      if (onClose) onClose();
+    },
+    onError: (err: any) => {
+      alert(err.message || "Failed to claim rewards.");
+    },
+  });
 
   return (
     <>
@@ -257,7 +277,7 @@ function ReviewDetailContent({ data }: { data: ReviewDetailData }) {
 
       {/* ── Outcome grid ───────────────────────────────────────────── */}
       <div
-        className="grid grid-cols-1 sm:grid-cols-2 gap-3"
+        className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6"
         aria-label="Review outcomes"
       >
         <OutcomeTile
@@ -271,6 +291,16 @@ function ReviewDetailContent({ data }: { data: ReviewDetailData }) {
           extras={penaltyEffects}
         />
       </div>
+
+      {isCompleted && !data.rewards_claimed && (
+        <button
+          onClick={() => claimMutation.mutate()}
+          disabled={claimMutation.isPending}
+          className="w-full rounded-lg bg-muted-emerald px-4 py-3 font-sans text-sm font-bold text-abyssal-slate transition-colors hover:bg-muted-emerald/90 disabled:opacity-50"
+        >
+          {claimMutation.isPending ? "Claiming..." : "Claim Rewards"}
+        </button>
+      )}
     </>
   );
 }
@@ -329,7 +359,7 @@ export function ReviewDetailModal({
         ) : isError ? (
           <ModalErrorBody onRetry={refetch} />
         ) : data ? (
-          <ReviewDetailContent data={data} />
+          <ReviewDetailContent data={data} onClose={onClose} />
         ) : null}
       </Modal.Body>
     </Modal>

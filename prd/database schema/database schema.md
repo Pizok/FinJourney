@@ -68,12 +68,14 @@ CREATE TABLE public.transactions (
   transaction_date date NOT NULL,
   logged_at timestamp with time zone DEFAULT now(),
   deleted_at timestamp with time zone,
+  savings_target_id uuid,
   CONSTRAINT transactions_pkey PRIMARY KEY (id),
   CONSTRAINT transactions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.journey_profiles(id),
   CONSTRAINT transactions_primary_wallet_id_fkey FOREIGN KEY (primary_wallet_id) REFERENCES public.wallets(id),
   CONSTRAINT transactions_source_wallet_id_fkey FOREIGN KEY (source_wallet_id) REFERENCES public.wallets(id),
   CONSTRAINT transactions_destination_wallet_id_fkey FOREIGN KEY (destination_wallet_id) REFERENCES public.wallets(id),
-  CONSTRAINT transactions_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.categories(id)
+  CONSTRAINT transactions_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.categories(id),
+  CONSTRAINT transactions_savings_target_id_fkey FOREIGN KEY (savings_target_id) REFERENCES public.savings_targets(id)
 );
 CREATE TABLE public.fixed_expenses (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -202,4 +204,31 @@ CREATE TABLE public.journey_notifications (
   CONSTRAINT journey_notifications_pkey PRIMARY KEY (id),
   CONSTRAINT journey_notifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.journey_profiles(id),
   CONSTRAINT journey_notifications_source_event_id_fkey FOREIGN KEY (source_event_id) REFERENCES public.journey_events(id)
+);
+CREATE TABLE public.income_streams (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  name text NOT NULL,
+  amount numeric NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  deleted_at timestamp with time zone,
+  CONSTRAINT income_streams_pkey PRIMARY KEY (id),
+  CONSTRAINT income_streams_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.system_flags (
+  key text NOT NULL,
+  value jsonb NOT NULL,
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT system_flags_pkey PRIMARY KEY (key)
+);
+CREATE TABLE public.journey_region_nodes (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  node_id text NOT NULL,
+  region_id text NOT NULL,
+  status USER-DEFINED NOT NULL DEFAULT 'LOCKED'::region_status,
+  unlocked_at timestamp with time zone,
+  shifted_at timestamp with time zone,
+  CONSTRAINT journey_region_nodes_pkey PRIMARY KEY (id),
+  CONSTRAINT journey_region_nodes_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.journey_profiles(id)
 );

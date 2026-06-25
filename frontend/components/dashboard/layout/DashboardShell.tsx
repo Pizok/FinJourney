@@ -7,6 +7,9 @@ import { TutorialModal } from '../modals/TutorialModal';
 import { DangerModal } from '../modals/DangerModal';
 import { AddTransactionModal } from '../modals/AddTransactionModal';
 import { NotificationModal } from '../modals/NotificationModal';
+import { ZeroSpendModal } from '../modals/ZeroSpendModal';
+import { UnlockModal } from '../modals/UnlockModal';
+import { AuditModal } from '../modals/AuditModal';
 import { useDashboardModals } from '../hooks/useDashboardModals';
 
 // ─── Modal Layer ───────────────────────────────────────────────────────────────
@@ -49,6 +52,15 @@ function ModalLayer() {
         )}
         {currentModal === 'notification' && (
           <NotificationModal onClose={closeModal} />
+        )}
+        {currentModal === 'zeroSpend' && (
+          <ZeroSpendModal />
+        )}
+        {currentModal === 'unlock' && (
+          <UnlockModal />
+        )}
+        {currentModal === 'audit' && (
+          <AuditModal />
         )}
       </div>
     </>

@@ -237,6 +237,7 @@ class BootstrapService:
         hp: int = max(0, min(100, profile.get("current_hp", 100)))
         vitality_raw: str = profile.get("vitality", "NORMAL")
         critical_failure: bool = vitality_raw == "CRITICAL_FAILURE"
+        avatar_key: str = profile.get("avatar_key", "Roan")
 
         active_path_raw: str = profile.get("active_path", "UNASSIGNED")
         try:
@@ -262,6 +263,7 @@ class BootstrapService:
             vitality=vitality_enum,
             critical_failure=critical_failure,
             path=PathInfoResponse.from_path_id(path_enum),
+            avatar_key=avatar_key,
         )
 
     def _build_daily_status(

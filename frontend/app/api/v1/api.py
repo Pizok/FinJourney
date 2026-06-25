@@ -35,12 +35,14 @@ from app.api.v1 import (
     account,              # DELETE /account, GET /account/export
     bootstrap,            # GET /me/bootstrap
     categories,           # CRUD /categories
-    daily,                # GET /daily-status, POST /daily/zero-spend, /daily/use-standby
+    daily,                # GET /daily-status, POST /daily/use-standby
     endpoints_analytics,  # GET /analytics/overview + advisory, POST /analytics/simulate-loan
     endpoints_wallets,    # CRUD /wallets, POST /wallets/rebalance-budget
     profile,              # GET /profile, PATCH /profile/setup, PATCH /profile/theme
     settings,             # GET /settings, PATCH /settings/*, POST /settings/path/change
     transactions,         # GET /transactions, POST /transactions, DELETE /transactions/{id}
+    endpoints_income,
+    endpoints_savings,
 )
 
 # ── Journey Engine — isolated spoke with a hardcoded full-path prefix ─────
@@ -63,6 +65,8 @@ api_router.include_router(endpoints_wallets.router)
 from app.api.v1 import loans, fixed_expenses
 api_router.include_router(loans.router)
 api_router.include_router(fixed_expenses.router)
+api_router.include_router(endpoints_income.router)
+api_router.include_router(endpoints_savings.router)
 
 # Analytics & Reporting
 api_router.include_router(endpoints_analytics.router)

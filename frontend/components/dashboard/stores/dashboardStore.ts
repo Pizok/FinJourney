@@ -181,6 +181,21 @@ export const MOCK_BOOTSTRAP: BootstrapData = {
 
   recent_transactions: MOCK_TRANSACTIONS,
 
+  notifications: {
+    unread_count: 1,
+    items: [
+      {
+        id: 'notif-001',
+        category: 'SYSTEM',
+        title: 'Ghost Penalty Warning',
+        message: 'You have not logged any transactions recently. A ghost penalty may be applied soon.',
+        severity: 'WARNING',
+        read: false,
+        created_at: h(1),
+      }
+    ],
+  },
+
   feature_unlocks: {
     analytics: false,
     unlimited_wallets: true,

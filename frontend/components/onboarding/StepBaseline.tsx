@@ -27,7 +27,7 @@ import {
   BudgetCallout,
   ButtonRow,
 } from './OnboardingCard';
-import type { OnboardingState, BaselineEntry } from './types';
+import type { OnboardingState, BaselineEntry, SavingsEntry } from './types';
 
 type SubStep = 'income' | 'fixed' | 'savings';
 
@@ -115,6 +115,100 @@ function EntryList({ entries, errors, onUpdate, onAdd, onRemove, addLabel }: Ent
   );
 }
 
+// ── Savings Entry list editor ────────────────────────────────────────────────────────
+
+interface SavingsEntryListProps {
+  entries: SavingsEntry[];
+  errors:  Map<string, string>;
+  onUpdate: (id: string, field: keyof SavingsEntry, value: string | number) => void;
+  onAdd:    () => void;
+  onRemove: (id: string) => void;
+  addLabel: string;
+}
+
+function SavingsEntryList({ entries, errors, onUpdate, onAdd, onRemove, addLabel }: SavingsEntryListProps) {
+  return (
+    <div className="flex flex-col gap-4">
+      {entries.map((entry) => {
+        const labelErr  = errors.get(`label_${entry.id}`);
+        const targetErr = errors.get(`target_${entry.id}`);
+        const monthlyErr = errors.get(`monthly_${entry.id}`);
+        const deadlineErr = errors.get(`deadline_${entry.id}`);
+        return (
+          <div key={entry.id} className="flex flex-col gap-2.5 p-3.5 bg-abyssal-slate border border-tactical-border rounded-lg relative">
+            <div className="flex justify-between items-center">
+              <span className="font-sans text-xs uppercase text-muted-text">Savings Goal</span>
+              {entries.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => onRemove(entry.id)}
+                  className="text-muted-text hover:text-terracotta transition-colors"
+                  aria-label="Remove entry"
+                >
+                  <Trash2 size={14} strokeWidth={2} />
+                </button>
+              )}
+            </div>
+
+            <div>
+              <Input
+                value={entry.label}
+                onChange={(e) => onUpdate(entry.id, 'label', e.target.value)}
+                placeholder="E.g. Emergency Fund"
+                error={!!labelErr}
+              />
+              {labelErr && <FieldError message={labelErr} />}
+            </div>
+
+            <div className="flex gap-2.5 flex-col md:flex-row">
+              <div className="flex-1">
+                <Input
+                  value={entry.target_amount === 0 ? '' : String(entry.target_amount)}
+                  onChange={(e) => onUpdate(entry.id, 'target_amount', Number(sanitizeCurrencyInput(e.target.value)) || 0)}
+                  placeholder="Target Amount"
+                  suffix="IDR"
+                  inputMode="numeric"
+                  error={!!targetErr}
+                />
+                {targetErr && <FieldError message={targetErr} />}
+              </div>
+              <div className="flex-1">
+                <Input
+                  value={entry.monthly_contribution === 0 ? '' : String(entry.monthly_contribution)}
+                  onChange={(e) => onUpdate(entry.id, 'monthly_contribution', Number(sanitizeCurrencyInput(e.target.value)) || 0)}
+                  placeholder="Monthly Contrib."
+                  suffix="IDR"
+                  inputMode="numeric"
+                  error={!!monthlyErr}
+                />
+                {monthlyErr && <FieldError message={monthlyErr} />}
+              </div>
+              <div className="w-full md:w-36">
+                <Input
+                  type="month"
+                  value={entry.deadline}
+                  onChange={(e) => onUpdate(entry.id, 'deadline', e.target.value)}
+                  error={!!deadlineErr}
+                />
+                {deadlineErr && <FieldError message={deadlineErr} />}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+
+      <button
+        type="button"
+        onClick={onAdd}
+        className="flex items-center gap-1.5 text-[12px] font-sans text-muted-emerald hover:opacity-75 transition-opacity mt-0.5 w-fit"
+      >
+        <Plus size={13} strokeWidth={2} />
+        {addLabel}
+      </button>
+    </div>
+  );
+}
+
 // ── Inline info note ─────────────────────────────────────────────────────────
 
 function InfoNote({ children }: { children: React.ReactNode }) {
@@ -156,7 +250,8 @@ export default function StepBaseline({
   // ── Totals ──
   const totalIncome = state.incomeEntries.reduce((s, e) => s + e.amount, 0);
   const totalFixed  = state.fixedCostEntries.reduce((s, e) => s + e.amount, 0);
-  const dailyBudget = Math.max(0, (totalIncome - totalFixed - state.savingsTarget) / 30);
+  const totalSavings = state.savingsEntries.reduce((s, e) => s + e.monthly_contribution, 0);
+  const dailyBudget = Math.max(0, (totalIncome - totalFixed - totalSavings) / 30);
 
   // ── Entry helpers ──
   // Dynamic bracket access (state[key]) is replaced with explicit branches so
@@ -192,6 +287,22 @@ export default function StepBaseline({
     }
   };
 
+  const updateSavingsEntry = (id: string, field: keyof SavingsEntry, value: string | number) => {
+    onChange({ savingsEntries: state.savingsEntries.map((e) => e.id === id ? { ...e, [field]: value } : e) });
+  };
+
+  const addSavingsEntry = () => {
+    const today = new Date();
+    today.setFullYear(today.getFullYear() + 1); // default 12-month horizon
+    const defaultDeadline = today.toISOString().slice(0, 7); // YYYY-MM
+    const newEntry: SavingsEntry = { id: uid(), label: '', target_amount: 0, monthly_contribution: 0, deadline: defaultDeadline };
+    onChange({ savingsEntries: [...state.savingsEntries, newEntry] });
+  };
+
+  const removeSavingsEntry = (id: string) => {
+    onChange({ savingsEntries: state.savingsEntries.filter((e) => e.id !== id) });
+  };
+
   // ── Validation ──
   // Returns a Map so keys derived from entry IDs never touch Object.prototype.
   const validateEntries = (entries: BaselineEntry[]): Map<string, string> => {
@@ -203,12 +314,18 @@ export default function StepBaseline({
     return errs;
   };
 
-  const validateSavings = (): Map<string, string> => {
+  const validateSavings = (entries: SavingsEntry[]): Map<string, string> => {
     const errs = new Map<string, string>();
-    if (state.savingsTarget < 0)
-      errs.set('savings', 'Amount cannot be negative.');
-    else if (state.savingsTarget > totalIncome - totalFixed)
-      errs.set('savings', 'Savings cannot exceed income minus fixed costs.');
+    entries.forEach((e) => {
+      if (!e.label.trim()) errs.set(`label_${e.id}`, 'Required');
+      if (e.target_amount <= 0) errs.set(`target_${e.id}`, 'Must be > 0');
+      if (e.monthly_contribution < 0) errs.set(`monthly_${e.id}`, 'Cannot be negative');
+      if (!e.deadline) errs.set(`deadline_${e.id}`, 'Required');
+    });
+    const totalContr = entries.reduce((s, e) => s + e.monthly_contribution, 0);
+    if (totalContr > totalIncome - totalFixed) {
+      errs.set('global_savings', 'Total savings exceed income minus fixed costs.');
+    }
     return errs;
   };
 
@@ -216,7 +333,7 @@ export default function StepBaseline({
     let errs = new Map<string, string>();
     if (subStep === 'income')  errs = validateEntries(state.incomeEntries);
     if (subStep === 'fixed')   errs = validateEntries(state.fixedCostEntries);
-    if (subStep === 'savings') errs = validateSavings();
+    if (subStep === 'savings') errs = validateSavings(state.savingsEntries);
 
     setErrors(errs);
     if (errs.size > 0) return;
@@ -302,28 +419,25 @@ export default function StepBaseline({
       {/* ── Savings sub-step ─────────────────────────────────────────── */}
       {subStep === 'savings' && (
         <div className="flex flex-col gap-1.5">
-          <label
-            htmlFor="savings-target"
-            className="text-[11px] font-medium tracking-[0.06em] uppercase text-muted-text"
-          >
-            Monthly savings target (IDR)
-          </label>
-          <Input
-            id="savings-target"
-            value={state.savingsTarget === 0 ? '' : String(state.savingsTarget)}
-            onChange={(e) => {
-              onChange({ savingsTarget: Number(sanitizeCurrencyInput(e.target.value)) || 0 });
-              setErrors(new Map());
-            }}
-            placeholder="0"
-            suffix="IDR"
-            inputMode="numeric"
-            error={errors.has('savings')}
+          <SavingsEntryList
+            entries={state.savingsEntries}
+            errors={errors}
+            onUpdate={updateSavingsEntry}
+            onAdd={addSavingsEntry}
+            onRemove={removeSavingsEntry}
+            addLabel="Add savings target"
           />
-          {errors.has('savings') && <FieldError message={errors.get('savings')!} />}
-          <p className="text-[11px] text-muted-text/70 mt-0.5">
-            This is your financial priority before any discretionary spend.
+          {errors.has('global_savings') && <FieldError message={errors.get('global_savings')!} />}
+          <p className="text-[11px] text-muted-text/70 mt-2">
+            These monthly contributions are your financial priority before any discretionary spend.
           </p>
+
+          <div className="flex items-center justify-between mt-5 pt-4 border-t border-tactical-border">
+            <span className="text-[13px] text-muted-text">Total monthly savings</span>
+            <span className="font-display text-[16px] font-semibold text-dawn-gold">
+              {totalSavings.toLocaleString('id-ID')} IDR
+            </span>
+          </div>
         </div>
       )}
 
@@ -331,7 +445,7 @@ export default function StepBaseline({
       <BudgetCallout
         dailyBudget={dailyBudget}
         currency="Rp"
-        sub={`(${totalIncome.toLocaleString('id-ID')} − ${totalFixed.toLocaleString('id-ID')} − ${state.savingsTarget.toLocaleString('id-ID')}) ÷ 30`}
+        sub={`(${totalIncome.toLocaleString('id-ID')} − ${totalFixed.toLocaleString('id-ID')} − ${totalSavings.toLocaleString('id-ID')}) ÷ 30`}
       />
 
       <ButtonRow

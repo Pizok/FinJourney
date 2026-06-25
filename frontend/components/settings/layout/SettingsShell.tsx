@@ -9,10 +9,13 @@
 
 'use client'
 
-import { type ReactNode } from 'react'
+import { type ReactNode, useEffect, useRef } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { apiFetchClient } from '@/lib/apiClient.client'
+import { toast } from 'sonner'
+import { useSettingsStore } from '../store/settingsStore'
 import { DashboardSidebar } from '../../dashboard/layout/DashboardSidebar'
 import { SettingsSidebar } from './SettingsSidebar'
-import { UnsavedChangesBar } from '../states/UnsavedChangesBar'
 
 // ── Section placeholder — replaced by real cards in Part 2+ ──────────────────
 
@@ -51,6 +54,91 @@ interface SettingsShellProps {
 }
 
 export function SettingsShell({ children }: SettingsShellProps) {
+  const queryClient = useQueryClient()
+  const currentSettings = useSettingsStore(s => s.currentSettings)
+  const savedSettings = useSettingsStore(s => s.savedSettings)
+  const markSaved = useSettingsStore(s => s.markSaved)
+  const isDirty = useSettingsStore(s => s.isDirty)
+  const setSaving = useSettingsStore(s => s.setSaving)
+
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null)
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      // 1. Check what changed and only PATCH those sections.
+      const promises = []
+
+      // Profile
+      if (JSON.stringify(currentSettings.profile) !== JSON.stringify(savedSettings.profile)) {
+        promises.push(apiFetchClient('settings/profile', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(currentSettings.profile)
+        }))
+      }
+
+      // Financials
+      if (JSON.stringify(currentSettings.financials) !== JSON.stringify(savedSettings.financials)) {
+        promises.push(apiFetchClient('settings/financials', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(currentSettings.financials)
+        }))
+      }
+
+      // Preferences
+      if (JSON.stringify(currentSettings.preferences) !== JSON.stringify(savedSettings.preferences)) {
+        promises.push(apiFetchClient('settings/preferences', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(currentSettings.preferences)
+        }))
+      }
+
+      // Notifications
+      if (JSON.stringify(currentSettings.notifications) !== JSON.stringify(savedSettings.notifications)) {
+        promises.push(apiFetchClient('settings/notifications', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(currentSettings.notifications)
+        }))
+      }
+
+      if (promises.length > 0) {
+        await Promise.all(promises)
+      }
+      
+      // Return fresh data or just the current draft
+      return currentSettings
+    },
+    onSuccess: (data) => {
+      markSaved(data)
+      queryClient.invalidateQueries({ queryKey: ['settings'] })
+      toast.success('Settings saved successfully.')
+    },
+    onError: () => {
+      toast.error('Failed to save settings. Please try again.')
+    }
+  })
+
+  // Debounced auto-save effect
+  useEffect(() => {
+    if (!isDirty) return
+
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current)
+    }
+
+    debounceTimer.current = setTimeout(() => {
+      setSaving(true)
+      saveMutation.mutate()
+    }, 1000)
+
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current)
+    }
+  }, [currentSettings, isDirty, saveMutation, setSaving])
+
   return (
     <>
       <div className="flex h-screen bg-abyssal-slate">
@@ -120,12 +208,6 @@ export function SettingsShell({ children }: SettingsShellProps) {
           </main>
         </div>
       </div>
-
-      {/*
-        UnsavedChangesBar lives outside the scroll container so it floats
-        above all content when dirty state is active.
-      */}
-      <UnsavedChangesBar />
     </>
   )
 }

@@ -7,6 +7,7 @@ _AVATAR_CLASSES = ("Sentinel", "Navigator", "Architect", "Wanderer")
 class ProfileSetupRequest(BaseModel):
     username: str
     avatar_class: Literal["Sentinel", "Navigator", "Architect", "Wanderer"]
+    avatar_key: str
     timezone: str
 
     @field_validator("username")
@@ -28,6 +29,7 @@ class ProfileOut(BaseModel):
     id: str
     username: str
     avatar_class: str
+    avatar_key: str
     level: int
     hp: float
     xp: float

@@ -69,6 +69,8 @@ export interface PlayerState {
   critical_failure: boolean;
   /** Chosen player path — affects passive bonuses and UI accents */
   path: PlayerPath;
+  /** Chosen avatar key (e.g. 'Roan') */
+  avatar_key: string;
 }
 
 // ─── Feature Gates ────────────────────────────────────────────────────────────

@@ -99,11 +99,19 @@ class PatchProfileRequest(BaseModel):
         ),
     ] = None
 
+    avatar_key: Annotated[
+        str | None,
+        Field(
+            default=None,
+            description="Avatar character selection ('Roan' or 'Lyss').",
+        ),
+    ] = None
+
     @model_validator(mode="after")
     def at_least_one_field_present(self) -> "PatchProfileRequest":
-        if all(v is None for v in (self.username, self.timezone, self.primary_payday)):
+        if all(v is None for v in (self.username, self.timezone, self.primary_payday, self.avatar_key)):
             raise ValueError(
-                "At least one of 'username', 'timezone', or 'primary_payday' must be provided."
+                "At least one of 'username', 'timezone', 'primary_payday', or 'avatar_key' must be provided."
             )
         return self
 

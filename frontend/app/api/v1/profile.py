@@ -74,6 +74,7 @@ async def setup_profile(user: CurrentUser, db: DbClient, payload: ProfileSetupRe
             {
                 "username": payload.username,
                 "avatar_class": payload.avatar_class,
+                "avatar_key": payload.avatar_key,
                 "timezone": payload.timezone,
                 "has_completed_setup": True,
             }

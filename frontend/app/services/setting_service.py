@@ -46,11 +46,11 @@ async def get_settings_hydration(db: AsyncClient, user_id: UUID) -> SettingsHydr
     if not profile_data:
         raise SettingsDomainError("USER_NOT_FOUND", "Profile not found", http_status=404)
 
-    # 1. Profile Payload
     profile = ProfilePayload(
         user_id=user_id,
         username=profile_data.get("username", ""),
         avatar_class=profile_data.get("avatar_class", ""),
+        avatar_key=profile_data.get("avatar_key", "Roan"),
         timezone=profile_data.get("timezone", "UTC"),
         primary_payday=profile_data.get("primary_payday"),
         setup_status="completed" if profile_data.get("onboarding_complete") else "pending",
@@ -169,6 +169,9 @@ async def patch_profile(db: AsyncClient, user_id: UUID, body: PatchProfileReques
         if not (1 <= body.primary_payday <= 31):
             raise SettingsDomainError("INVALID_PAYDAY", "Payday must be between 1 and 31")
         updates["primary_payday"] = body.primary_payday
+
+    if body.avatar_key is not None and body.avatar_key != profile_data.get("avatar_key"):
+        updates["avatar_key"] = body.avatar_key
 
     if updates:
         try:

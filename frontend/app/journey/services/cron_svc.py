@@ -104,6 +104,7 @@ class CleanupResult:
     shields_expired: int = 0
     tokens_used: int = 0
     stalled_challenges_fixed: int = 0
+    advancements_synced: int = 0
 
 
 # ---------------------------------------------------------------------------
@@ -340,6 +341,9 @@ class CronService:
           3. Stalled PREPARING challenge cleanup:
                PREPARING challenges older than 24 hours → FAILED.
                (These indicate a system error in the cron chain.)
+          4. Node Advancement Sync:
+               Query all users with has_completed_setup=True and run
+               evaluate_node_advancement as a safety net.
 
         Returns:
             CleanupResult with counts for each operation.
@@ -377,10 +381,26 @@ class CronService:
                         challenge_id, exc,
                     )
 
+        # ── 3. Node Advancement Sync ──────────────────────────────────────────
+        from app.journey.services.advancement_svc import evaluate_node_advancement
+        
+        # Query active users
+        active_users_res = await self._db.table("profiles").select("id").eq("has_completed_setup", True).execute()
+        active_users = active_users_res.data if active_users_res.data else []
+        
+        for user_row in active_users:
+            user_id = user_row.get("id")
+            if user_id:
+                try:
+                    evaluate_node_advancement(self._db, user_id)
+                    result.advancements_synced += 1
+                except Exception as exc:
+                    logger.error("CronService.run_daily_cleanup: advancement sync failed for %s — %s", user_id, exc)
+
         logger.info(
             "CronService.run_daily_cleanup: DONE shields_expired=%d "
-            "tokens_used=%d stalled_challenges=%d",
-            result.shields_expired, result.tokens_used, result.stalled_challenges_fixed,
+            "tokens_used=%d stalled_challenges=%d advancements_synced=%d",
+            result.shields_expired, result.tokens_used, result.stalled_challenges_fixed, result.advancements_synced
         )
         return result
 

@@ -18,6 +18,9 @@ export type ModalType =
   | 'danger'
   | 'addTransaction'
   | 'notification'
+  | 'zeroSpend'
+  | 'unlock'
+  | 'audit'
   | null;
 
 // ─── Domain Models ──────────────────────────────────────────────────────────────
@@ -128,6 +131,29 @@ export interface FeatureUnlocks {
   icon_customization: boolean;
 }
 
+export interface PendingUnlock {
+  id: string;
+  level_reached: number;
+  feature_key: string;
+}
+
+export interface NotificationItem {
+  id: string;
+  category: string;
+  title: string;
+  message: string;
+  severity: string;
+  read: boolean;
+  action_type?: string | null;
+  action_payload?: Record<string, any> | null;
+  created_at: string;
+}
+
+export interface NotificationsResponse {
+  unread_count: number;
+  items: NotificationItem[];
+}
+
 // ─── Bootstrap Payload ─────────────────────────────────────────────────────────
 
 export interface BootstrapData {
@@ -141,6 +167,8 @@ export interface BootstrapData {
   active_challenge: ActiveChallenge | null;
   recent_transactions: Transaction[];
   feature_unlocks: FeatureUnlocks;
+  pending_unlocks: PendingUnlock[];
+  notifications: NotificationsResponse;
 }
 
 // ─── Form Payloads ─────────────────────────────────────────────────────────────

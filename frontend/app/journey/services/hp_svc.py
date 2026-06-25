@@ -439,7 +439,48 @@ class HPService:
                 was_in_critical_failure=False,
             )
 
-        # Apply the audit HP restoration (bypasses CF block).
+        # ── Check Overspending ───────────────────────────────────────────────
+        # Verify that the player actually has overspending this month.
+        # This prevents free revives when the player just hit 0 HP without overspending.
+        now = datetime.now(timezone.utc)
+        start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        
+        # 1. Fetch categories with limits
+        cat_res = await self._db.table("categories").select("id, monthly_limit").eq("user_id", user_id).gt("monthly_limit", 0).execute()
+        categories_with_limits = cat_res.data or []
+        
+        if not categories_with_limits:
+            raise ValueError("Financial Audit requires overspending, but no category limits are set.")
+
+        limit_map = {c["id"]: c["monthly_limit"] for c in categories_with_limits}
+        
+        # 2. Fetch expenses for the current month
+        tx_res = await self._db.table("transactions").select("category_id, amount")\
+            .eq("user_id", user_id)\
+            .eq("type", "expense")\
+            .gte("logged_at", start_of_month.isoformat())\
+            .execute()
+            
+        transactions = tx_res.data or []
+        
+        # 3. Aggregate expenses by category
+        expense_by_cat = {}
+        for tx in transactions:
+            cid = tx.get("category_id")
+            if cid in limit_map:
+                expense_by_cat[cid] = expense_by_cat.get(cid, 0) + float(tx["amount"])
+                
+        # 4. Check for any overspending
+        has_overspending = False
+        for cid, spent in expense_by_cat.items():
+            if spent > limit_map[cid]:
+                has_overspending = True
+                break
+                
+        if not has_overspending:
+            raise ValueError("Financial Audit failed: No overspending detected in the current month.")
+
+        # ── Apply the audit HP restoration (bypasses CF block) ──────────────
         heal_result = await self.apply_heal(
             user_id=user_id,
             source_event="FINANCIAL_AUDIT_COMPLETED",

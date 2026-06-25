@@ -48,52 +48,6 @@ async def get_daily_status(user: CurrentUser, db: DbClient):
     }
 
 
-@router.post("/daily/zero-spend", summary="Mark today as a zero-spend day")
-async def mark_zero_spend(user: CurrentUser, db: DbClient):
-    """
-    Marks today as zero-spend (once per day).
-    Blocked if any expense transaction already exists for today.
-    Awards a small XP bonus.
-    """
-    profile = await fetch_profile(db, user["id"])
-    if not profile:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found.")
-
-    user_tz_name = profile.get("timezone", "UTC")
-    tz = pytz.timezone(user_tz_name)
-    today_str = datetime.now(tz).date().isoformat()
-
-    daily_raw = await fetch_daily_status(db, user["id"], user_tz_name)
-
-    if daily_raw.get("zero_spend_marked"):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Zero spend already marked for today.",
-        )
-    if daily_raw.get("spent_today", 0.0) > 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot mark zero spend: an expense was already logged today.",
-        )
-
-    await upsert_daily_snapshot(db, user["id"], today_str, {"zero_spend_marked": True})
-
-    # XP reward
-    _XP_REWARD = 15.0
-    player_state = await fetch_player_state(db, user["id"])
-    if player_state:
-        await update_player_state(db, user["id"], xp=player_state["xp"] + _XP_REWARD)
-        await insert_game_event(
-            db=db,
-            user_id=user["id"],
-            event_type="CLEAN_CODE",
-            xp_delta=_XP_REWARD,
-            metadata={"reason": "zero_spend_day", "date": today_str},
-        )
-
-    return {"success": True, "data": {"zero_spend_marked": True, "xp_earned": _XP_REWARD}}
-
-
 @router.post("/daily/use-standby", summary="Activate a standby token")
 async def use_standby(user: CurrentUser, db: DbClient):
     """

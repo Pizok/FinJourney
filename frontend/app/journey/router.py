@@ -542,10 +542,13 @@ async def revive(
       Updated player_state with hp=10 and vitality=HAZARD.
     """
     local_date = _today_iso()
-    heal_result = await hp_svc.execute_financial_audit(
-        user_id=user_id,
-        local_date=local_date,
-    )
+    try:
+        heal_result = await hp_svc.execute_financial_audit(
+            user_id=user_id,
+            local_date=local_date,
+        )
+    except ValueError as e:
+        _raise_400("AUDIT_FAILED", str(e))
 
     return _success({
         "player_state": {

@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { Shield, Coins, CheckSquare } from 'lucide-react';
 import { useDashboardData } from '../hooks/useDashboardData';
 import { hpBarColor, clampPercent, formatCurrency, initial } from '../utils/dashboard.helpers';
@@ -91,10 +92,14 @@ export function ProfileVitalsCard() {
       {/* User Identity Header */}
       <div className="flex items-center gap-3">
         {/* Avatar */}
-        <div className="w-10 h-10 rounded-full bg-abyssal-slate border border-tactical-border flex items-center justify-center flex-shrink-0">
-          <span className="font-display text-sm font-semibold text-muted-emerald">
-            {initial(profile.avatar_class)}
-          </span>
+        <div className="w-10 h-10 rounded-full bg-abyssal-slate border border-tactical-border flex items-center justify-center flex-shrink-0 overflow-hidden">
+          <Image 
+            src={`/avatar/${player_state.avatar_key || 'Roan'}.png`} 
+            alt={player_state.avatar_key || 'Roan'} 
+            width={40} 
+            height={40} 
+            className="object-cover"
+          />
         </div>
         <div className="min-w-0">
           <p className="font-sans text-sm text-pearl-text font-medium truncate">

@@ -83,7 +83,7 @@ const AVATARS: AvatarConfig[] = [
     key:   'Roan',
     Icon:  ({ size, className }) => (
       <Image 
-        src="/profil/Untitled design (5).png" 
+        src="/avatar/Roan.png" 
         alt="Roan" 
         width={size} 
         height={size} 
@@ -98,7 +98,7 @@ const AVATARS: AvatarConfig[] = [
     key:   'Lyss',
     Icon:  ({ size, className }) => (
       <Image 
-        src="/profil/Untitled design (4).png" 
+        src="/avatar/Lyss.png" 
         alt="Lyss" 
         width={size} 
         height={size} 
@@ -172,11 +172,20 @@ function PathRow({
 //   1. Preview: image placeholder + arrows + pips — the frame never moves.
 //   2. Lore: name + story — the container is static, text content updates.
 
-function AvatarPanel() {
-  const [index, setIndex] = React.useState(0);
+function AvatarPanel({
+  selectedKey,
+  onChange,
+}: {
+  selectedKey: AvatarKey | null;
+  onChange: (key: AvatarKey) => void;
+}) {
+  const currentIndex = selectedKey ? AVATARS.findIndex(a => a.key === selectedKey) : 0;
+  const index = currentIndex === -1 ? 0 : currentIndex;
 
-  const cycle = (dir: -1 | 1) =>
-    setIndex((i) => (i + dir + AVATARS.length) % AVATARS.length);
+  const cycle = (dir: -1 | 1) => {
+    const nextIndex = (index + dir + AVATARS.length) % AVATARS.length;
+    onChange(AVATARS[nextIndex].key);
+  };
 
   const avatar = AVATARS[index];
   const { Icon } = avatar;
@@ -324,7 +333,10 @@ export default function StepPath({ state, onChange, onNext, onBack }: StepPathPr
           Cosmetic only — no effect on gameplay or rewards.
         </StepSubtitle>
 
-        <AvatarPanel />
+        <AvatarPanel 
+          selectedKey={state.selectedAvatar as AvatarKey | null} 
+          onChange={(key) => onChange({ selectedAvatar: key })} 
+        />
       </div>
 
     </div>

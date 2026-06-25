@@ -10,6 +10,7 @@ interface UseDashboardModalsReturn {
   openModal: (modal: Exclude<ModalType, null>) => void;
   closeModal: () => void;
   openAddTransaction: () => void;
+  openZeroSpend: () => void;
 }
 
 /**
@@ -31,10 +32,13 @@ export function useDashboardModals(): UseDashboardModalsReturn {
   const { data } = useDashboardData();
 
   function resolveAutoModal(): ModalType {
-    const { profile, daily_status } = data;
+    const { profile, daily_status, player_state } = data;
 
+    if (player_state && (player_state.hp <= 0 || (player_state as any).critical_failure)) return 'audit';
     if (profile.setup_status === 'onboarding') return 'welcome';
     if (!daily_status.baseline_set) return 'tutorial';
+    if (data.pending_unlocks && data.pending_unlocks.length > 0) return 'unlock';
+    if (data.notifications && data.notifications.items.some(n => !n.read)) return 'notification';
     if (daily_status.ghost_penalty_active) return 'danger';
     return null;
   }
@@ -47,5 +51,6 @@ export function useDashboardModals(): UseDashboardModalsReturn {
     openModal,
     closeModal,
     openAddTransaction: () => openModal('addTransaction'),
+    openZeroSpend: () => openModal('zeroSpend'),
   };
 }

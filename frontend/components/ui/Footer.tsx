@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import Image from 'next/image';
+
 
 const FOOTER_LINKS = [
   { label: 'Pricing',          href: '/pricing' },
@@ -17,11 +19,13 @@ export default function Footer() {
 
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5 shrink-0">
-            <span className="w-7 h-7 rounded-[6px] bg-muted-emerald flex items-center justify-center">
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-                <path d="M8 2L13 5.5V10.5L8 14L3 10.5V5.5L8 2Z" fill="#0F172A" />
-              </svg>
-            </span>
+            <Image 
+              src="/logo/logo.svg" 
+              alt="FinJourney Logo" 
+              width={28} 
+              height={28} 
+              className="rounded-[6px]"
+            />
             <span className="font-display font-semibold text-base text-pearl-text tracking-tight">
               FinJourney
             </span>

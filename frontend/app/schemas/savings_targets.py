@@ -80,6 +80,11 @@ class SavingsTargetCreate(BaseModel):
         ...,
         description="Target completion date. Must be in the future.",
     )
+    monthly_contribution: int = Field(
+        ...,
+        ge=0,
+        description="Expected monthly contribution in IDR. Must be non-negative.",
+    )
 
     @model_validator(mode="after")
     def current_must_not_exceed_target(self) -> SavingsTargetCreate:
@@ -140,6 +145,10 @@ class SavingsTargetUpdate(BaseModel):
             "from the analytics advisory queue."
         ),
     )
+    monthly_contribution: Optional[int] = Field(
+        default=None,
+        ge=0,
+    )
 
 
 # ── Out (read) ────────────────────────────────────────────────────────────────
@@ -165,7 +174,20 @@ class SavingsTargetOut(BaseModel):
     current_amount: int = Field(..., ge=0)
     deadline: date
     status: SavingsTargetStatus
+    monthly_contribution: int = Field(..., ge=0)
     created_at: datetime
     deleted_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
+
+# ── Log Savings ───────────────────────────────────────────────────────────────
+
+class LogSavingsRequest(BaseModel):
+    """Payload for POST /savings-targets/{id}/log"""
+    amount: int = Field(..., gt=0, description="Amount to log to this savings target in IDR")
+    wallet_id: UUID = Field(..., description="Wallet ID to deduct the amount from")
+    note: Optional[str] = Field(default=None, description="Optional note for the transaction")
+
+class LogSavingsResponse(BaseModel):
+    success: bool
+    savings_target: SavingsTargetOut

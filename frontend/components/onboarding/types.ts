@@ -9,12 +9,21 @@ export interface BaselineEntry {
   amount: number;
 }
 
+export interface SavingsEntry {
+  id: string;
+  label: string;
+  target_amount: number;
+  monthly_contribution: number;
+  deadline: string;
+}
+
 export interface OnboardingState {
   // Step 1
   username: string;
 
   // Step 2
   selectedPath: 'Sentinel' | 'Catalyst' | 'Phantom' | null;
+  selectedAvatar: 'Roan' | 'Lyss' | null;
 
   // Step 3A
   incomeEntries: BaselineEntry[];
@@ -23,16 +32,17 @@ export interface OnboardingState {
   fixedCostEntries: BaselineEntry[];
 
   // Step 3C
-  savingsTarget: number;
+  savingsEntries: SavingsEntry[];
 }
 
 export const INITIAL_STATE: OnboardingState = {
   username: '',
   selectedPath: null,
+  selectedAvatar: 'Roan',
   incomeEntries: [{ id: '1', label: 'Monthly Salary', amount: 0 }],
   fixedCostEntries: [
     { id: '1', label: 'Rent / Mortgage', amount: 0 },
     { id: '2', label: 'Utilities',       amount: 0 },
   ],
-  savingsTarget: 0,
+  savingsEntries: [],
 };

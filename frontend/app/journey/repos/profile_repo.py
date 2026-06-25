@@ -664,10 +664,16 @@ class ProfileRepository:
         Transitions a notification to READ or ARCHIVED.
         user_id is included in the WHERE clause as a secondary RLS safeguard.
         """
+        from datetime import datetime, timezone
+
+        update_payload = {"status": status}
+        if status == "READ":
+            update_payload["read_at"] = datetime.now(timezone.utc).isoformat()
+
         result = await (
             self._db
             .table("journey_notifications")
-            .update({"status": status})
+            .update(update_payload)
             .eq("id", notification_id)
             .eq("user_id", user_id)
             .execute()
