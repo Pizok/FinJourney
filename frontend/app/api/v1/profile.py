@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, status
 
-from app.api.v1.dependencies import CurrentUser, DbClient
+from app.api.v1.dependencies import CurrentUser, DbClient, GetAdminDB
 from app.schemas.profile import ProfileSetupRequest, ProfileThemeRequest
 from app.services.progression_service import calculate_level
 
