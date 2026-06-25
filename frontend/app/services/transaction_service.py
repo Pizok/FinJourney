@@ -27,7 +27,7 @@ Downstream service interfaces
 
   progression_service.handle_transaction_event(client, user_id, event_type, amount)
       → Called after budget_service completes.
-      → Creates a game_events row and may trigger level-up checks.
+      → Creates a journey_events row and may trigger level-up checks.
 
 These interfaces are defined as function calls with explicit parameters.
 If the signature changes, update the call sites marked # ← downstream call.
@@ -364,7 +364,7 @@ def _trigger_expense_pipeline(
 
     Pipeline order (per wallet_backend.md §6):
       1. budget_service.apply_daily_bleed  → calculates overspend, applies HP loss.
-      2. progression_service.handle_event  → creates game_events row, checks level-up.
+      2. progression_service.handle_event  → creates journey_events row, checks level-up.
 
     This function is a no-op if either service is unavailable (import guard).
     Errors from downstream services are logged but do not roll back the transaction —
@@ -498,7 +498,7 @@ def update_transaction(
     Anti-cheat
     ----------
     Per logic.md: editing a past transaction does NOT refund HP penalties
-    already applied. The game_events ledger is append-only. This function
+    already applied. The journey_events ledger is append-only. This function
     modifies only the transactions table and wallet balances.
     The endpoint layer is responsible for enforcing the edit window.
     """
@@ -569,7 +569,7 @@ def update_transaction(
     old_amount = old_txn.get("amount", 0)
     new_amount = row.get("amount", old_amount)
     
-    client.table("game_events").insert(
+    client.table("journey_events").insert(
         {
             "user_id": user_id,
             "event_type": "TRANSACTION_ADJUSTMENT",
@@ -611,7 +611,7 @@ def delete_transaction(
     Anti-cheat
     ----------
     Deleting a past expense does NOT refund HP already lost to Daily Bleed.
-    The game_events ledger retains all penalty records.
+    The journey_events ledger retains all penalty records.
     """
     # ── 1. Fetch & validate ──────────────────────────────────────────────────
     old_txn = _require_transaction(client, transaction_id, user_id)

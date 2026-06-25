@@ -385,7 +385,7 @@ class CronService:
         from app.journey.services.advancement_svc import evaluate_node_advancement
         
         # Query active users
-        active_users_res = await self._db.table("profiles").select("id").eq("has_completed_setup", True).execute()
+        active_users_res = await self._db.table("journey_profiles").select("id").eq("has_completed_setup", True).execute()
         active_users = active_users_res.data if active_users_res.data else []
         
         for user_row in active_users:

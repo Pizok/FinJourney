@@ -6,7 +6,7 @@ Wallet service — owns all mutations to the wallets and categories tables.
 This module is the correct home for rebalance_budget because:
 • Analytics is strictly read-only (analytics_backend.md § Read-Only Boundary).
 • The advisory payload only *recommends* adjustments; this service *applies* them.
-• Mutations must generate audit game_events — that belongs in a write service.
+• Mutations must generate audit journey_events — that belongs in a write service.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -26,7 +26,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
-import asyncpg
+from supabase import AsyncClient
 
 from app.schemas.wallet import RebalanceBudgetRequest
 
@@ -106,7 +106,7 @@ async def delete_wallet(
 
 
 async def rebalance_budget(
-    db: asyncpg.Connection,
+    db: AsyncClient,
     *,
     user_id: UUID,
     payload: RebalanceBudgetRequest,
@@ -146,59 +146,50 @@ async def rebalance_budget(
                                     {category_id, category_name,
                                      old_limit, new_limit}
     """
-    category_ids = [adj.category_id for adj in payload.adjustments]
+    category_ids = [str(adj.category_id) for adj in payload.adjustments]
 
-    async with db.transaction():
+    # ── Step 1: ownership validation (single query, all IDs at once) ────
+    existing = await _fetch_categories_for_update(db, user_id=str(user_id), category_ids=category_ids)
+    existing_map = {row["id"]: row for row in existing}
 
-        # ── Step 1: ownership validation (single query, all IDs at once) ────
-        existing = await _fetch_categories_for_update(db, user_id=user_id, category_ids=category_ids)
-        existing_map = {row["id"]: row for row in existing}
-
-        missing = [cid for cid in category_ids if cid not in existing_map]
-        if missing:
-            raise ValueError(
-                f"category_not_found: {[str(m) for m in missing]}"
-            )
-
-        # ── Step 2: apply each limit update ──────────────────────────────────
-        now = datetime.now(tz=timezone.utc)
-        results = []
-
-        for adj in payload.adjustments:
-            row = existing_map[adj.category_id]
-            old_limit = int(row["monthly_limit"]) if row["monthly_limit"] is not None else 0
-
-            await db.execute(
-                """
-                UPDATE categories
-                SET
-                    monthly_limit = $1,
-                    updated_at    = $2
-                WHERE
-                    id         = $3
-                    AND user_id = $4
-                    AND deleted_at IS NULL
-                """,
-                adj.new_monthly_limit,
-                now,
-                adj.category_id,
-                user_id,
-            )
-
-            results.append({
-                "category_id":   adj.category_id,
-                "category_name": row["name"],
-                "old_limit":     old_limit,
-                "new_limit":     adj.new_monthly_limit,
-            })
-
-        # ── Step 3: write a single audit game_event for this rebalance ───────
-        await _write_rebalance_audit_event(
-            db,
-            user_id=user_id,
-            adjustment_count=len(results),
-            now=now,
+    missing = [cid for cid in category_ids if cid not in existing_map]
+    if missing:
+        raise ValueError(
+            f"category_not_found: {[str(m) for m in missing]}"
         )
+
+    # ── Step 2: apply each limit update ──────────────────────────────────
+    now = datetime.now(tz=timezone.utc).isoformat()
+    results = []
+
+    for adj in payload.adjustments:
+        adj_id_str = str(adj.category_id)
+        row = existing_map[adj_id_str]
+        old_limit = int(row["monthly_limit"]) if row["monthly_limit"] is not None else 0
+
+        await (
+            db.table("categories")
+            .update({"monthly_limit": adj.new_monthly_limit, "updated_at": now})
+            .eq("id", adj_id_str)
+            .eq("user_id", str(user_id))
+            .is_("deleted_at", "null")
+            .execute()
+        )
+
+        results.append({
+            "category_id":   adj.category_id,
+            "category_name": row["name"],
+            "old_limit":     old_limit,
+            "new_limit":     adj.new_monthly_limit,
+        })
+
+    # ── Step 3: write a single audit event for this rebalance ───────
+    await _write_rebalance_audit_event(
+        db,
+        user_id=str(user_id),
+        adjustment_count=len(results),
+        now=now,
+    )
 
     return {
         "adjusted_count": len(results),
@@ -212,73 +203,58 @@ async def rebalance_budget(
 
 
 async def _fetch_categories_for_update(
-    db: asyncpg.Connection,
+    db: AsyncClient,
     *,
-    user_id: UUID,
-    category_ids: list[UUID],
-) -> list[asyncpg.Record]:
+    user_id: str,
+    category_ids: list[str],
+) -> list[dict]:
     """
     Fetch the subset of category_ids that are owned by user_id and not
-    soft-deleted. Uses `= ANY($2)` for a single round-trip instead of
+    soft-deleted. Uses `in_` for a single round-trip instead of
     N individual queries.
 
     Returns only categories that pass the ownership check; the caller
     diffs this result against the requested IDs to detect violations.
     """
-    return await db.fetch(
-        """
-        SELECT id, name, monthly_limit
-        FROM   categories
-        WHERE
-            id         = ANY($1::uuid[])
-            AND user_id = $2
-            AND deleted_at IS NULL
-        """,
-        category_ids,
-        user_id,
+    resp = await (
+        db.table("categories")
+        .select("id, name, monthly_limit")
+        .in_("id", category_ids)
+        .eq("user_id", user_id)
+        .is_("deleted_at", "null")
+        .execute()
     )
+    return resp.data or []
 
 
 async def _write_rebalance_audit_event(
-    db: asyncpg.Connection,
+    db: AsyncClient,
     *,
-    user_id: UUID,
+    user_id: str,
     adjustment_count: int,
-    now: datetime,
+    now: str,
 ) -> None:
     """
-    Append an immutable audit row to game_events.
+    Append an immutable audit row to journey_events.
 
     This event carries zero progression deltas (HP, XP, gold) because a
     budget rebalance does not affect player progression — it is a pure
-    financial configuration change. The row exists solely for the audit
-    trail required by database.md (append-only event ledger).
-
-    The metadata JSONB field stores the count of adjustments applied.
+    financial planning action. The `metadata` payload captures the scale.
     """
-    await db.execute(
-        """
-        INSERT INTO game_events (
-            id,
-            user_id,
-            event_type,
-            xp_delta,
-            hp_delta,
-            gold_delta,
-            metadata,
-            created_at
-        ) VALUES (
-            $1, $2, $3,
-            0,   -- xp_delta:  no progression effect
-            0,   -- hp_delta:  no progression effect
-            0,   -- gold_delta: no progression effect
-            $4,
-            $5
+    await (
+        db.table("journey_events")
+        .insert(
+            {
+                "user_id": user_id,
+                "event_type": _EVENT_TYPE_BUDGET_REBALANCE,
+                "source": "system",
+                "severity": "info",
+                "status": "applied",
+                "metadata": {"rebalanced_categories": adjustment_count},
+                "xp_delta": 0,
+                "hp_delta": 0,
+                "shield_delta": 0,
+            }
         )
-        """,
-        uuid4(),
-        user_id,
-        _EVENT_TYPE_BUDGET_REBALANCE,
-        {"adjustment_count": adjustment_count},   # asyncpg serialises dict → jsonb
-        now,
+        .execute()
     )

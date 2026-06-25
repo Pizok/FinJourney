@@ -1,21 +1,21 @@
 """
 journey/events.py
 ──────────────────
-Minimal event bus used by the service layer to publish game_events rows.
+Minimal event bus used by the service layer to publish journey_events rows.
 
 Design principles
 ─────────────────
   - The ``EventBus`` is a protocol / abstract base so it can be swapped for
     a test double in unit tests without any monkeypatching.
   - ``publish`` is the only public method. It inserts one row into
-    ``game_events`` and returns the generated UUID.
+    ``journey_events`` and returns the generated UUID.
   - All writes go through the authenticated Supabase client so RLS applies.
   - The table is append-only (no UPDATE / DELETE ever issued here).
   - Idempotency is enforced via a composite unique constraint on
     (user_id, event_type, idempotency_key) in the database; a duplicate
     publish returns the existing event_id without raising.
 
-game_events schema (from database.md)
+journey_events schema (from database.md)
 ──────────────────────────────────────
   id              uuid          PK default gen_random_uuid()
   user_id         uuid          FK → profiles.id
@@ -45,7 +45,7 @@ from supabase import AsyncClient
 class GameEvent:
     """
     Immutable value object representing a single event to be appended to the
-    ``game_events`` ledger.
+    ``journey_events`` ledger.
 
     Attributes
     ──────────
@@ -94,7 +94,7 @@ class EventBus(ABC):
     @abstractmethod
     async def publish(self, db: AsyncClient, event: GameEvent) -> UUID:
         """
-        Append ``event`` to the ``game_events`` table.
+        Append ``event`` to the ``journey_events`` table.
 
         Returns the UUID of the inserted (or pre-existing idempotent) row.
         """
@@ -107,7 +107,7 @@ class EventBus(ABC):
 
 class SupabaseEventBus(EventBus):
     """
-    Production event bus backed by the Supabase ``game_events`` table.
+    Production event bus backed by the Supabase ``journey_events`` table.
 
     Idempotency strategy
     ─────────────────────
@@ -128,7 +128,7 @@ class SupabaseEventBus(EventBus):
         }
 
         resp = await (
-            db.table("game_events")
+            db.table("journey_events")
             .insert(row, returning="representation")
             .execute()
         )
@@ -138,7 +138,7 @@ class SupabaseEventBus(EventBus):
 
         # Duplicate — fetch the existing row by idempotency key
         existing = await (
-            db.table("game_events")
+            db.table("journey_events")
             .select("id")
             .eq("user_id",         str(event.user_id))
             .eq("event_type",      event.event_type)

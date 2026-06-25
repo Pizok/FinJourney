@@ -25,6 +25,7 @@ CREATE TABLE public.journey_profiles (
   updated_at timestamp with time zone DEFAULT now(),
   last_username_change_at timestamp with time zone,
   is_dev_account boolean NOT NULL DEFAULT false,
+  avatar_key character varying NOT NULL DEFAULT 'Roan'::character varying,
   CONSTRAINT journey_profiles_pkey PRIMARY KEY (id),
   CONSTRAINT journey_profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
 );

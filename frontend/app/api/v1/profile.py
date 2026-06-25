@@ -1,7 +1,6 @@
 from fastapi import APIRouter, HTTPException, status
 
 from app.api.v1.dependencies import CurrentUser, DbClient
-from app.db.queries.profile_queries import fetch_player_state, fetch_profile
 from app.schemas.profile import ProfileSetupRequest, ProfileThemeRequest
 from app.services.progression_service import calculate_level
 
@@ -10,23 +9,22 @@ router = APIRouter()
 
 @router.get("/profile", summary="Get current profile + player state")
 async def get_profile(user: CurrentUser, db: DbClient):
-    profile = await fetch_profile(db, user.user_id)
+    # Fetch consolidated journey_profile directly
+    result = await db.table("journey_profiles").select("*").eq("id", user.user_id).maybe_single().execute()
+    profile = result.data
+
     if not profile:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found.")
-
-    player_state = await fetch_player_state(db, user.user_id)
-    if not player_state:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Player state not found.")
 
     return {
         "success": True,
         "data": {
             **profile,
-            "level": calculate_level(player_state.get("xp", 0.0)),
-            "hp": player_state["hp"],
-            "xp": player_state["xp"],
-            "gold": player_state["gold"],
-            "shield": player_state["shield"],
+            "level": calculate_level(profile.get("total_xp", 0.0)),
+            "hp": profile.get("current_hp", 100.0),
+            "xp": profile.get("total_xp", 0.0),
+            "gold": profile.get("gold_coins", 0.0),
+            "shield": profile.get("defense_shield", 0.0),
         },
     }
 
@@ -40,7 +38,7 @@ async def check_username(username: str, db: GetAdminDB):
         return {"success": True, "data": {"available": False, "reason": str(e)}}
 
     conflict = await (
-        db.table("profiles")
+        db.table("journey_profiles")
         .select("id")
         .eq("username", username)
         .maybe_single()
@@ -56,7 +54,7 @@ async def check_username(username: str, db: GetAdminDB):
 async def setup_profile(user: CurrentUser, db: DbClient, payload: ProfileSetupRequest):
     # Username uniqueness check
     conflict = await (
-        db.table("profiles")
+        db.table("journey_profiles")
         .select("id")
         .eq("username", payload.username)
         .neq("id", user.user_id)
@@ -69,7 +67,7 @@ async def setup_profile(user: CurrentUser, db: DbClient, payload: ProfileSetupRe
         )
 
     result = await (
-        db.table("profiles")
+        db.table("journey_profiles")
         .update(
             {
                 "username": payload.username,
@@ -77,29 +75,16 @@ async def setup_profile(user: CurrentUser, db: DbClient, payload: ProfileSetupRe
                 "avatar_key": payload.avatar_key,
                 "timezone": payload.timezone,
                 "has_completed_setup": True,
+                "current_hp": 100.0,
+                "total_xp": 0.0,
+                "gold_coins": 0.0,
+                "defense_shield": 0.0,
+                "standby_tokens": 7,
             }
         )
         .eq("id", user.user_id)
         .execute()
     )
-
-    # Initialize player_state for brand-new users
-    existing_state = await fetch_player_state(db, user.user_id)
-    if not existing_state:
-        await (
-            db.table("player_state")
-            .insert(
-                {
-                    "user_id": user.user_id,
-                    "current_hp": 100.0,
-                    "total_xp": 0.0,
-                    "gold_coins": 0.0,
-                    "defense_shield": 0.0,
-                    "standby_tokens": 7,
-                }
-            )
-            .execute()
-        )
 
     return {"success": True, "data": result.data[0] if result.data else {}}
 
@@ -109,7 +94,7 @@ async def update_theme(user: CurrentUser, db: DbClient, payload: ProfileThemeReq
     # "clear-night" is always available; others require inventory ownership
     if payload.theme_key != "clear-night":
         owned = await (
-            db.table("user_inventory")
+            db.table("journey_inventory")
             .select("id")
             .eq("user_id", user.user_id)
             .eq("item_key", payload.theme_key)
@@ -123,7 +108,7 @@ async def update_theme(user: CurrentUser, db: DbClient, payload: ProfileThemeReq
             )
 
     await (
-        db.table("profiles")
+        db.table("journey_profiles")
         .update({"active_theme": payload.theme_key})
         .eq("id", user.user_id)
         .execute()
@@ -144,34 +129,22 @@ async def save_baselines(user: CurrentUser, db: DbClient, payload: dict):
     month = now.month
     year = now.year
 
-    # Helper to get or create category
-    async def _get_or_create_category(name: str, group: str) -> str:
-        existing = await db.table("categories").select("id").eq("user_id", user.user_id).eq("name", name).maybe_single().execute()
-        if existing.data:
-            return existing.data["id"]
-        res = await db.table("categories").insert({"user_id": user.user_id, "name": name, "category_group": group}).execute()
-        return res.data[0]["id"]
-
     # Process Incomes
     for entry in data.incomeEntries:
-        cat_id = await _get_or_create_category(entry.label, "income")
-        await db.table("baselines").insert({
+        await db.table("income_streams").insert({
             "user_id": user.user_id,
-            "category_id": cat_id,
-            "amount": entry.amount,
-            "effective_month": month,
-            "effective_year": year
+            "name": entry.label,
+            "amount": entry.amount
         }).execute()
 
     # Process Fixed Costs
     for entry in data.fixedCostEntries:
-        cat_id = await _get_or_create_category(entry.label, "expense")
-        await db.table("baselines").insert({
+        await db.table("fixed_expenses").insert({
             "user_id": user.user_id,
-            "category_id": cat_id,
+            "name": entry.label,
             "amount": entry.amount,
-            "effective_month": month,
-            "effective_year": year
+            "recurrence_type": "monthly",
+            "recurrence_value": 1
         }).execute()
 
     # Process Savings Target
@@ -183,5 +156,12 @@ async def save_baselines(user: CurrentUser, db: DbClient, payload: dict):
             "current_amount": 0,
             "status": "active"
         }).execute()
+
+    # Update the cache scalars on journey_profiles
+    total_income = sum(entry.amount for entry in data.incomeEntries)
+    await db.table("journey_profiles").update({
+        "expected_monthly_income": total_income,
+        "monthly_savings_target": data.savingsTarget
+    }).eq("id", user.user_id).execute()
 
     return {"success": True, "data": {}}

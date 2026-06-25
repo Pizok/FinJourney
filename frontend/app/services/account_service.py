@@ -27,7 +27,7 @@ Design rules
 Export table contract (database.md)
 ─────────────────────────────────────
   transactions    → financial history (soft-deleted rows excluded)
-  journey_events  → alias for game_events — immutable progression ledger
+  journey_events  → alias for journey_events — immutable progression ledger
   journey_journal → personal user notes
 
 Deletion cascade contract
@@ -80,15 +80,15 @@ async def _fetch_all_transactions(db: AsyncClient, user_id: UUID) -> list[dict[s
     return resp.data or []
 
 
-async def _fetch_all_game_events(db: AsyncClient, user_id: UUID) -> list[dict[str, Any]]:
+async def _fetch_all_journey_events(db: AsyncClient, user_id: UUID) -> list[dict[str, Any]]:
     """
-    Fetch all game_events rows for the user.
+    Fetch all journey_events rows for the user.
 
-    The game_events table is the immutable progression ledger; every row is
+    The journey_events table is the immutable progression ledger; every row is
     included.  No soft-delete filter applies — the table is append-only.
     """
     resp = await (
-        db.table("game_events")
+        db.table("journey_events")
         .select("*")
         .eq("user_id", str(user_id))
         .order("created_at", desc=True)
@@ -138,7 +138,7 @@ async def export_account_data(
     """
     transactions,  journey_events, journal_entries = (
         await _fetch_all_transactions(db, user_id),
-        await _fetch_all_game_events(db, user_id),
+        await _fetch_all_journey_events(db, user_id),
         await _fetch_all_journal_entries(db, user_id),
     )
 
@@ -188,7 +188,7 @@ async def delete_account(
     1. Call ``admin_db.auth.admin.delete_user(user_id)`` using the service-role
        Supabase client (``admin_db``).  This removes the auth.users row.
     2. Cascading FK constraints (ON DELETE CASCADE) propagate the deletion
-       to all child tables: profiles, player_state, transactions, game_events,
+       to all child tables: profiles, player_state, transactions, journey_events,
        wallets, categories, loans, loan_payments, tasks, achievements,
        user_adventures, user_inventory, region_progress, daily_snapshots, etc.
     3. Return a success acknowledgement.

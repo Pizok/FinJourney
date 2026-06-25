@@ -89,7 +89,7 @@ def evaluate_node_advancement(client: Client, user_id: str) -> None:
             current_record = insert_res.data[0]
             current_node_id = first_node
             
-            client.table("game_events").insert({
+            client.table("journey_events").insert({
                 "user_id": user_id,
                 "event_type": GameEvent.NODE_UNLOCKED.value,
                 "payload": {"node_id": current_node_id, "action": "SEED"}
@@ -109,7 +109,7 @@ def evaluate_node_advancement(client: Client, user_id: str) -> None:
             "shifted_at": "now()"
         }).eq("id", current_record["id"]).execute()
 
-        client.table("game_events").insert({
+        client.table("journey_events").insert({
             "user_id": user_id,
             "event_type": GameEvent.NODE_SHIFTED.value,
             "payload": {"node_id": current_node_id, "xp_at_shift": total_xp}
@@ -132,7 +132,7 @@ def evaluate_node_advancement(client: Client, user_id: str) -> None:
                     "unlocked_at": "now()"
                 }).execute()
 
-                client.table("game_events").insert({
+                client.table("journey_events").insert({
                     "user_id": user_id,
                     "event_type": GameEvent.NODE_UNLOCKED.value,
                     "payload": {"node_id": next_node_id}
@@ -152,7 +152,7 @@ def evaluate_node_advancement(client: Client, user_id: str) -> None:
                         {"user_id": user_id, "region_id": next_region_id, "status": "CURRENT"}
                     ).execute()
                     
-                    client.table("game_events").insert({
+                    client.table("journey_events").insert({
                         "user_id": user_id,
                         "event_type": GameEvent.REGION_COMPLETED.value,
                         "payload": {"region_id": curr_region_id}

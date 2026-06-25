@@ -176,13 +176,13 @@ DEBT_PROJECTION_MAX_MONTHS: int = 600
 # GAME EVENT TYPE LITERALS
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-# These string constants map to the event_type column in the game_events table.
+# These string constants map to the event_type column in the journey_events table.
 # api_contract.md § INTERNAL EVENTS.
 # All values are SCREAMING_SNAKE_CASE to match the ledger convention.
 
 
 class GameEvent(str, Enum):
-    """Canonical event_type values for the immutable game_events ledger."""
+    """Canonical event_type values for the immutable journey_events ledger."""
 
     DAILY_BLEED    = "DAILY_BLEED"
     CLEAN_CODE     = "CLEAN_CODE"

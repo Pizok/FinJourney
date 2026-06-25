@@ -35,14 +35,14 @@ async def fetch_daily_status(db: AsyncClient, user_id: str, tz_name: str) -> dic
     today_str = datetime.now(tz).date().isoformat()
 
     snapshot = await (
-        db.table("daily_snapshots")
-        .select("zero_spend_marked")
+        db.table("journey_daily_survival")
+        .select("zero_spend_xp_claimed")
         .eq("user_id", user_id)
-        .eq("snapshot_date", today_str)
+        .eq("tracking_date", today_str)
         .maybe_single()
         .execute()
     )
-    zero_spend_marked = bool(snapshot.data and snapshot.data.get("zero_spend_marked"))
+    zero_spend_marked = bool(snapshot.data and snapshot.data.get("zero_spend_xp_claimed"))
 
     return {
         "spent_today": spent_today,
@@ -53,40 +53,51 @@ async def fetch_daily_status(db: AsyncClient, user_id: str, tz_name: str) -> dic
 
 async def fetch_streak(db: AsyncClient, user_id: str) -> int:
     result = await (
-        db.table("daily_snapshots")
-        .select("streak_count")
-        .eq("user_id", user_id)
-        .order("snapshot_date", desc=True)
-        .limit(1)
+        db.table("journey_profiles")
+        .select("current_streak")
+        .eq("id", user_id)
+        .maybe_single()
         .execute()
     )
     if result.data:
-        return result.data[0].get("streak_count", 0)
+        return result.data.get("current_streak", 0)
     return 0
 
 
 async def fetch_baselines(db: AsyncClient, user_id: str) -> dict | None:
     """Return the most recent financial baseline for the user."""
-    result = await (
-        db.table("baselines")
-        .select("monthly_income, fixed_costs, savings_target, created_at")
-        .eq("user_id", user_id)
-        .order("created_at", desc=True)
-        .limit(1)
+    profile_res = await (
+        db.table("journey_profiles")
+        .select("expected_monthly_income, monthly_savings_target")
+        .eq("id", user_id)
+        .maybe_single()
         .execute()
     )
-    return result.data[0] if result.data else None
+    if not profile_res.data:
+        return None
+
+    expenses_res = await (
+        db.table("fixed_expenses")
+        .select("amount")
+        .eq("user_id", user_id)
+        .execute()
+    )
+    fixed_costs = sum(item["amount"] for item in (expenses_res.data or []))
+
+    return {
+        "monthly_income": profile_res.data.get("expected_monthly_income", 0),
+        "fixed_costs": fixed_costs,
+        "savings_target": profile_res.data.get("monthly_savings_target", 0),
+        "created_at": datetime.utcnow().isoformat()
+    }
 
 
 async def fetch_tasks(db: AsyncClient, user_id: str) -> list[dict]:
     result = await (
-        db.table("tasks")
-        .select(
-            "id, title, objective_type, target_value, reward_xp, reward_gold, "
-            "repeat_type, completed_today, narrative_text"
-        )
+        db.table("journey_challenges")
+        .select("*")
         .eq("user_id", user_id)
-        .order("created_at")
+        .order("started_at")
         .execute()
     )
     return result.data or []
@@ -94,7 +105,7 @@ async def fetch_tasks(db: AsyncClient, user_id: str) -> list[dict]:
 
 async def fetch_active_region(db: AsyncClient, user_id: str) -> dict | None:
     result = await (
-        db.table("region_progress")
+        db.table("journey_regions")
         .select("*, region_catalog(name, description, visual_theme, asset_bundle_key)")
         .eq("user_id", user_id)
         .eq("status", "active")
@@ -110,24 +121,28 @@ async def upsert_daily_snapshot(
     snapshot_date: str,
     updates: dict,
 ) -> None:
+    if "zero_spend_marked" in updates:
+        updates["zero_spend_xp_claimed"] = updates.pop("zero_spend_marked")
+        
     existing = await (
-        db.table("daily_snapshots")
-        .select("id")
+        db.table("journey_daily_survival")
+        .select("user_id")
         .eq("user_id", user_id)
-        .eq("snapshot_date", snapshot_date)
+        .eq("tracking_date", snapshot_date)
         .maybe_single()
         .execute()
     )
     if existing.data:
         await (
-            db.table("daily_snapshots")
+            db.table("journey_daily_survival")
             .update(updates)
-            .eq("id", existing.data["id"])
+            .eq("user_id", user_id)
+            .eq("tracking_date", snapshot_date)
             .execute()
         )
     else:
         await (
-            db.table("daily_snapshots")
-            .insert({"user_id": user_id, "snapshot_date": snapshot_date, **updates})
+            db.table("journey_daily_survival")
+            .insert({"user_id": user_id, "tracking_date": snapshot_date, **updates})
             .execute()
         )

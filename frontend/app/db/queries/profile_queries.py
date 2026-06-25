@@ -3,8 +3,8 @@ from supabase import AsyncClient
 
 async def fetch_profile(db: AsyncClient, user_id: str) -> dict | None:
     result = await (
-        db.table("profiles")
-        .select("id, username, avatar_class, timezone, active_theme, onboarding_complete, current_region_id, created_at")
+        db.table("journey_profiles")
+        .select("*")
         .eq("id", user_id)
         .maybe_single()
         .execute()
@@ -14,13 +14,21 @@ async def fetch_profile(db: AsyncClient, user_id: str) -> dict | None:
 
 async def fetch_player_state(db: AsyncClient, user_id: str) -> dict | None:
     result = await (
-        db.table("player_state")
-        .select("hp, xp, gold, shield, standby_tokens, tax_state, updated_at")
-        .eq("user_id", user_id)
+        db.table("journey_profiles")
+        .select("current_hp, total_xp, gold_coins, defense_shield, standby_tokens")
+        .eq("id", user_id)
         .maybe_single()
         .execute()
     )
-    return result.data
+    if not result.data:
+        return None
+    return {
+        "hp": result.data.get("current_hp", 0),
+        "xp": result.data.get("total_xp", 0),
+        "gold": result.data.get("gold_coins", 0),
+        "shield": result.data.get("defense_shield", 0),
+        "standby_tokens": result.data.get("standby_tokens", 0),
+    }
 
 
 async def fetch_wallets(db: AsyncClient, user_id: str) -> list[dict]:

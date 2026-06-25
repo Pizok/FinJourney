@@ -27,7 +27,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from supabase import Client
+from supabase import AsyncClient
 
 
 # ---------------------------------------------------------------------------
@@ -39,7 +39,7 @@ def _now_utc() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _active_wallets_query(client: Client, user_id: str):
+def _active_wallets_query(client: AsyncClient, user_id: str):
     """
     Base query: all non-deleted wallets belonging to user_id.
     Returns a PostgREST query builder for further chaining.
@@ -56,7 +56,7 @@ def _active_wallets_query(client: Client, user_id: str):
 # Read
 # ---------------------------------------------------------------------------
 
-def get_wallets_by_user(client: Client, user_id: str) -> list[dict[str, Any]]:
+async def get_wallets_by_user(client: AsyncClient, user_id: str) -> list[dict[str, Any]]:
     """
     Fetch all active (non-deleted) wallets for a user.
 
@@ -64,7 +64,7 @@ def get_wallets_by_user(client: Client, user_id: str) -> list[dict[str, Any]]:
     -------
     list[dict]  — ordered by created_at ascending; empty list if none exist.
     """
-    response = (
+    response = await (
         _active_wallets_query(client, user_id)
         .order("created_at", desc=False)
         .execute()
@@ -72,8 +72,8 @@ def get_wallets_by_user(client: Client, user_id: str) -> list[dict[str, Any]]:
     return response.data or []
 
 
-def get_wallet_by_id(
-    client: Client,
+async def get_wallet_by_id(
+    client: AsyncClient,
     wallet_id: str,
     user_id: str,
 ) -> Optional[dict[str, Any]]:
@@ -86,7 +86,7 @@ def get_wallet_by_id(
     Used by the service layer for ownership validation and pre-mutation
     balance snapshots.
     """
-    response = (
+    response = await (
         client.table("wallets")
         .select("*")
         .eq("id", wallet_id)
@@ -98,8 +98,8 @@ def get_wallet_by_id(
     return response.data
 
 
-def get_wallet_summary(
-    client: Client,
+async def get_wallet_summary(
+    client: AsyncClient,
     user_id: str,
 ) -> dict[str, Any]:
     """
@@ -119,7 +119,7 @@ def get_wallet_summary(
     -------
     dict with keys: total_balance (int), wallet_count (int), wallets (list)
     """
-    wallets = get_wallets_by_user(client, user_id)
+    wallets = await get_wallets_by_user(client, user_id)
 
     total_balance: int = sum(w.get("balance", 0) for w in wallets)
 
@@ -134,8 +134,9 @@ def get_wallet_summary(
 # Create
 # ---------------------------------------------------------------------------
 
-def insert_wallet(
-    client: Client,
+async def insert_wallet(
+    client: AsyncClient,
+    *,
     user_id: str,
     name: str,
     wallet_type: str,
@@ -166,7 +167,7 @@ def insert_wallet(
         "deleted_at":  None,
     }
 
-    response = (
+    response = await (
         client.table("wallets")
         .insert(payload)
         .execute()
@@ -180,37 +181,24 @@ def insert_wallet(
 # Update
 # ---------------------------------------------------------------------------
 
-def update_wallet(
-    client: Client,
+async def update_wallet(
+    client: AsyncClient,
+    *,
     wallet_id: str,
     user_id: str,
     updates: dict[str, Any],
 ) -> dict[str, Any]:
     """
-    Apply a partial update to a wallet's mutable presentation fields.
+    Update presentation fields on a wallet (name, type, color_token).
 
-    Only `name` and `color_token` may flow through this function.
-    Balance mutations must use `apply_balance_delta` instead to keep
-    the balance-as-source-of-truth invariant explicit and auditable.
-
-    Ownership is enforced by the `user_id` filter on the UPDATE predicate;
-    this means a mismatched owner silently returns an empty result rather
-    than raising — the service layer must verify the returned row is non-null.
-
-    Returns
-    -------
-    Updated wallet dict.
+    Balance is explicitly EXCLUDED from general updates to prevent race conditions;
+    balance mutations must route through `increment_balance` or `decrement_balance`.
     """
-    MUTABLE_FIELDS = {"name", "color_token"}
-    safe_updates = {k: v for k, v in updates.items() if k in MUTABLE_FIELDS}
+    # Defensive programming: strip balance from generic updates
+    safe_updates = {k: v for k, v in updates.items() if k != "balance"}
+    safe_updates["updated_at"] = _now_utc()
 
-    if not safe_updates:
-        raise ValueError(
-            "No mutable wallet fields found in updates. "
-            f"Allowed: {MUTABLE_FIELDS}"
-        )
-
-    response = (
+    response = await (
         client.table("wallets")
         .update(safe_updates)
         .eq("id", wallet_id)
@@ -218,12 +206,11 @@ def update_wallet(
         .is_("deleted_at", "null")
         .execute()
     )
-
     return response.data[0]
 
 
-def apply_balance_delta(
-    client: Client,
+async def apply_balance_delta(
+    client: AsyncClient,
     wallet_id: str,
     user_id: str,
     delta: int,
@@ -257,7 +244,7 @@ def apply_balance_delta(
     Updated wallet dict with the new balance.
     """
     # Step 1: Fetch current balance (also validates ownership)
-    wallet = get_wallet_by_id(client, wallet_id, user_id)
+    wallet = await get_wallet_by_id(client, wallet_id, user_id)
     if wallet is None:
         raise ValueError(
             f"Wallet {wallet_id} not found or does not belong to user {user_id}."
@@ -267,7 +254,7 @@ def apply_balance_delta(
     new_balance = wallet["balance"] + delta
 
     # Step 3: Write back
-    response = (
+    response = await (
         client.table("wallets")
         .update({"balance": new_balance})
         .eq("id", wallet_id)
@@ -283,8 +270,8 @@ def apply_balance_delta(
 # Soft Delete
 # ---------------------------------------------------------------------------
 
-def soft_delete_wallet(
-    client: Client,
+async def soft_delete_wallet(
+    client: AsyncClient,
     wallet_id: str,
     user_id: str,
 ) -> None:
@@ -297,6 +284,8 @@ def soft_delete_wallet(
 
     This function only performs the DB write; it does not check preconditions.
     """
-    client.table("wallets").update(
-        {"deleted_at": _now_utc()}
-    ).eq("id", wallet_id).eq("user_id", user_id).is_("deleted_at", "null").execute()
+    await (
+        client.table("wallets").update(
+            {"deleted_at": _now_utc()}
+        ).eq("id", wallet_id).eq("user_id", user_id).is_("deleted_at", "null").execute()
+    )

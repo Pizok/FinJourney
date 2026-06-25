@@ -41,7 +41,7 @@ Routed through `journey/router.py` (mounted directly on `app` in `main.py`, not 
 The following core tables and columns are used by the application:
 
 ### User & Core Finance
-- **`journey_profiles`**: `id`, `username`, `active_path`, `has_completed_setup`, `expected_monthly_income`, `monthly_savings_target`, `primary_payday`, `current_hp`, `total_xp`, `current_level`, `vitality`, `current_streak`, `is_dev_account`
+- **`journey_profiles`**: `id`, `username`, `avatar_key`, `active_path`, `has_completed_setup`, `expected_monthly_income`, `monthly_savings_target`, `primary_payday`, `current_hp`, `total_xp`, `current_level`, `vitality`, `current_streak`, `gold_coins`, `defense_shield`, `standby_tokens`, `is_dev_account`
 - **`wallets`**: `id`, `user_id`, `name`, `type`, `balance`, `color_token`
 - **`categories`**: `id`, `user_id`, `name`, `category_group`, `monthly_limit`
 - **`transactions`**: `id`, `user_id`, `primary_wallet_id`, `source_wallet_id`, `destination_wallet_id`, `category_id`, `type`, `amount`, `payment_method`, `status`, `transaction_date`, `savings_target_id`
@@ -58,6 +58,7 @@ The following core tables and columns are used by the application:
 - **`journey_regions`**: `id`, `user_id`, `region_id`, `status`, `started_at`, `ends_at`
 - **`journey_region_nodes`**: `id`, `user_id`, `node_id`, `region_id`, `status`
 - **`journey_notifications`**: `id`, `user_id`, `category`, `severity`, `title`, `message`, `status`
+- **`journey_journal`**: `id`, `user_id`, `message`, `severity`, `source_event_id`, `created_at`
 
 ### System
 - **`system_flags`**: `key`, `value`

@@ -41,19 +41,26 @@ async def insert_game_event(
     source_id: str | None = None,
     metadata: dict | None = None,
 ) -> dict:
-    """Append to the immutable event ledger. Never call UPDATE or DELETE on game_events."""
+    """Append to the immutable event ledger. Never call UPDATE or DELETE on journey_events."""
+    
+    # Map old columns to new journey_events schema
+    actual_metadata = metadata or {}
+    if gold_delta:
+        actual_metadata["gold_delta"] = gold_delta
+        
     result = await (
-        db.table("game_events")
+        db.table("journey_events")
         .insert(
             {
                 "user_id": user_id,
                 "event_type": event_type,
                 "xp_delta": xp_delta,
                 "hp_delta": hp_delta,
-                "gold_delta": gold_delta,
                 "shield_delta": shield_delta,
-                "source_id": source_id,
-                "metadata": metadata or {},
+                "source": source_id or "system",
+                "severity": "info",
+                "status": "applied",
+                "metadata": actual_metadata,
             }
         )
         .execute()
@@ -74,13 +81,13 @@ async def update_player_state(
     """Apply partial updates to player_state. HP is clamped 0–100; XP is floor-clamped to 0."""
     updates: dict = {}
     if hp is not None:
-        updates["hp"] = max(0.0, min(100.0, hp))
+        updates["current_hp"] = max(0.0, min(100.0, hp))
     if xp is not None:
-        updates["xp"] = max(0.0, xp)
+        updates["total_xp"] = max(0.0, xp)
     if gold is not None:
-        updates["gold"] = gold
+        updates["gold_coins"] = gold
     if shield is not None:
-        updates["shield"] = max(0.0, shield)
+        updates["defense_shield"] = max(0.0, shield)
     if standby_tokens is not None:
         updates["standby_tokens"] = max(0, standby_tokens)
     if extra:
@@ -90,9 +97,9 @@ async def update_player_state(
         return {}
 
     result = await (
-        db.table("player_state")
+        db.table("journey_profiles")
         .update(updates)
-        .eq("user_id", user_id)
+        .eq("id", user_id)
         .execute()
     )
     return result.data[0] if result.data else {}
