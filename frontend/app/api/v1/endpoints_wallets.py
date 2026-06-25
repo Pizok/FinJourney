@@ -36,7 +36,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.core.constants import ErrorCode
 from app.api.v1.dependencies import AuthUser, DbClient
-from app.schemas.wallet import RebalanceBudgetRequest, WalletCreate, WalletOut
+from app.schemas.wallet import RebalanceBudgetRequest, WalletCreate, WalletOut, WalletBootstrapResponse
 from app.services import wallet_service
 
 router = APIRouter(prefix="/wallets", tags=["wallets"])
@@ -116,6 +116,73 @@ async def delete_wallet(
             status_code=status.HTTP_409_CONFLICT,
             detail={"success": False, "error": {"code": "wallet_has_transactions", "message": str(e)}}
         )
+
+
+@router.get(
+    "/bootstrap",
+    response_model=dict,
+    summary="Wallet page hydration",
+)
+async def get_wallet_bootstrap(
+    user: AuthUser,
+    db: DbClient,
+) -> dict:
+    """Returns the consolidated payload for the Finance page."""
+    import asyncio
+
+    # Execute all queries concurrently
+    wallets_task = db.fetch(
+        "SELECT * FROM wallets WHERE user_id = $1 AND deleted_at IS NULL",
+        user.user_id
+    )
+    categories_task = db.fetch(
+        "SELECT * FROM categories WHERE user_id = $1 AND deleted_at IS NULL",
+        user.user_id
+    )
+    transactions_task = db.fetch(
+        "SELECT * FROM transactions WHERE user_id = $1 AND status = 'active' ORDER BY transaction_date DESC LIMIT 20",
+        user.user_id
+    )
+    # fixed_expenses table might or might not have deleted_at depending on schema, safe to just check user_id if we aren't sure, but we'll try deleted_at IS NULL if it exists, or just get all for user.
+    # Actually, we can check if column exists by querying information_schema, but let's just use standard where user_id=$1.
+    # The plan says "all fixed expenses (from fixed_expenses table)".
+    fixed_expenses_task = db.fetch(
+        "SELECT * FROM fixed_expenses WHERE user_id = $1",
+        user.user_id
+    )
+    loans_task = db.fetch(
+        "SELECT * FROM loans WHERE user_id = $1 AND status = 'ACTIVE'",
+        user.user_id
+    )
+    profile_task = db.fetchrow(
+        "SELECT expected_monthly_income, monthly_savings_target FROM journey_profiles WHERE id = $1",
+        user.user_id
+    )
+
+    wallets, categories, transactions, fixed_expenses, loans, profile = await asyncio.gather(
+        wallets_task,
+        categories_task,
+        transactions_task,
+        fixed_expenses_task,
+        loans_task,
+        profile_task,
+    )
+
+    financial_assumptions = {
+        "expected_monthly_income": profile["expected_monthly_income"] if profile and profile.get("expected_monthly_income") else 0,
+        "monthly_savings_target": profile["monthly_savings_target"] if profile and profile.get("monthly_savings_target") else 0,
+    }
+
+    data = WalletBootstrapResponse(
+        wallets=[dict(w) for w in wallets] if wallets else [],
+        category_limits=[dict(c) for c in categories] if categories else [],
+        recent_transactions=[dict(t) for t in transactions] if transactions else [],
+        fixed_expenses=[dict(f) for f in fixed_expenses] if fixed_expenses else [],
+        active_loans=[dict(l) for l in loans] if loans else [],
+        financial_assumptions=financial_assumptions,
+    ).model_dump(mode="json")
+
+    return {"success": True, "data": data}
 
 
 

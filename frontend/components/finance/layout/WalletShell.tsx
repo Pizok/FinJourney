@@ -32,6 +32,7 @@ import { useEffect } from 'react';
 import { useWalletStore } from '@/components/finance/stores/walletStore';
 import { DashboardSidebar } from '@/components/dashboard/layout/DashboardSidebar';
 import { WalletCardList } from '@/components/finance/overview/WalletCardList';
+import { WalletEmptyState } from './WalletEmptyState';
 import { CategoryTrackingSection } from '@/components/finance/categories/CategoryTrackingSection';
 import { TransactionTable } from '@/components/finance/transactions/TransactionTable';
 import { CreateWalletModal } from '@/components/finance/modals/CreateWalletModal';
@@ -341,9 +342,9 @@ export function WalletShell({ initialData }: { initialData?: WalletBootstrapResp
     loading,
     ui,
     hydrate,
-    hydrateMock,
     setGlobalError,
     setLoading,
+    data,
   } = useWalletStore();
 
   // ── Bootstrap on mount ──────────────────────────────────────────────────
@@ -356,21 +357,11 @@ export function WalletShell({ initialData }: { initialData?: WalletBootstrapResp
       hydrate(initialData);
       setLoading('bootstrap', false);
     } else {
-      // Fallback to mock data if no initialData provided
-      // (e.g. testing mode or server error)
-      const timer = window.setTimeout(() => {
-        try {
-          hydrateMock();
-        } catch {
-          setGlobalError(
-            'Could not load wallet data. Check your connection and try again.',
-          );
-        } finally {
-          setLoading('bootstrap', false);
-        }
-      }, 550);
-
-      return () => window.clearTimeout(timer);
+      // If initialData is missing (e.g. server error), set global error
+      setGlobalError(
+        'Could not load wallet data. Check your connection and try again.',
+      );
+      setLoading('bootstrap', false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialData, isBootstrapped]);
@@ -396,7 +387,7 @@ export function WalletShell({ initialData }: { initialData?: WalletBootstrapResp
                 onDismiss={() => setGlobalError(null)}
                 onRetry={() => {
                   setGlobalError(null);
-                  hydrateMock();
+                  window.location.reload();
                 }}
               />
             )}
@@ -435,7 +426,7 @@ export function WalletShell({ initialData }: { initialData?: WalletBootstrapResp
                     data-section="wallet-overview"
                     aria-label="Wallet overview"
                   >
-                    {isLoading ? <OverviewSkeleton /> : <WalletCardList />}
+                    {isLoading ? <OverviewSkeleton /> : (!data || data.wallets.length === 0 ? <WalletEmptyState /> : <WalletCardList />)}
                   </div>
 
                   {/* SECTION 2 — Category Tracking */}

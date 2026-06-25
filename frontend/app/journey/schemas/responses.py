@@ -399,6 +399,13 @@ class JourneyEventResponse(BaseModel):
     hp_change: int
     severity: str
 
+class ProfileSnapshotResponse(BaseModel):
+    current_hp: int
+    total_xp: int
+    current_level: int
+    vitality: str
+    current_streak: int
+
 class JourneyOverviewResponse(BaseModel):
     """
     The full historical and progression data payload returned by GET /overview.
@@ -409,6 +416,7 @@ class JourneyOverviewResponse(BaseModel):
     past_reviews: list[PastReviewResponse] = Field(default_factory=list)
     passport: PassportResponse
     recent_events: list[JourneyEventResponse] = Field(default_factory=list)
+    profile_snapshot: ProfileSnapshotResponse
 
 
 # ---------------------------------------------------------------------------

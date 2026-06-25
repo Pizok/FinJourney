@@ -47,18 +47,12 @@ export const metadata: Metadata = {
 
 export default async function WalletPage() {
 
-  // ===========================================================================
-  // SERVER-SIDE BOOTSTRAP FETCH (Part 1)
+  // SERVER-SIDE BOOTSTRAP FETCH (Part 2)
   // ===========================================================================
 
-  // Fetching from 'wallets' currently only returns a list of wallets,
-  // not the full WalletBootstrapResponse object (with transactions, categories, etc).
-  // Until the backend endpoint is fully built, we force it to null if it's missing the required keys so it safely falls back to mock data.
-  let initialData = await apiFetchServer('wallets') as WalletBootstrapResponse | null;
-
-  if (initialData && !initialData.recent_transactions) {
-    initialData = null; // Force fallback to MOCK data
-  }
+  const initialData = await apiFetchServer('wallets/bootstrap', {
+    next: { revalidate: 60 } // optional, depending on how often data changes
+  }) as WalletBootstrapResponse | null;
 
   // ===========================================================================
   // RENDER

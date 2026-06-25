@@ -152,3 +152,20 @@ class RebalanceBudgetRequest(BaseModel):
         min_length=1,
         description="One or more category limit overrides to apply atomically.",
     )
+
+
+# ── Bootstrap ─────────────────────────────────────────────────────────────────
+
+class FinancialAssumptions(BaseModel):
+    expected_monthly_income: int = 0
+    monthly_savings_target: int = 0
+
+
+class WalletBootstrapResponse(BaseModel):
+    wallets: list[dict] = Field(default_factory=list)
+    category_limits: list[dict] = Field(default_factory=list)
+    recent_transactions: list[dict] = Field(default_factory=list)
+    fixed_expenses: list[dict] = Field(default_factory=list)
+    active_loans: list[dict] = Field(default_factory=list)
+    financial_assumptions: FinancialAssumptions = Field(default_factory=FinancialAssumptions)
+

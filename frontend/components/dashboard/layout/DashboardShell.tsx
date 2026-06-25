@@ -1,7 +1,7 @@
 'use client';
-
 import { DashboardSidebar } from './DashboardSidebar';
 import { DashboardGrid } from './DashboardGrid';
+import { DashboardSkeleton } from './DashboardSkeleton';
 import { WelcomeModal } from '../modals/WelcomeModal';
 import { TutorialModal } from '../modals/TutorialModal';
 import { DangerModal } from '../modals/DangerModal';
@@ -80,7 +80,7 @@ import type { BootstrapData } from '../types/dashboard.types';
  * If bootstrapData is provided, the Zustand store is hydrated with it.
  */
 export function DashboardShell({ bootstrapData }: { bootstrapData?: BootstrapData | null }) {
-  const { setData } = useDashboardStore();
+  const { data, isLoading, setData } = useDashboardStore();
 
   useEffect(() => {
     if (bootstrapData) {
@@ -107,7 +107,7 @@ export function DashboardShell({ bootstrapData }: { bootstrapData?: BootstrapDat
           </header>
 
           {/* Card grid */}
-          <DashboardGrid />
+          {isLoading || !data ? <DashboardSkeleton /> : <DashboardGrid />}
         </div>
       </main>
 

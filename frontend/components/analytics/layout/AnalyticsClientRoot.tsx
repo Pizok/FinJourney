@@ -34,7 +34,7 @@ import { AnalyticsProvider, type AnalyticsData } from './AnalyticsContext'
 import { apiFetchClient } from '@/lib/apiClient.client'
 import { useDashboardStore } from '@/components/dashboard/stores/dashboardStore'
 import { useAnalyticsStore } from '../stores/analyticsStore'
-import { MOCK_BOOTSTRAP_UNLOCKED } from '../store/analyticsStore'
+import { AnalyticsEmptyState } from './AnalyticsEmptyState'
 
 // ─── Analytics Grid ────────────────────────────────────────────────────────────
 // The full bento-box grid rendered when the user is Level 3+.
@@ -82,24 +82,20 @@ export function AnalyticsClientRoot() {
   
   // Try to get user level from dashboard store
   // If it's undefined, the user might have navigated directly to /analytics
-  const userLevel = useDashboardStore((s) => s.data.profile.level)
-  const isMockData = process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true'
+  const userLevel = useDashboardStore((s) => s.data?.profile.level)
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['analytics', 'overview', timeRange],
     queryFn: () => apiFetchClient<AnalyticsData>(`analytics/overview?timeframe=${timeRange}`),
-    enabled: (userLevel ?? 0) >= 3 && !isMockData,
+    enabled: (userLevel ?? 0) >= 3,
   })
-
-  // If mock data is enabled, use the local mock payload
-  const resolvedData = isMockData ? MOCK_BOOTSTRAP_UNLOCKED : data
 
   // We are locked if:
   // 1. Data explicitly says locked
-  // 2. Or we know userLevel < 3 and we are not mocking
+  // 2. Or we know userLevel < 3
   // 3. Or query is loading/idle but user is known to be < 3
-  const isLocked = resolvedData 
-    ? !resolvedData.unlock_status.unlocked 
+  const isLocked = data 
+    ? !data.unlock_status.unlocked 
     : (userLevel !== undefined && userLevel < 3)
 
   return (
@@ -113,10 +109,14 @@ export function AnalyticsClientRoot() {
             <AnalyticsHeader isLocked={isLocked} />
 
             {/* Shell — routes to locked overlay or full grid */}
-            <AnalyticsShell isLoading={isLoading && !resolvedData} isError={isError} locked={isLocked} data={resolvedData}>
-              {resolvedData && (
-                <AnalyticsProvider data={resolvedData}>
-                  <AnalyticsGrid />
+            <AnalyticsShell isLoading={isLoading && !data} isError={isError} locked={isLocked} data={data}>
+              {data && (
+                <AnalyticsProvider data={data}>
+                  {data.top_transactions.length === 0 && data.cashflow.series.length === 0 ? (
+                    <AnalyticsEmptyState />
+                  ) : (
+                    <AnalyticsGrid />
+                  )}
                   <RebalanceBudgetModal />
                   <LoanSimulatorModal />
                   <SavingsGoalModal />

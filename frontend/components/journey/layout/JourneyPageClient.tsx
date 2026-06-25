@@ -36,7 +36,7 @@
 //   visible beneath it so the user can still read their history.
 // =============================================================================
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, RefreshCw, Loader2 } from "lucide-react";
 
@@ -60,8 +60,8 @@ import { TimelineSection } from "../features/TimelineSection";
 import { QuarterlyReviewSection } from "../features/QuarterlyReviewSection";
 import { PassportSection } from "../features/PassportSection";
 import { HistorySection } from "../features/HistorySection";
+import { JourneyEmptyState } from "./JourneyEmptyState";
 import { JourneyProvider } from "./JourneyContext";
-import { MOCK_JOURNEY_OVERVIEW } from "../stores/journeyStore";
 import { apiFetchClient } from "@/lib/apiClient.client";
 
 // ── Modal import (Part 4) ───────────────────────────────────────────────────────────
@@ -249,8 +249,6 @@ export function JourneyPageClient() {
   const { closeModal } = useModalActions();
   const queryClient = useQueryClient();
 
-  const isMockData = process.env.NEXT_PUBLIC_USE_MOCK_DATA === "true";
-
   const bootstrapData = useBootstrapData();
   const isCriticalFailure = bootstrapData?.player_state?.critical_failure === true;
 
@@ -260,10 +258,7 @@ export function JourneyPageClient() {
     queryFn: fetchJourneyOverview,
     staleTime: 60_000,
     refetchOnWindowFocus: true,
-    enabled: !isMockData,
   });
-
-  const resolvedData = isMockData ? MOCK_JOURNEY_OVERVIEW : data;
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -276,7 +271,7 @@ export function JourneyPageClient() {
   }, [activeModal, closeModal]);
 
   // ── Loading state ─────────────────────────────────────────────────────────
-  if (isLoading && !resolvedData) {
+  if (isLoading && !data) {
     return (
       <div
         className="flex flex-col gap-8 animate-pulse py-8"
@@ -298,7 +293,7 @@ export function JourneyPageClient() {
   }
 
   // ── Error state ───────────────────────────────────────────────────────────
-  if (isError && !resolvedData) {
+  if (isError && !data) {
     return <PageError onRetry={() => refetch()} />;
   }
 
@@ -309,37 +304,43 @@ export function JourneyPageClient() {
       {/* Critical failure overlay — dims and freezes progression */}
       {isCriticalFailure && <CriticalFailureOverlay onReviveSuccess={() => queryClient.invalidateQueries({ queryKey: ['journey'] })} />}
 
-      {resolvedData && (
-        <JourneyProvider overview={resolvedData}>
+      {data && (
+        <JourneyProvider overview={data}>
           {/* Row 1 — Header (level, XP, HP, path) */}
           <div className="col-span-1 lg:col-span-12">
             <JourneyHeader isLoading={isLoading} />
           </div>
 
-          {/* Row 2 — Region Overview (current region + progress) */}
-          <div className="col-span-1 lg:col-span-8 flex flex-col">
-            <RegionOverview />
-          </div>
+          {data.recent_events.length === 0 && data.passport.stamps.length === 0 ? (
+            <JourneyEmptyState />
+          ) : (
+            <>
+              {/* Row 2 — Region Overview (current region + progress) */}
+              <div className="col-span-1 lg:col-span-8 flex flex-col">
+                <RegionOverview />
+              </div>
 
-          {/* Row 2 — Quarterly Review */}
-          <div className="col-span-1 lg:col-span-4 flex flex-col">
-            <QuarterlyReviewSection />
-          </div>
+              {/* Row 2 — Quarterly Review */}
+              <div className="col-span-1 lg:col-span-4 flex flex-col">
+                <QuarterlyReviewSection />
+              </div>
 
-          {/* Row 3 — 12-Month Timeline */}
-          <div className="col-span-1 lg:col-span-12">
-            <TimelineSection />
-          </div>
+              {/* Row 3 — 12-Month Timeline */}
+              <div className="col-span-1 lg:col-span-12">
+                <TimelineSection />
+              </div>
 
-          {/* Row 4 — Passport Stamps */}
-          <div className="col-span-1 lg:col-span-7 flex flex-col">
-            <PassportSection />
-          </div>
+              {/* Row 4 — Passport Stamps */}
+              <div className="col-span-1 lg:col-span-7 flex flex-col">
+                <PassportSection />
+              </div>
 
-          {/* Row 4 — Journey History (last 30 events) */}
-          <div className="col-span-1 lg:col-span-5 flex flex-col">
-            <HistorySection />
-          </div>
+              {/* Row 4 — Journey History (last 30 events) */}
+              <div className="col-span-1 lg:col-span-5 flex flex-col">
+                <HistorySection />
+              </div>
+            </>
+          )}
 
           {/* Modal portal (RegionDetailModal, ReviewDetailModal, PassportDetailModal) */}
           <JourneyModals />
