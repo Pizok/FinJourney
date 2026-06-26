@@ -28,7 +28,7 @@
 ### 4. Settings & Customization
 * **Dynamic Themes**: Unlock and equip different aesthetic themes (e.g., Abyssal Slate, Clear Night).
 * **App Preferences**: Toggle privacy modes, reduced motion, and timezone settings.
-* **Notifications**: Manage hazard alerts, daily reminders, and achievement notifications.
+* **Email & Notifications**: Transactional gamification emails via Resend (e.g., leveling up, daily 20:00 reminders, hazard alerts). You can toggle these preferences individually.
 
 ---
 
@@ -51,6 +51,8 @@ FinJourney uses a modern, separated architecture with a Next.js frontend and a F
 * **[FastAPI (Python 3)](https://fastapi.tiangolo.com/)**: High-performance backend framework handling core business logic, the gamification engine, and financial calculations.
 * **[Pydantic](https://docs.pydantic.dev/)**: Enforces strict data validation and serialization for API requests and responses.
 * **[Supabase (PostgreSQL)](https://supabase.com/)**: The primary database storing user profiles, transactions, and gamification states.
+* **[Resend & Jinja2](https://resend.com/)**: Powers the dynamic HTML transactional email system for gamification alerts.
+* **[Upstash QStash](https://upstash.com/docs/qstash)**: Handles timezone-aware, robust background job scheduling (like midnight evaluations and evening reminders).
 
 ---
 
@@ -63,13 +65,15 @@ FinJourney/
 │   │   ├── (main)/          # Public marketing & landing pages
 │   │   ├── (minimal)/       # Authenticated app (Dashboard, Finance, Journey)
 │   │   ├── api/v1/          # FastAPI backend source code (Python)
+│   │   ├── templates/       # Jinja2 email templates
 │   │   └── main.py          # FastAPI application entry point
 │   ├── components/          # Reusable React components grouped by feature
 │   │   ├── dashboard/       # Dashboard & Overview components
 │   │   ├── finance/         # Transactions, Wallets, Analytics components
 │   │   ├── journey/         # Gamification, Quests, and XP UI
 │   │   └── ui/              # Generic Radix/Tailwind components
-│   └── lib/                 # Shared utilities and API client wrappers
+│   ├── lib/                 # Shared utilities and API client wrappers
+│   └── services/            # Python backend services (email, cron, sync)
 ├── prd/                     # Product Requirements & Documentation
 └── README.md                # General project readme
 ```

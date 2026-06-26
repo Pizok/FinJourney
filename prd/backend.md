@@ -5,6 +5,8 @@ This document serves as a concise context for AI agents regarding the FinJourney
 ## Core Tech Stack
 - **Framework**: FastAPI (Python 3)
 - **Database**: PostgreSQL (Supabase)
+- **Transactional Emails**: Resend SDK + Jinja2 (for HTML templating)
+- **Background Jobs / Crons**: Upstash QStash (timezone-aware webhooks)
 - **Location**: The backend source code lives inside the Next.js frontend directory, specifically in `src/app/`. (Wait, no, Next.js UI is also there, the Python backend shares the `src/app/` namespace but is executed as a separate FastAPI server from `main.py`).
 
 ## File Structure (`src/app/`)
@@ -29,7 +31,8 @@ Routed through `api/v1/api.py`.
 Routed through `journey/router.py` (mounted directly on `app` in `main.py`, not via `api_router`).
 - Manages game state: HP, XP, Shields, Inventory, Regions, and Challenges.
 - **Engine Core**: `journey/engine/bus.py` (event bus logic).
-- **Services**: `hp_svc.py`, `xp_svc.py`, `inventory_svc.py`, `cron_svc.py`.
+- **Services**: `hp_svc.py`, `xp_svc.py`, `inventory_svc.py`, `cron_svc.py`, `email_svc.py` (Resend wrapper), `user_lookup_svc.py`.
+- **Background/Cron Jobs**: Handled via `POST /cron/*` webhooks triggered by QStash (e.g., midnight evaluations, 20:00 evening reminders).
 
 ## Architectural Guidelines
 1. **Ghost Domains**: In `api.py`, uncreated routers are commented out. Importing a missing module will crash FastAPI.

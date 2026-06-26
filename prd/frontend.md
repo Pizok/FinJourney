@@ -17,7 +17,7 @@ This document provides a concise overview of the FinJourney frontend structure f
   - `api/`: Next.js API routes (if any) or proxy configuration. *(Note: Python backend also shares the `src/app/` namespace but runs separately).*
 - `components/`: React components grouped by feature domain.
   - `ui/`: Generic, reusable, dumb components (Buttons, Inputs, Dialogs).
-  - `analytics/`, `auth/`, `dashboard/`, `finance/`, `journey/`, `onboarding/`, `settings/`: Feature-specific compound components.
+  - `analytics/`, `auth/`, `dashboard/`, `finance/`, `journey/`, `onboarding/`, `settings/`: Feature-specific compound components. Note that `settings/` contains the UI toggles for the gamification email system (hazard alerts, daily reminders, achievements).
 - `lib/`: Utilities and API client wrappers.
   - `apiClient.client.ts`: Wrapper for `fetch` used in React Client Components (e.g., inside TanStack Query). Passes Supabase JWT to the backend.
   - `apiClient.server.ts`: Wrapper for `fetch` used in React Server Components.
