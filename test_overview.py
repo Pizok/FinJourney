@@ -3,9 +3,9 @@ import os
 import uuid
 from dotenv import load_dotenv
 
-sys.path.append(os.path.join(os.getcwd(), 'frontend'))
-load_dotenv(os.path.join('frontend', '.env.local'))
-load_dotenv(os.path.join('frontend', '.env'))
+sys.path.append(os.path.join(os.getcwd(), 'src'))
+load_dotenv(os.path.join('src', '.env.local'))
+load_dotenv(os.path.join('src', '.env'))
 
 from fastapi.testclient import TestClient
 from app.main import app

@@ -1,5 +1,5 @@
 # FinJourney Backend Integrity Report
-> **Scope:** `frontend/app/{api,core,db,schemas,services}` — all `.py` files  
+> **Scope:** `src/app/{api,core,db,schemas,services}` — all `.py` files  
 > **Date:** 2026-06-18
 
 ---

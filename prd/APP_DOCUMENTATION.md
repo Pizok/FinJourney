@@ -58,7 +58,7 @@ FinJourney uses a modern, separated architecture with a Next.js frontend and a F
 
 ```text
 FinJourney/
-├── frontend/
+├── src/
 │   ├── app/
 │   │   ├── (main)/          # Public marketing & landing pages
 │   │   ├── (minimal)/       # Authenticated app (Dashboard, Finance, Journey)
@@ -93,7 +93,7 @@ You will need to configure your `.env` file in the root/frontend directory. Requ
 1. **Start the FastAPI Backend**:
    Navigate to the frontend folder, activate your Python virtual environment, and run Uvicorn:
    ```bash
-   cd frontend
+   cd src
    uvicorn app.main:app --reload
    ```
    *The backend will run on `http://127.0.0.1:8000`.*
@@ -101,7 +101,7 @@ You will need to configure your `.env` file in the root/frontend directory. Requ
 2. **Start the Next.js Frontend**:
    In a separate terminal, navigate to the frontend folder and start the dev server:
    ```bash
-   cd frontend
+   cd src
    npm run dev
    ```
    *The frontend will run on `http://localhost:3000`. Next.js is configured to proxy `/api/v1/*` requests directly to the FastAPI backend.*

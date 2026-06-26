@@ -8,7 +8,7 @@
 
 `NOTE` `prd/working/` folder created as working area for backend docs & change log.
 
-`ADD` `prd/working/backend_audit.md` — Full integrity audit of `frontend/app/{api,core,db,schemas,services}`. 13 critical bugs + 8 structural issues catalogued with file + line references.
+`ADD` `prd/working/backend_audit.md` — Full integrity audit of `src/app/{api,core,db,schemas,services}`. 13 critical bugs + 8 structural issues catalogued with file + line references.
 
 `ADD` `prd/working/backend_map.md` — Complete function registry for all existing `.py` backend files. Lists every fn, schema, and constant. Reference before adding new code to avoid duplication.
 

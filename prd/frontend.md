@@ -10,11 +10,11 @@ This document provides a concise overview of the FinJourney frontend structure f
 - **Authentication**: Supabase SSR (`@supabase/ssr`)
 - **Forms**: React Hook Form + Zod
 
-## Directory Structure (`frontend/`)
+## Directory Structure (`src/`)
 - `app/`: Next.js App Router structure.
   - `(main)/`: Public-facing pages (marketing, news, pricing).
   - `(minimal)/`: The core authenticated application (`analytics`, `auth`, `dashboard`, `finance`, `journey`, `onboarding`, `settings`). Uses a minimal shell/sidebar layout.
-  - `api/`: Next.js API routes (if any) or proxy configuration. *(Note: Python backend also shares the `frontend/app/` namespace but runs separately).*
+  - `api/`: Next.js API routes (if any) or proxy configuration. *(Note: Python backend also shares the `src/app/` namespace but runs separately).*
 - `components/`: React components grouped by feature domain.
   - `ui/`: Generic, reusable, dumb components (Buttons, Inputs, Dialogs).
   - `analytics/`, `auth/`, `dashboard/`, `finance/`, `journey/`, `onboarding/`, `settings/`: Feature-specific compound components.

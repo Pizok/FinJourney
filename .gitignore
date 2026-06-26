@@ -1,4 +1,4 @@
-.env
+﻿.env
 .venv
 .antigravity
 
@@ -18,11 +18,11 @@
 /coverage
 
 # next.js
-frontend/.next/
-frontend/out/
+src/.next/
+src/out/
 
 # production
-frontend/build
+src/build
 
 # misc
 .DS_Store
@@ -44,7 +44,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-frontend/node_modules/
+src/node_modules/
 
 # python
 __pycache__/

@@ -1,5 +1,5 @@
 # FinJourney — Backend Map & Function Registry
-> Root: `frontend/app/`  
+> Root: `src/app/`  
 > DB client: **Supabase** (`supabase.AsyncClient` for async, `supabase.Client` for sync)  
 > Auth: `AuthUser` / `DBClient` type aliases from `app.api.v1.dependencies`
 

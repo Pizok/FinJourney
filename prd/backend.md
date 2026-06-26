@@ -5,9 +5,9 @@ This document serves as a concise context for AI agents regarding the FinJourney
 ## Core Tech Stack
 - **Framework**: FastAPI (Python 3)
 - **Database**: PostgreSQL (Supabase)
-- **Location**: The backend source code lives inside the Next.js frontend directory, specifically in `frontend/app/`. (Wait, no, Next.js UI is also there, the Python backend shares the `frontend/app/` namespace but is executed as a separate FastAPI server from `main.py`).
+- **Location**: The backend source code lives inside the Next.js frontend directory, specifically in `src/app/`. (Wait, no, Next.js UI is also there, the Python backend shares the `src/app/` namespace but is executed as a separate FastAPI server from `main.py`).
 
-## File Structure (`frontend/app/`)
+## File Structure (`src/app/`)
 - `main.py`: The FastAPI application entrypoint. Initializes Supabase connection pool and mounts routers.
 - `api/v1/`: Standard HTTP REST endpoints.
 - `journey/`: The isolated Gamification engine (Events, XP, HP, etc.).
