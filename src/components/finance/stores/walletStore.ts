@@ -56,7 +56,10 @@ interface WalletStore {
   filterState: FilterState;
 
   // UI state ─────────────────────────────────────────────────────────────────
-  ui: WalletUIState;
+  ui: WalletUIState & {
+    isCategoryModalOpen: boolean;
+    activeEditCategoryId: string | null;
+  };
 
   // Loading flags ────────────────────────────────────────────────────────────
   loading: LoadingState;
@@ -128,6 +131,10 @@ interface WalletStore {
   // ── Category mutations ────────────────────────────────────────────────────
 
   setCategories: (categories: Category[]) => void;
+  addCategory: (category: Category) => void;
+  updateCategory: (id: string, patch: Partial<Category>) => void;
+  removeCategory: (id: string) => void;
+  restoreCategory: (category: Category) => void;
 
   // ── Modal controls ────────────────────────────────────────────────────────
 
@@ -143,6 +150,9 @@ interface WalletStore {
   closeWalletSettings: () => void;
   openDeleteWallet: (walletId: string) => void;
   closeDeleteWallet: () => void;
+  openAddCategory: () => void;
+  openEditCategory: (categoryId: string) => void;
+  closeCategoryModal: () => void;
 
   // ── Error / loading ───────────────────────────────────────────────────────
 
@@ -154,7 +164,7 @@ interface WalletStore {
 // Default slices
 // ─────────────────────────────────────────────────────────────────────────────
 
-const DEFAULT_UI: WalletUIState = {
+const DEFAULT_UI: WalletUIState & { isCategoryModalOpen: boolean; activeEditCategoryId: string | null; } = {
   selectedWalletId: null,
   isAddTransactionOpen: false,
   isEditTransactionOpen: false,
@@ -167,6 +177,8 @@ const DEFAULT_UI: WalletUIState = {
   activeSettingsWalletId: null,
   activeDeleteWalletId: null,
   globalError: null,
+  isCategoryModalOpen: false,
+  activeEditCategoryId: null,
 };
 
 const DEFAULT_LOADING: LoadingState = {
@@ -445,6 +457,42 @@ export const useWalletStore = create<WalletStore>()(
       setCategories: (categories) =>
         set({ categories }, false, 'wallet/setCategories'),
 
+      addCategory: (category) =>
+        set(
+          (s) => ({ categories: [...s.categories, category] }),
+          false,
+          'wallet/addCategory',
+        ),
+
+      updateCategory: (id, patch) =>
+        set(
+          (s) => ({
+            categories: s.categories.map((c) =>
+              c.id === id ? { ...c, ...patch } : c,
+            ),
+          }),
+          false,
+          'wallet/updateCategory',
+        ),
+
+      removeCategory: (id) =>
+        set(
+          (s) => ({
+            categories: s.categories.filter((c) => c.id !== id),
+          }),
+          false,
+          'wallet/removeCategory',
+        ),
+
+      restoreCategory: (category) =>
+        set(
+          (s) => ({
+            categories: [...s.categories, category], // Put it back at the end on rollback
+          }),
+          false,
+          'wallet/restoreCategory',
+        ),
+
       // ── Modal controls ─────────────────────────────────────────────────────
 
       openAddTransaction: () =>
@@ -573,6 +621,37 @@ export const useWalletStore = create<WalletStore>()(
           'wallet/closeDeleteWallet',
         ),
 
+      openAddCategory: () =>
+        set(
+          (s) => ({ ui: { ...s.ui, isCategoryModalOpen: true, activeEditCategoryId: null } }),
+          false,
+          'wallet/openAddCategory',
+        ),
+      openEditCategory: (id) =>
+        set(
+          (s) => ({
+            ui: {
+              ...s.ui,
+              isCategoryModalOpen: true,
+              activeEditCategoryId: id,
+            },
+          }),
+          false,
+          'wallet/openEditCategory',
+        ),
+      closeCategoryModal: () =>
+        set(
+          (s) => ({
+            ui: {
+              ...s.ui,
+              isCategoryModalOpen: false,
+              activeEditCategoryId: null,
+            },
+          }),
+          false,
+          'wallet/closeCategoryModal',
+        ),
+
       // ── Error / loading ────────────────────────────────────────────────────
 
       setGlobalError: (message) =>
@@ -673,4 +752,10 @@ export const selectSettingsWallet = (s: WalletStore): Wallet | null =>
 export const selectDeleteWallet = (s: WalletStore): Wallet | null =>
   s.ui.activeDeleteWalletId
     ? (s.wallets.find((w) => w.id === s.ui.activeDeleteWalletId) ?? null)
+    : null;
+
+/** The Category currently open in the edit modal. */
+export const selectEditCategory = (s: WalletStore): Category | null =>
+  s.ui.activeEditCategoryId
+    ? (s.categories.find((c) => c.id === s.ui.activeEditCategoryId) ?? null)
     : null;

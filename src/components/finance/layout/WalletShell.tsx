@@ -44,6 +44,8 @@ import { DeleteTransactionModal } from '@/components/finance/modals/DeleteTransa
 import { AddTransactionModal } from '@/components/finance/modals/AddTransactionModal';
 import { EditTransactionModal } from '@/components/finance/modals/EditTransactionModal';
 import { BaselinesTab } from '@/components/finance/baselines/BaselinesTab';
+import { CategoryManagementTab } from '@/components/finance/categories/CategoryManagementTab';
+import { CategoryModal } from '@/components/finance/modals/CategoryModal';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -259,6 +261,37 @@ function BaselinesSkeleton() {
   );
 }
 
+/**
+ * Category Management skeleton.
+ */
+function CategoryManagementSkeleton() {
+  return (
+    <div className="flex flex-col gap-6" aria-label="Loading category management" aria-busy="true">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <Bone className="h-5 w-48 mb-2" />
+          <Bone className="h-3 w-64" />
+        </div>
+        <Bone className="h-9 w-32 rounded-lg" />
+      </div>
+      <div className="rounded-xl border border-[var(--color-tactical-border)] bg-[var(--color-canvas-surface)] p-2">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="flex justify-between items-center p-4 border-b border-[var(--color-tactical-border)]/50 last:border-0">
+            <div>
+              <Bone className="h-4 w-32 mb-2" />
+              <Bone className="h-3 w-24" />
+            </div>
+            <div className="flex gap-2">
+              <Bone className="h-8 w-8 rounded-md" />
+              <Bone className="h-8 w-8 rounded-md" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Error banner
 // ─────────────────────────────────────────────────────────────────────────────
@@ -411,6 +444,7 @@ export function WalletShell({ initialData }: { initialData?: WalletBootstrapResp
               <div className="sticky top-0 z-10 bg-[var(--color-abyssal-slate)] -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
                 <TabsList>
                   <TabsTrigger value="ledger">Ledger</TabsTrigger>
+                  <TabsTrigger value="categories">Categories</TabsTrigger>
                   <TabsTrigger value="baselines">Baselines &amp; Debt</TabsTrigger>
                 </TabsList>
               </div>
@@ -458,7 +492,14 @@ export function WalletShell({ initialData }: { initialData?: WalletBootstrapResp
               </TabsContent>
 
               {/*
-               * TAB 2 — Baselines & Debt (new content)
+               * TAB 2 — Categories (new content)
+               */}
+              <TabsContent value="categories" className="mt-8">
+                {isLoading ? <CategoryManagementSkeleton /> : <CategoryManagementTab />}
+              </TabsContent>
+
+              {/*
+               * TAB 3 — Baselines & Debt (new content)
                *
                * No forceMount needed here — this tab has no pagination state
                * to preserve. It can mount/unmount freely.
@@ -486,6 +527,7 @@ export function WalletShell({ initialData }: { initialData?: WalletBootstrapResp
       <WalletSettingsModal />
       <DeleteWalletModal />
       <DeleteTransactionModal />
+      <CategoryModal />
     </>
   );
 }

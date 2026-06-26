@@ -183,6 +183,31 @@ async def save_baselines(user: AuthUser, db: DbClient, payload: dict):
                 }).execute()
                 total_monthly_savings += entry.monthly_contribution
 
+        # Seed Starter Categories (only if user has none)
+        existing_categories = await db.table("categories").select("id").eq("user_id", user.user_id).is_("deleted_at", "null").limit(1).execute()
+        if not existing_categories.data:
+            import uuid
+            now_utc = datetime.utcnow().isoformat()
+            # Use constants for the budget amounts so they can be changed later
+            STARTER_CATEGORIES = [
+                {"name": "Food & Dining", "monthly_limit": 1000000},
+                {"name": "Transport", "monthly_limit": 500000},
+                {"name": "Bills & Utilities", "monthly_limit": 500000},
+                {"name": "Miscellaneous", "monthly_limit": 0},
+            ]
+            category_inserts = [
+                {
+                    "id": str(uuid.uuid4()),
+                    "user_id": user.user_id,
+                    "name": cat["name"],
+                    "monthly_limit": cat["monthly_limit"],
+                    "created_at": now_utc,
+                    "deleted_at": None,
+                }
+                for cat in STARTER_CATEGORIES
+            ]
+            await db.table("categories").insert(category_inserts).execute()
+
         # Update the cache scalars on journey_profiles
         total_income = sum(entry.amount for entry in data.incomeEntries)
         await db.table("journey_profiles").update({
