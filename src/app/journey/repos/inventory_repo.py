@@ -145,6 +145,40 @@ class InventoryRepository:
         )
         return result.data[0]
 
+    async def grant_item(
+        self,
+        user_id: str,
+        item_type: str,
+        expires_in_days: int | None = None,
+        source_event_id: Optional[str] = None,
+    ) -> dict:
+        """
+        Generic item granter for challenge rewards and other arbitrary grants.
+        Blindly applies the expires_in_days parameter if provided.
+        """
+        now = datetime.now(timezone.utc)
+        expires_at = (now + timedelta(days=expires_in_days)).isoformat() if expires_in_days else None
+        
+        payload = {
+            "id": str(uuid4()),
+            "user_id": user_id,
+            "type": item_type,
+            "status": "AVAILABLE",
+            "expires_at": expires_at,
+            "source_event_id": source_event_id,
+        }
+        result = await (
+            self._db
+            .table("journey_inventory")
+            .insert(payload)
+            .execute()
+        )
+        logger.info(
+            "Item granted: user=%s item_type=%s id=%s expires_at=%s",
+            user_id, item_type, payload["id"], expires_at,
+        )
+        return result.data[0]
+
     async def destroy_oldest_shield(
         self,
         user_id: str,

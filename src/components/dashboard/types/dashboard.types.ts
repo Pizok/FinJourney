@@ -109,6 +109,8 @@ export interface ActiveChallenge {
   status: ChallengeStatus;
   title: string;
   description: string;
+  icon?: string;
+  color?: string;
   days_remaining: number | null;
   asset_key: string | null;
 }

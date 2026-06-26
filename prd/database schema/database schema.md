@@ -103,6 +103,7 @@ CREATE TABLE public.loans (
   next_due_date date,
   monthly_installment numeric DEFAULT 0,
   created_at timestamp with time zone DEFAULT now(),
+  last_payment_date date,
   CONSTRAINT loans_pkey PRIMARY KEY (id),
   CONSTRAINT loans_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.journey_profiles(id)
 );
@@ -117,6 +118,7 @@ CREATE TABLE public.savings_targets (
   status text DEFAULT 'active'::text CHECK (status = ANY (ARRAY['active'::text, 'completed'::text, 'archived'::text])),
   created_at timestamp with time zone DEFAULT now(),
   deleted_at timestamp with time zone,
+  monthly_contribution_target numeric DEFAULT 0,
   CONSTRAINT savings_targets_pkey PRIMARY KEY (id),
   CONSTRAINT savings_targets_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.journey_profiles(id)
 );

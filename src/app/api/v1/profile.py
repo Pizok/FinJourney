@@ -176,7 +176,7 @@ async def save_baselines(user: AuthUser, db: DbClient, payload: dict):
                     "user_id": user.user_id,
                     "name": entry.label,
                     "target_amount": entry.target_amount,
-                    "monthly_contribution": entry.monthly_contribution,
+                    "monthly_contribution_target": entry.monthly_contribution,
                     "current_amount": 0,
                     "deadline": deadline_str,
                     "status": "active"
@@ -223,6 +223,14 @@ async def save_baselines(user: AuthUser, db: DbClient, payload: dict):
             await evaluate_node_advancement(db, user.user_id)
         except Exception as seed_err:
             print(f"[save_baselines] ERROR seeding journey state for {user.user_id}: {seed_err}")
+            
+        try:
+            from app.journey.services.assignment_svc import ChallengeAssignmentService
+            from app.journey.repos.profile_repo import ProfileRepository
+            assignment_svc = ChallengeAssignmentService(db, ProfileRepository(db))
+            await assignment_svc.evaluate_triggers(user.user_id, "onboarding_complete")
+        except Exception as assign_err:
+            print(f"[save_baselines] ERROR assigning FIRST_STEPS for {user.user_id}: {assign_err}")
 
         return {"success": True, "data": {}}
     except Exception as e:

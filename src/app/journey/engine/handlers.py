@@ -581,9 +581,11 @@ async def handle_reward_claimed(ctx: "EventContext") -> None:
     Publish: Journal ("Claimed Challenge Reward: +X XP, +Y HP")
 
     Payload fields:
-        challenge_id (str) UUID of the completed challenge.
-        xp_reward    (int) XP granted.
-        hp_reward    (int) HP restored.
+        challenge_id     (str) UUID of the completed challenge.
+        xp_reward        (int) XP granted.
+        hp_reward        (int) HP restored.
+        item_type        (str) Optional item granted.
+        item_expiry_days (int) Optional expiry for the item.
     """
     xp_reward: int = ctx.payload.get("xp_reward", 0)
     hp_reward: int = ctx.payload.get("hp_reward", 0)
@@ -601,9 +603,31 @@ async def handle_reward_claimed(ctx: "EventContext") -> None:
             skip_shield=False, suffix=ch_suffix,
         )
 
+    item_type: str | None = ctx.payload.get("item_type")
+    item_expiry_days: int | None = ctx.payload.get("item_expiry_days")
+    
+    if item_type:
+        from ..repos.inventory_repo import InventoryRepository
+        inventory_repo = InventoryRepository(ctx.db)
+        await inventory_repo.grant_item(
+            user_id=ctx.user_id,
+            item_type=item_type,
+            expires_in_days=item_expiry_days,
+            source_event_id=ctx.event["id"]
+        )
+
+    journal_parts = []
+    if xp_reward > 0:
+        journal_parts.append(f"+{xp_reward} XP")
+    if hp_reward > 0:
+        journal_parts.append(f"+{hp_reward} HP")
+    if item_type:
+        journal_parts.append(f"+1 {item_type}")
+        
+    journal_str = ", ".join(journal_parts)
     await _write_journal(
         ctx,
-        f"Claimed quarterly challenge reward: +{xp_reward} XP, +{hp_reward} HP.",
+        f"Claimed challenge reward: {journal_str}.",
         "SUCCESS",
     )
 
@@ -862,6 +886,7 @@ async def handle_ghost_penalty_applied(ctx: "EventContext") -> None:
     """
     from ..repos.inventory_repo import InventoryRepository
     from ..repos.event_repo import EventRepository
+    from ..repos.profile_repo import ProfileRepository
 
     inventory_repo = InventoryRepository(ctx.db)
     event_repo = EventRepository(ctx.db)
@@ -1078,6 +1103,18 @@ async def handle_quarter_failed(ctx: "EventContext") -> None:
 
     if challenge_id:
         await profile_repo.update_challenge_status(challenge_id, "FAILED")
+
+        # Trigger smart assignment for the next challenge
+        challenge_res = await ctx.db.table("journey_challenges").select("template_id").eq("id", challenge_id).maybe_single().execute()
+        if challenge_res.data:
+            template_id = challenge_res.data.get("template_id")
+            try:
+                from ..services.assignment_svc import ChallengeAssignmentService
+                assignment_svc = ChallengeAssignmentService(ctx.db, profile_repo)
+                await assignment_svc.evaluate_triggers(ctx.user_id, "challenge_completed", template_id)
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Failed to assign new challenge for {ctx.user_id}: {e}")
 
     await _write_journal(
         ctx,
@@ -1755,6 +1792,18 @@ async def handle_quarter_completed(ctx: "EventContext") -> None:
 
     if challenge_id:
         await profile_repo.update_challenge_status(challenge_id, "COMPLETED")
+        
+        # Trigger smart assignment for the next challenge
+        challenge_res = await ctx.db.table("journey_challenges").select("template_id").eq("id", challenge_id).maybe_single().execute()
+        if challenge_res.data:
+            template_id = challenge_res.data.get("template_id")
+            try:
+                from ..services.assignment_svc import ChallengeAssignmentService
+                assignment_svc = ChallengeAssignmentService(ctx.db, profile_repo)
+                await assignment_svc.evaluate_triggers(ctx.user_id, "challenge_completed", template_id)
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Failed to assign new challenge for {ctx.user_id}: {e}")
 
     await _write_journal(
         ctx,

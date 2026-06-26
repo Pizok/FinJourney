@@ -402,10 +402,29 @@ class BootstrapService:
         except ValueError:
             status_enum = ChallengeStatus.ACTIVE
 
+        from ..challenge_templates import get_template
+        template_id = challenge.get("template_id", "unknown")
+        
+        try:
+            template = get_template(template_id)
+            title = template.title
+            desc = template.description
+            icon = template.icon
+            color = template.color
+        except KeyError:
+            title = "Unknown Challenge"
+            desc = "A challenge from an unknown template."
+            icon = "ti-sword"
+            color = "gray"
+
         return ActiveChallengeResponse(
             id=challenge["id"],
             status=status_enum,
-            type=challenge.get("template_id", "unknown"),
+            type=template_id,
+            title=title,
+            description=desc,
+            icon=icon,
+            color=color,
             days_remaining=days_remaining,
             win_conditions=win_conditions,
             rewards_claimed=challenge.get("rewards_claimed", False),

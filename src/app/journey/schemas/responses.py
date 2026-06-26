@@ -210,6 +210,10 @@ class ActiveChallengeResponse(BaseModel):
     type: str = Field(
         description="Template identifier, e.g. 'savings_fortress', 'debt_raid'.",
     )
+    title: str = Field(default="Unknown Challenge")
+    description: str = Field(default="Unknown description")
+    icon: str = Field(default="ti-sword")
+    color: str = Field(default="gray")
     days_remaining: int = Field(ge=0)
     win_conditions: list[WinConditionResponse] = Field(default_factory=list)
     rewards_claimed: bool = False

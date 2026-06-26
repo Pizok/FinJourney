@@ -616,6 +616,12 @@ async def claim_rewards(
     if not challenge:
         _raise_404("CHALLENGE_NOT_FOUND", f"Challenge {challenge_id} not found.")
 
+    if challenge.get("rewards_claimed", False):
+        _raise_400(
+            "REWARDS_ALREADY_CLAIMED",
+            "Rewards for this challenge have already been claimed.",
+        )
+
     if challenge.get("status") != "COMPLETED":
         _raise_400(
             "CHALLENGE_NOT_COMPLETED",
@@ -623,15 +629,18 @@ async def claim_rewards(
             "Only COMPLETED challenges have claimable rewards.",
         )
 
-    if challenge.get("rewards_claimed", False):
-        _raise_400(
-            "REWARDS_ALREADY_CLAIMED",
-            "Rewards for this challenge have already been claimed.",
-        )
-
-    # ── Rewards from template (hardcoded MVP values per spec §5.1) ─────────────
-    XP_REWARD = 250
-    HP_REWARD = 15
+    # ── Rewards from template ──────────────────────────────────────────────────
+    from .challenge_templates import get_template
+    
+    template_id = challenge.get("template_id")
+    if not template_id:
+        _raise_400("INVALID_TEMPLATE", "Challenge has no template_id.")
+        
+    template = get_template(template_id)
+    XP_REWARD = template.reward.xp
+    HP_REWARD = template.reward.hp_restore
+    ITEM_TYPE = template.reward.item_type
+    ITEM_EXPIRY = template.reward.item_expiry_days
 
     # ── Mark rewards claimed before emitting (prevents double-claim on retry) ──
     await profile_repo.mark_challenge_rewards_claimed(challenge_id)
@@ -650,6 +659,8 @@ async def claim_rewards(
             "challenge_id": challenge_id,
             "xp_reward": XP_REWARD,
             "hp_reward": HP_REWARD,
+            "item_type": ITEM_TYPE,
+            "item_expiry_days": ITEM_EXPIRY,
         },
     )
 
