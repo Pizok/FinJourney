@@ -26,6 +26,9 @@ CREATE TABLE public.journey_profiles (
   last_username_change_at timestamp with time zone,
   is_dev_account boolean NOT NULL DEFAULT false,
   avatar_key character varying NOT NULL DEFAULT 'Roan'::character varying,
+  gold_coins double precision DEFAULT 0.0,
+  defense_shield double precision DEFAULT 0.0,
+  standby_tokens integer DEFAULT 7,
   CONSTRAINT journey_profiles_pkey PRIMARY KEY (id),
   CONSTRAINT journey_profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
 );
@@ -232,4 +235,15 @@ CREATE TABLE public.journey_region_nodes (
   shifted_at timestamp with time zone,
   CONSTRAINT journey_region_nodes_pkey PRIMARY KEY (id),
   CONSTRAINT journey_region_nodes_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.journey_profiles(id)
+);
+CREATE TABLE public.journey_journal (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  message text NOT NULL,
+  severity character varying DEFAULT 'info'::character varying,
+  source_event_id uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT journey_journal_pkey PRIMARY KEY (id),
+  CONSTRAINT journey_journal_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.journey_profiles(id),
+  CONSTRAINT journey_journal_source_event_id_fkey FOREIGN KEY (source_event_id) REFERENCES public.journey_events(id)
 );

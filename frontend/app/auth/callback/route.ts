@@ -38,8 +38,6 @@ export async function GET(request: Request) {
     const { data: { session }, error } = await supabase.auth.exchangeCodeForSession(code)
     
     if (!error && session) {
-      // Sync the user with FastAPI backend
-      // Provide the access token directly to avoid cookie race conditions
       const syncRes = await apiFetchServer<{ success: boolean; data: { has_completed_setup: boolean } }>(
         'auth/sync',
         { method: 'POST' },
@@ -48,7 +46,11 @@ export async function GET(request: Request) {
       
       const hasCompletedSetup = syncRes?.data?.has_completed_setup ?? false
       
-      const redirectUrl = hasCompletedSetup ? '/dashboard' : '/onboarding'
+      let redirectUrl = hasCompletedSetup ? '/dashboard' : '/onboarding'
+      if (next && next !== '/') {
+        redirectUrl = next
+      }
+
       return NextResponse.redirect(`${origin}${redirectUrl}`)
     }
   }

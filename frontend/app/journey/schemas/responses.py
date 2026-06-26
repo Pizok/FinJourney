@@ -27,7 +27,7 @@ class VitalityState(str, Enum):
 
 class PlayerPathID(str, Enum):
     SENTINEL = "SENTINEL"
-    CATALYST = "CATALYST"
+    VANGUARD = "VANGUARD"
     PHANTOM = "PHANTOM"
     UNASSIGNED = "UNASSIGNED"
 
@@ -92,8 +92,8 @@ _PATH_REGISTRY: dict[PlayerPathID, tuple[str, str]] = {
         "Sentinel",
         "Generate 1 Defense Shield every 7 consecutive clean days. Maximum capacity: 5 shields.",
     ),
-    PlayerPathID.CATALYST: (
-        "Catalyst",
+    PlayerPathID.VANGUARD: (
+        "Vanguard",
         "Income logging grants +10 XP instead of the standard +5. Faster level progression.",
     ),
     PlayerPathID.PHANTOM: (
@@ -143,6 +143,7 @@ class PlayerStateResponse(BaseModel):
     )
     path: PathInfoResponse
     avatar_key: str = Field(default="Roan", description="Chosen avatar key.")
+    current_streak: int = Field(default=0, description="Player's current streak count")
 
 
 # ---------------------------------------------------------------------------

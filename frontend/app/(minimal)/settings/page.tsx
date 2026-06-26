@@ -28,11 +28,43 @@ import type { Settings } from '@/components/settings/types/settings.types'
 
 import { apiFetchClient } from '@/lib/apiClient.client'
 
+import { createClient } from '@/lib/supabase.client'
+
 // ─── Data Fetcher ─────────────────────────────────────────────────────────────
 
 async function fetchSettings(): Promise<Settings> {
-  // Uses apiFetchClient to ensure the Supabase JWT is injected as a Bearer token.
-  return await apiFetchClient('settings') as Settings
+  const raw = await apiFetchClient<any>('settings')
+  
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const email = user?.email || ''
+
+  const pathKey = (raw.active_path?.path_key || 'sentinel').toLowerCase()
+  const safePathId = ['sentinel', 'phantom', 'vanguard'].includes(pathKey) ? pathKey : 'sentinel'
+  
+  const cooldownUntil = raw.active_path?.cooldown_until ? new Date(raw.active_path.cooldown_until) : null
+  const now = new Date()
+  const cooldownActive = !!cooldownUntil && cooldownUntil > now
+  const cooldownDays = cooldownActive ? Math.ceil((cooldownUntil!.getTime() - now.getTime()) / (1000 * 3600 * 24)) : 0
+
+  return {
+    profile: {
+      ...raw.profile,
+      email
+    },
+    financials: raw.financials,
+    preferences: raw.preferences,
+    notifications: raw.notifications,
+    progression: {
+      active_path: {
+        id: safePathId as any,
+        name: raw.active_path?.display_name || 'Sentinel',
+        description: ''
+      },
+      cooldown_active: cooldownActive,
+      cooldown_days_remaining: cooldownDays
+    }
+  } as Settings
 }
 
 // ─── Query Key ────────────────────────────────────────────────────────────────
@@ -61,9 +93,9 @@ export default function SettingsPage() {
   // ── Loading ────────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-abyssal-slate">
+      <SettingsShell>
         <SettingsSkeleton />
-      </div>
+      </SettingsShell>
     )
   }
 

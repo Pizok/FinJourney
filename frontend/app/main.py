@@ -10,7 +10,7 @@ from app.journey.router import router as journey_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Initialize Supabase client pool on server boot
-    init_supabase()
+    await init_supabase()
     yield
 
 app = FastAPI(

@@ -69,12 +69,12 @@ export async function apiFetchServer<T = unknown>(
     }
 
     const json = await response.json()
-    if (!json.success) {
+    if (json && json.success === false) {
       console.error(`[apiFetchServer] API returned error for ${endpoint}:`, json.error)
       return null
     }
 
-    return json.data
+    return (json && 'data' in json ? json.data : json) as T
   } catch (error) {
     console.error(`[apiFetchServer] Fatal error fetching ${endpoint}:`, error)
     return null

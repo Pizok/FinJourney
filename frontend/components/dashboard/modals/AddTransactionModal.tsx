@@ -120,8 +120,8 @@ export function AddTransactionModal({ onClose }: AddTransactionModalProps) {
             type="text"
             inputMode="numeric"
             placeholder="0"
-            value={form.amount}
-            onChange={(e) => setField('amount', e.target.value)}
+            value={form.amount ? Number(String(form.amount).replace(/\D/g, '')).toLocaleString('id-ID') : ''}
+            onChange={(e) => setField('amount', e.target.value.replace(/\D/g, ''))}
             className={inputBase}
             aria-describedby={errors.amount ? 'amount-error' : undefined}
           />

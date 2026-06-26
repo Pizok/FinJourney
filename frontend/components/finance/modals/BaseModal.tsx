@@ -105,8 +105,11 @@ export function BaseModal({
   useEffect(() => {
     if (!isOpen) return;
 
-    // Auto-focus first focusable element
+    // Auto-focus first focusable element, unless an input is already focused
     const timer = setTimeout(() => {
+      const active = document.activeElement;
+      if (active && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName)) return;
+      
       const first = dialogRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE)[0];
       first?.focus();
     }, 50);
@@ -144,7 +147,7 @@ export function BaseModal({
       clearTimeout(timer);
       document.removeEventListener('keydown', handleKey);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   // -------------------------------------------------------------------------
   // Body scroll lock
@@ -341,6 +344,47 @@ interface FormInputProps extends InputHTMLAttributes<HTMLInputElement> {
 export function FormInput({ hasError, className = '', ...props }: FormInputProps) {
   return (
     <input
+      className={[
+        inputBase,
+        hasError ? inputError : '',
+        className,
+      ].join(' ')}
+      style={{ fontFamily: 'var(--font-sans)' }}
+      {...props}
+    />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// FormCurrencyInput
+// ---------------------------------------------------------------------------
+
+interface FormCurrencyInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'onChange'> {
+  hasError?: boolean;
+  value: string | number;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}
+
+export function FormCurrencyInput({ hasError, className = '', value, onChange, ...props }: FormCurrencyInputProps) {
+  const displayValue = value === '' || value === undefined || value === null || isNaN(Number(value))
+    ? ''
+    : Number(String(value).replace(/\D/g, '')).toLocaleString('id-ID');
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = e.target.value.replace(/\D/g, '');
+    const newEvent = {
+      ...e,
+      target: { ...e.target, value: rawValue }
+    } as React.ChangeEvent<HTMLInputElement>;
+    onChange(newEvent);
+  };
+
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      value={displayValue}
+      onChange={handleChange}
       className={[
         inputBase,
         hasError ? inputError : '',

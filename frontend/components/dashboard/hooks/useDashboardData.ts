@@ -19,5 +19,5 @@ export function useDashboardData(): UseDashboardDataReturn {
   const isLoading = useDashboardStore((s) => s.isLoading);
   const error = useDashboardStore((s) => s.error);
 
-  return { data, isLoading, error };
+  return { data: data as BootstrapData, isLoading, error };
 }

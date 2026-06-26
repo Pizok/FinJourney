@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
+import { MotionConfig } from 'framer-motion'
+import { useSettingsStore } from '@/components/settings/store/settingsStore'
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -17,9 +19,13 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       })
   )
 
+  const reducedMotion = useSettingsStore((s) => s.currentSettings.preferences.reduced_motion)
+
   return (
     <QueryClientProvider client={queryClient}>
-      {children}
+      <MotionConfig reducedMotion={reducedMotion ? 'always' : 'user'}>
+        {children}
+      </MotionConfig>
       <Toaster
         position="bottom-right"
         theme="dark"

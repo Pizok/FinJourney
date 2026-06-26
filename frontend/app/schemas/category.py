@@ -96,6 +96,7 @@ class CategoryOut(BaseModel):
     user_id: UUID
     name: str
     monthly_limit: int = Field(
+        default=0,
         description="Monthly spending cap in integer cents. 0 = uncapped."
     )
     created_at: datetime

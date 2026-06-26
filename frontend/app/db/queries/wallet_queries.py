@@ -142,6 +142,7 @@ async def insert_wallet(
     wallet_type: str,
     balance: int,
     color_token: Optional[str] = None,
+    visible_category_ids: Optional[list[str]] = None,
 ) -> dict[str, Any]:
     """
     Insert a new wallet row and return the created record.
@@ -163,6 +164,7 @@ async def insert_wallet(
         "type":        wallet_type,
         "balance":     balance,
         "color_token": color_token,
+        "visible_category_ids": visible_category_ids or [],
         "created_at":  _now_utc(),
         "deleted_at":  None,
     }

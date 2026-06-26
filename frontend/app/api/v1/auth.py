@@ -1,5 +1,6 @@
 from fastapi import APIRouter, status
 from app.api.v1.dependencies import AuthUser, DbClient
+from app.db.utils import maybe_one
 
 router = APIRouter()
 
@@ -9,18 +10,17 @@ async def sync_user(user: AuthUser, db: DbClient):
     Called by the Next.js auth callback after exchanging the OAuth code.
     Ensures that the user has a row in public.journey_profiles.
     """
-    profile_res = await (
+    profile = await maybe_one(
         db.table("journey_profiles")
         .select("has_completed_setup")
         .eq("id", user.user_id)
         .maybe_single()
-        .execute()
     )
 
-    if profile_res.data:
+    if profile:
         return {
             "success": True, 
-            "data": {"has_completed_setup": profile_res.data.get("has_completed_setup", False)}
+            "data": {"has_completed_setup": profile.get("has_completed_setup", False)}
         }
 
     # If the user doesn't exist in public.journey_profiles, create a placeholder.

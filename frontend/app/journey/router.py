@@ -23,6 +23,7 @@ Endpoint index:
   PATCH /notifications/{id}       — mark notification READ or ARCHIVED
   POST /cron/daily-evaluation     — QStash rolling midnight webhook (auth: HMAC)
   POST /cron/system-cleanup       — QStash daily janitor webhook (auth: HMAC)
+  POST /cron/evening-reminder     — QStash 20:00 daily reminder email batch (auth: HMAC)
 
 CF-Locked (🔒) endpoints return HTTP 403 CRITICAL_FAILURE_ACTIVE when HP == 0.
 Cron endpoints return 202 Accepted immediately; heavy work runs in BackgroundTasks.
@@ -51,6 +52,7 @@ from .dependencies import (
 from .engine.bus import EventBus
 from .schemas.requests import (
     CronDailyEvaluationRequest,
+    CronEveningReminderRequest,
     CronSystemCleanupRequest,
     NotificationUpdateRequest,
     PathChangeRequest,
@@ -112,6 +114,13 @@ def _raise_400(code: str, message: str) -> None:
 def _raise_403(code: str, message: str) -> None:
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
+        detail=_error(code, message),
+    )
+
+
+def _raise_409(code: str, message: str) -> None:
+    raise HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
         detail=_error(code, message),
     )
 
@@ -193,29 +202,24 @@ async def get_overview(
     # Queries
     local_date = _today_iso()
     
-    events_task = db.fetch(
-        "SELECT * FROM journey_events WHERE user_id = $1 AND status = 'PROCESSED' ORDER BY created_at DESC LIMIT 10",
-        user_id
-    )
+    events_task = db.table("journey_events").select("*").eq("user_id", user_id).eq("status", "PROCESSED").order("created_at", desc=True).limit(10).execute()
     # The active review logic expects the daily survival row
-    survival_task = db.fetchrow(
-        "SELECT * FROM journey_daily_survival WHERE user_id = $1 AND target_date = $2",
-        user_id, local_date
-    )
-    # Passport: regions and challenges completed
-    # Schema check: wait, journey_regions doesn't exist? The instructions said "query journey_regions for completed regions + journey_challenges for completed challenges". 
-    # Let's execute these tasks
+    survival_task = db.table("journey_daily_survival").select("*").eq("user_id", user_id).maybe_single().execute()
     
-    events, daily_survival = await asyncio.gather(
+    events_res, daily_survival_res = await asyncio.gather(
         events_task,
         survival_task
     )
+
+    events = events_res.data if events_res else []
+    daily_survival = daily_survival_res.data if daily_survival_res else None
 
     # Note: If `journey_regions` does not exist in schema, we will wrap in try/except or just assume it does because user said so.
     # Same for `journey_challenges`. Let's fetch them safely.
     passport_stamps = []
     try:
-        regions = await db.fetch("SELECT * FROM journey_regions WHERE user_id = $1 AND status = 'COMPLETED'", user_id)
+        regions_res = await db.table("journey_regions").select("*").eq("user_id", user_id).eq("status", "COMPLETED").execute()
+        regions = regions_res.data
         for r in regions:
             passport_stamps.append({
                 "id": str(r["id"]),
@@ -228,7 +232,8 @@ async def get_overview(
         pass
 
     try:
-        challenges = await db.fetch("SELECT * FROM journey_challenges WHERE user_id = $1 AND status = 'COMPLETED'", user_id)
+        challenges_res = await db.table("journey_challenges").select("*").eq("user_id", user_id).eq("status", "COMPLETED").execute()
+        challenges = challenges_res.data
         for c in challenges:
             passport_stamps.append({
                 "id": str(c["id"]),
@@ -277,7 +282,14 @@ async def get_overview(
     }
     
     overview_data = {
-        "current_region": None,
+        "current_region": {
+            "id": "region-0",
+            "name": "The Starting Zone",
+            "description": "Your financial journey begins here.",
+            "progress_days": 0,
+            "total_days": 90,
+            "days_remaining": 90
+        },
         "journey_progress": {
             "account_days": account_days,
             "next_milestone_days": 0,
@@ -345,7 +357,7 @@ async def claim_zero_spend(
         )
 
     if current_status == "SAFE_CLAIMED":
-        _raise_400(
+        _raise_409(
             "ZERO_SPEND_ALREADY_CLAIMED",
             "Zero-Spend Day has already been claimed for today.",
         )
@@ -362,7 +374,7 @@ async def claim_zero_spend(
     )
 
     if result.get("is_duplicate"):
-        _raise_400(
+        _raise_409(
             "ZERO_SPEND_ALREADY_CLAIMED",
             "Zero-Spend Day has already been claimed for today.",
         )
@@ -460,7 +472,7 @@ async def change_path(
       - Emits PATH_CHANGED event (journal + notification).
 
     Returns:
-      {"success": true, "new_path": "CATALYST", "cooldown_until": "iso8601"}
+      {"success": true, "new_path": "VANGUARD", "cooldown_until": "iso8601"}
     """
     from datetime import timedelta
 
@@ -998,4 +1010,72 @@ async def cron_system_cleanup(
     return JSONResponse(
         status_code=status.HTTP_202_ACCEPTED,
         content={"status": "accepted", "job": "system-cleanup"},
+    )
+
+
+@router.post(
+    "/cron/evening-reminder",
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="QStash webhook — Evening Reminder",
+    include_in_schema=False,
+)
+async def cron_evening_reminder(
+    _sig: QStashVerified,
+    background_tasks: BackgroundTasks,
+    db: DBClient,
+    bus: Annotated[EventBus, Depends(get_event_bus)],
+    body: CronEveningReminderRequest | None = None,
+) -> JSONResponse:
+    """
+    Triggered hourly by Upstash QStash (schedule: `0 * * * *`).
+    Mirrors the /cron/daily-evaluation pattern, but fires at 20:00 local time.
+
+    Pipeline:
+      1. Verify Upstash-Signature header (QStashVerified dependency).
+      2. Return 202 Accepted IMMEDIATELY to prevent QStash timeout retries.
+      3. Determine which IANA timezones are currently at 20:00 local.
+         If body.target_timezone is provided, use that directly (for testing).
+         Otherwise, auto-detect from CronService.get_timezones_at_evening_now().
+      4. Enqueue one BackgroundTask per timezone to send_evening_reminder_emails().
+
+    Idempotency: Resend deduplicates by email address within a short window.
+    Each cron invocation re-checks survival status before sending, so re-triggers
+    are naturally idempotent (PENDING check).
+
+    QStash schedule to register in Upstash console: `0 * * * *`
+    Auth: Upstash-Signature HMAC verification only. No user JWT.
+    """
+    cron_svc = CronService(db=db, bus=bus)
+
+    if body and body.target_timezone:
+        targets = [(body.target_timezone, body.trigger_date or _today_iso())]
+    else:
+        targets = CronService.get_timezones_at_evening_now()
+
+    if not targets:
+        logger.info(
+            "cron_evening_reminder: no timezones at 20:00 right now -- no-op."
+        )
+        return JSONResponse(
+            status_code=status.HTTP_202_ACCEPTED,
+            content={"status": "accepted", "timezones_queued": 0},
+        )
+
+    for tz_name, local_date in targets:
+        background_tasks.add_task(
+            cron_svc.send_evening_reminder_emails,
+            target_timezone=tz_name,
+            trigger_date=local_date,
+        )
+        logger.info(
+            "cron_evening_reminder: queued timezone=%s date=%s", tz_name, local_date
+        )
+
+    return JSONResponse(
+        status_code=status.HTTP_202_ACCEPTED,
+        content={
+            "status": "accepted",
+            "timezones_queued": len(targets),
+            "timezones": [t[0] for t in targets],
+        },
     )

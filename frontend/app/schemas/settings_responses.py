@@ -97,7 +97,6 @@ class ProfilePayload(BaseModel):
     avatar_class:   str
     avatar_key:     str
     timezone:       str
-    primary_payday: int | None = None
     setup_status:   str
     active_theme:   str
 

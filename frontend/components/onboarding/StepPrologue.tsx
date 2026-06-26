@@ -61,16 +61,16 @@ export default function StepPrologue({ state, onChange, onNext }: StepProloguePr
 
     const timer = setTimeout(async () => {
       try {
-        const res = await apiFetchClient<{ success: boolean; data: { available: boolean; reason?: string } }>(
+        const res = await apiFetchClient<{ available: boolean; reason?: string }>(
           `profile/check-username?username=${encodeURIComponent(username)}`
         );
-        if (res && res.data) {
-          if (res.data.available) {
+        if (res) {
+          if (res.available) {
             setIsValid(true);
             setErrorMsg(null);
           } else {
             setIsValid(false);
-            setErrorMsg(res.data.reason || 'Username is already taken');
+            setErrorMsg(res.reason || 'Username is already taken');
           }
         }
       } catch (err) {

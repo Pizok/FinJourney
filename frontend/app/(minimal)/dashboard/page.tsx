@@ -29,8 +29,7 @@ export const metadata = {
 
 export default async function DashboardPage() {
   const bootstrapData = await apiFetchServer('me/bootstrap', {
-    // Revalidate every 60 seconds; dashboard data changes frequently
-    next: { revalidate: 60 }
+    cache: 'no-store'
   }) as BootstrapData | null;
 
   // UI-testing mode: shell renders with mock data from the Zustand store

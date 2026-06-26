@@ -13,8 +13,8 @@ async def fetch_settings_profile(db: AsyncClient, user_id: str) -> dict | None:
     result = await (
         db.table("journey_profiles")
         .select(
-            "id, username, avatar_class, timezone, active_theme, "
-            "expected_monthly_income, monthly_savings_target, primary_payday, "
+            "id, username, avatar_key, timezone, "
+            "expected_monthly_income, monthly_savings_target, "
             "app_preferences, notification_settings, "
             "active_path, path_cooldown_until, last_timezone_change_at, "
             "current_hp, total_xp, current_level, vitality, current_streak, longest_streak"
@@ -27,12 +27,12 @@ async def fetch_settings_profile(db: AsyncClient, user_id: str) -> dict | None:
 
 async def update_profile(db: AsyncClient, user_id: str, updates: dict[str, Any]) -> dict | None:
     """
-    Patches username, timezone, and primary_payday.
+    Patches username and timezone.
     """
     if not updates:
         return None
     
-    # We allow patching username, timezone, and primary_payday.
+    # We allow patching username and timezone.
     # The cooldown logic (setting last_username_change_at etc.) is handled by the service before calling this.
     result = await (
         db.table("journey_profiles")
@@ -77,11 +77,9 @@ async def fetch_fixed_costs(db: AsyncClient, user_id: str) -> dict[str, Any]:
     """
     # 1. Fetch fixed categories
     categories_result = await (
-        db.table("categories")
-        .select("id, name, monthly_limit")
+        db.table("fixed_expenses")
+        .select("id, name, amount")
         .eq("user_id", user_id)
-        .eq("category_group", "fixed")
-        .is_("deleted_at", "null")
         .execute()
     )
     fixed_categories = categories_result.data or []
@@ -98,7 +96,7 @@ async def fetch_fixed_costs(db: AsyncClient, user_id: str) -> dict[str, Any]:
 
     total_costs = 0.0
     for cat in fixed_categories:
-        total_costs += float(cat.get("monthly_limit", 0)) / 100.0  # limit is in cents
+        total_costs += float(cat.get("amount", 0))
 
     for loan in active_loans:
         total_costs += float(loan.get("monthly_installment", 0)) / 100.0 # installment is in cents
@@ -123,7 +121,29 @@ async def update_path(db: AsyncClient, user_id: str, active_path: str, cooldown_
 
 async def reset_user_progress_txn(db: AsyncClient, user_id: str) -> None:
     """
-    Executes a transaction via an RPC to reset user progression and soft-cancel challenges/regions.
-    Requires the 'reset_user_progress' RPC to exist in the database.
+    Executes database updates to reset user progression and soft-cancel challenges/regions.
     """
-    await db.rpc("reset_user_progress", {"p_user_id": user_id}).execute()
+    # We execute these sequentially but they run on the server.
+    # 1. Reset Profile Stats
+    await db.table("journey_profiles").update({
+        "current_hp": 100, # Assuming max HP is 100
+        "total_xp": 0,
+        "gold_coins": 0,
+        "defense_shield": 0,
+        "active_path": "balanced",
+        "path_cooldown_until": None,
+        "streak_count": 0,
+        "highest_streak": 0,
+        "standby_tokens": 0
+    }).eq("id", user_id).execute()
+
+    # 2. Archive Active/Preparing Challenges
+    # Note: If no rows match, Supabase update returns empty list, no error is thrown.
+    await db.table("journey_challenges").update({
+        "status": "ARCHIVED"
+    }).eq("user_id", user_id).neq("status", "ARCHIVED").neq("status", "COMPLETED").neq("status", "FAILED").execute()
+
+    # 3. Archive Active/Preparing Regions
+    await db.table("journey_regions").update({
+        "status": "ARCHIVED"
+    }).eq("user_id", user_id).neq("status", "ARCHIVED").neq("status", "COMPLETED").execute()

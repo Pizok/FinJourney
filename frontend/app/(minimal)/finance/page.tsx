@@ -45,19 +45,7 @@ export const metadata: Metadata = {
 // Page component
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default async function WalletPage() {
-
-  // SERVER-SIDE BOOTSTRAP FETCH (Part 2)
-  // ===========================================================================
-
-  const initialData = await apiFetchServer('wallets/bootstrap', {
-    next: { revalidate: 60 } // optional, depending on how often data changes
-  }) as WalletBootstrapResponse | null;
-
-  // ===========================================================================
-  // RENDER
-  // ===========================================================================
-
-  return <WalletShell initialData={initialData} />;
+export default function WalletPage() {
+  return <WalletShell />;
 }
 

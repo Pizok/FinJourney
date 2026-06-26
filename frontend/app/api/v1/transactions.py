@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query, status
 
-from app.api.v1.dependencies import CurrentUser, DbClient
+from app.api.v1.dependencies import AuthUser, DbClient
 from app.db.queries.profile_queries import fetch_player_state, fetch_profile
 from app.schemas.transaction import TransactionCreate
 from app.services.transaction_service import (
@@ -14,7 +14,7 @@ router = APIRouter()
 
 @router.get("/transactions", summary="List transactions")
 async def get_transactions(
-    user: CurrentUser,
+    user: AuthUser,
     db: DbClient,
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
@@ -40,7 +40,7 @@ async def get_transactions(
     summary="Log a transaction",
 )
 async def post_transaction(
-    user: CurrentUser,
+    user: AuthUser,
     db: DbClient,
     payload: TransactionCreate,
 ):
@@ -73,7 +73,7 @@ async def post_transaction(
     summary="Update a transaction",
 )
 async def patch_transaction(
-    user: CurrentUser,
+    user: AuthUser,
     db: DbClient,
     tx_id: str,
     payload: dict,
@@ -88,15 +88,15 @@ async def patch_transaction(
     result = await update_transaction(
         client=db,
         transaction_id=tx_id,
-        user_id=user["id"],
+        user_id=user.user_id,
         payload=update_payload,
     )
     return {"success": True, "data": result}
 
 
 @router.delete("/transactions/{tx_id}", summary="Soft-delete a transaction")
-async def remove_transaction(user: CurrentUser, db: DbClient, tx_id: str):
-    result = await delete_transaction(db, tx_id, user["id"])
+async def remove_transaction(user: AuthUser, db: DbClient, tx_id: str):
+    result = await delete_transaction(db, tx_id, user.user_id)
     if not result.get("found"):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

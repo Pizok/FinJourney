@@ -56,7 +56,7 @@ export default function OnboardingPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username: formState.username,
-          avatar_class: formState.selectedPath || 'Sentinel',
+          avatar_class: formState.selectedPath ? formState.selectedPath.charAt(0).toUpperCase() + formState.selectedPath.slice(1) : 'Sentinel',
           avatar_key: formState.selectedAvatar || 'Roan',
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         })
@@ -69,7 +69,7 @@ export default function OnboardingPage() {
         body: JSON.stringify({
           incomeEntries: formState.incomeEntries,
           fixedCostEntries: formState.fixedCostEntries,
-          savingsTarget: formState.savingsEntries.reduce((acc, entry) => acc + entry.target_amount, 0),
+          savingsEntries: formState.savingsEntries,
         })
       });
 

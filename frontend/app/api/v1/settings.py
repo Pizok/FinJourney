@@ -67,7 +67,7 @@ def _domain_error_to_response(exc: SettingsDomainError) -> JSONResponse:
 # ══════════════════════════════════════════════════════════════════════════════
 
 @router.get(
-    "/",
+    "",
     response_model=dict,
     summary="Hydrate the Settings screen",
     description=(
@@ -117,7 +117,7 @@ async def get_fixed_costs(
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PATCH /settings/profile
-# Update username, timezone, and/or primary_payday.
+# Update username and timezone.
 # ══════════════════════════════════════════════════════════════════════════════
 
 @router.patch(
@@ -125,7 +125,7 @@ async def get_fixed_costs(
     response_model=dict,
     summary="Update profile fields",
     description=(
-        "Partially updates username, timezone, and/or primary_payday. "
+        "Partially updates username and timezone. "
         "Username and timezone changes are subject to a 30-day cooldown. "
         "Username must be globally unique."
     ),

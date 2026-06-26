@@ -52,9 +52,8 @@ async def get_settings_hydration(db: AsyncClient, user_id: UUID) -> SettingsHydr
         avatar_class=profile_data.get("avatar_class", ""),
         avatar_key=profile_data.get("avatar_key", "Roan"),
         timezone=profile_data.get("timezone", "UTC"),
-        primary_payday=profile_data.get("primary_payday"),
         setup_status="completed" if profile_data.get("onboarding_complete") else "pending",
-        active_theme=profile_data.get("active_theme", "clear-night")
+        active_theme=(profile_data.get("app_preferences") or {}).get("theme", "clear-night")
     )
 
     # 2. Progression Payload (Gold, Shield, Standby are defaulted to 0 per new schema)
@@ -165,10 +164,7 @@ async def patch_profile(db: AsyncClient, user_id: UUID, body: PatchProfileReques
         updates["timezone"] = body.timezone
         updates["last_timezone_change_at"] = (now + timedelta(days=30)).isoformat()
 
-    if body.primary_payday is not None:
-        if not (1 <= body.primary_payday <= 31):
-            raise SettingsDomainError("INVALID_PAYDAY", "Payday must be between 1 and 31")
-        updates["primary_payday"] = body.primary_payday
+
 
     if body.avatar_key is not None and body.avatar_key != profile_data.get("avatar_key"):
         updates["avatar_key"] = body.avatar_key
@@ -242,8 +238,9 @@ async def post_path_change(db: AsyncClient, user_id: UUID, body: PathChangeReque
         
     old_path = profile_data.get("active_path") or "UNASSIGNED"
     
-    if body.new_path == old_path:
-        raise SettingsDomainError("PATH_ALREADY_ACTIVE", f"Path {body.new_path} is already active.")
+    new_path = body.new_path.upper()
+    if new_path == old_path:
+        raise SettingsDomainError("PATH_ALREADY_ACTIVE", f"Path {new_path} is already active.")
         
     cooldown_str = profile_data.get("path_cooldown_until")
     now = _now_utc()
@@ -254,7 +251,7 @@ async def post_path_change(db: AsyncClient, user_id: UUID, body: PathChangeReque
             
     new_cooldown = now + timedelta(days=180)
     
-    await settings_queries.update_path(db, str(user_id), body.new_path, new_cooldown.isoformat())
+    await settings_queries.update_path(db, str(user_id), new_path, new_cooldown.isoformat())
     
     from app.journey.repos.event_repo import EventRepository
     key = EventRepository.build_idempotency_key(
@@ -266,9 +263,16 @@ async def post_path_change(db: AsyncClient, user_id: UUID, body: PathChangeReque
         source="SYSTEM",
         severity="INFO",
         idempotency_key=key,
-        payload={"old_path": old_path, "new_path": body.new_path}
+        payload={"old_path": old_path, "new_path": new_path}
     )
-    return {"status": "enqueued", "active_path": body.new_path}
+    return {
+        "status": "enqueued", 
+        "active_path": {
+            "id": new_path.lower(),
+            "name": new_path.replace("_", " ").title()
+        },
+        "cooldown_days": 180
+    }
 
 async def post_reset_progress(db: AsyncClient, user_id: UUID, body: ResetProgressRequest, bus: Any) -> dict[str, Any]:
     # 1. Execute database updates in a single transaction via RPC

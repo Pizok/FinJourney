@@ -287,7 +287,7 @@ function ChangePathModal({
       const data: any = await apiFetchClient('settings/path/change', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path_id: selectedId }),
+        body: JSON.stringify({ new_path: selectedId }),
       })
 
       // Notify parent; parent invalidates ['settings'] query and closes modal
@@ -843,47 +843,46 @@ export function JourneyProgressionCard() {
               <CooldownIndicator daysRemaining={cooldown_days_remaining} />
             )}
 
-            <button
-              type="button"
-              onClick={() => setIsChangePathOpen(true)}
-              disabled={cooldown_active}
-              className={[
-                'flex items-center gap-2 self-start rounded-lg border px-4 py-2.5',
-                'font-sans text-sm font-medium',
-                'transition-colors duration-150',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted-emerald',
-                'focus-visible:ring-offset-2 focus-visible:ring-offset-canvas-surface',
-                cooldown_active
-                  ? 'cursor-not-allowed border-tactical-border/40 text-muted-text/40'
-                  : 'border-tactical-border text-pearl-text hover:border-pearl-text/40 hover:bg-pearl-text/5',
-              ].join(' ')}
-              aria-disabled={cooldown_active}
-              title={
-                cooldown_active
-                  ? `Path locked for ${cooldown_days_remaining} more days`
-                  : 'Select a new path'
-              }
-            >
-              {cooldown_active && (
-                <Lock
-                  className="text-muted-text/40"
-                  size={13}
-                  strokeWidth={2}
-                  aria-hidden="true"
-                />
-              )}
-              Change Path
-            </button>
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!cooldown_active) setIsChangePathOpen(true)
+                }}
+                className={[
+                  'flex items-center gap-2 rounded-lg border px-4 py-2.5',
+                  'font-sans text-sm font-medium',
+                  'transition-colors duration-150',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted-emerald',
+                  'focus-visible:ring-offset-2 focus-visible:ring-offset-canvas-surface',
+                  cooldown_active
+                    ? 'cursor-not-allowed border-tactical-border/40 text-muted-text/40'
+                    : 'border-tactical-border text-pearl-text hover:border-pearl-text/40 hover:bg-pearl-text/5',
+                ].join(' ')}
+                aria-disabled={cooldown_active}
+                title={
+                  cooldown_active
+                    ? `Path locked for ${cooldown_days_remaining} more days`
+                    : 'Select a new path'
+                }
+              >
+                {cooldown_active && (
+                  <Lock
+                    className="text-muted-text/40"
+                    size={13}
+                    strokeWidth={2}
+                    aria-hidden="true"
+                  />
+                )}
+                <span>Change Path</span>
+              </button>
 
-            {cooldown_active && (
-              <p className="font-sans text-xs text-muted-text">
-                Next Path Change:{' '}
-                <span className="font-medium text-pearl-text">
-                  {cooldown_days_remaining} Day
-                  {cooldown_days_remaining !== 1 ? 's' : ''} Remaining
-                </span>
-              </p>
-            )}
+              {cooldown_active && (
+                <p className="font-sans text-sm text-terracotta/90 font-medium">
+                  On Cooldown: {cooldown_days_remaining} days remaining
+                </p>
+              )}
+            </div>
           </div>
         </div>
 
@@ -892,7 +891,7 @@ export function JourneyProgressionCard() {
       </section>
 
       {/* Modals */}
-      {isChangePathOpen && (
+      {isChangePathOpen && !cooldown_active && (
         <ChangePathModal
           currentPathId={active_path.id}
           onClose={() => setIsChangePathOpen(false)}

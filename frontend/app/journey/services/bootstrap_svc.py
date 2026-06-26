@@ -264,6 +264,7 @@ class BootstrapService:
             critical_failure=critical_failure,
             path=PathInfoResponse.from_path_id(path_enum),
             avatar_key=avatar_key,
+            current_streak=profile.get("current_streak", 0),
         )
 
     def _build_daily_status(

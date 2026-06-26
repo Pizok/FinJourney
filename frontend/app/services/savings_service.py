@@ -10,13 +10,13 @@ from datetime import datetime
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from supabase import Client
+from supabase import AsyncClient
 
 from app.schemas.transaction import PaymentMethod, TransactionCreate, TransactionType
 from app.services.transaction_service import create_transaction
 
 
-def recalculate_scalars(client: Client, user_id: str) -> None:
+async def recalculate_scalars(client: AsyncClient, user_id: str) -> None:
     """
     Recalculates and updates the scalar `expected_monthly_income` and
     `monthly_savings_target` on the `journey_profiles` table.
@@ -24,7 +24,7 @@ def recalculate_scalars(client: Client, user_id: str) -> None:
     Must be called after any CRUD mutation on `income_streams` or `savings_targets`.
     """
     # 1. Sum active income streams
-    income_res = (
+    income_res = await (
         client.table("income_streams")
         .select("amount")
         .eq("user_id", user_id)
@@ -34,7 +34,7 @@ def recalculate_scalars(client: Client, user_id: str) -> None:
     total_income = sum(item["amount"] for item in income_res.data) if income_res.data else 0
 
     # 2. Sum active savings contributions
-    savings_res = (
+    savings_res = await (
         client.table("savings_targets")
         .select("monthly_contribution")
         .eq("user_id", user_id)
@@ -44,66 +44,71 @@ def recalculate_scalars(client: Client, user_id: str) -> None:
     total_savings = sum(item["monthly_contribution"] for item in savings_res.data) if savings_res.data else 0
 
     # 3. Update journey_profiles
-    client.table("journey_profiles").update({
+    await client.table("journey_profiles").update({
         "expected_monthly_income": total_income,
         "monthly_savings_target": total_savings
     }).eq("id", user_id).execute()
 
 
-def log_savings(
-    client: Client,
+async def log_savings(
+    client: AsyncClient,
     user_id: str,
     target_id: str,
     amount: int,
     wallet_id: str,
     note: str | None = None
 ) -> dict:
-    """
-    Log savings to a target.
-    1. Deducts from wallet by creating an EXPENSE transaction tied to savings_target_id.
-    2. Updates current_amount on savings_target.
-    
-    Note: Does NOT trigger scalar recalculation, because it only affects
-    current_amount, not the monthly_contribution target.
-    """
-    # 1. Fetch current savings target
-    target_res = (
+    # 1. Ensure target exists and belongs to user
+    target_res = await (
         client.table("savings_targets")
         .select("*")
         .eq("id", target_id)
         .eq("user_id", user_id)
         .is_("deleted_at", "null")
-        .single()
+        .maybe_single()
         .execute()
     )
-    if not target_res.data:
+    target = target_res.data
+    if not target:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": "TARGET_NOT_FOUND", "message": "Savings target not found or deleted."},
+            detail="Savings target not found."
         )
-    target = target_res.data
 
-    # 2. Create transaction (will deduct from wallet inside transaction_service)
-    txn_payload = TransactionCreate(
-        type=TransactionType.expense,
-        amount=amount,
-        wallet_id=UUID(wallet_id),
-        savings_target_id=UUID(target_id),
-        payment_method=PaymentMethod.other,
-        transaction_date=datetime.now().date(),
-        note=note or "Logged to Savings Target"
-    )
-    
-    # This automatically validates ownership and applies the balance deduction.
-    create_transaction(client, user_id, txn_payload)
+    # 2. Create the associated expense transaction manually (bypassing sync transaction_service)
+    import uuid
+    from datetime import datetime, timezone
 
-    # 3. Update savings target progress
+    # Deduct wallet balance
+    wallet_res = await client.table("wallets").select("balance").eq("id", wallet_id).eq("user_id", user_id).maybe_single().execute()
+    if wallet_res.data:
+        new_balance = wallet_res.data["balance"] - amount
+        await client.table("wallets").update({"balance": new_balance}).eq("id", wallet_id).execute()
+
+    # Insert transaction
+    tx_row = {
+        "id": str(uuid.uuid4()),
+        "user_id": user_id,
+        "wallet_id": wallet_id,
+        "type": "expense",
+        "amount": amount,
+        "payment_method": "cash",
+        "note": note or f"Contribution to {target['name']}",
+        "transaction_date": datetime.now(timezone.utc).isoformat(),
+        "status": "active"
+    }
+    await client.table("transactions").insert(tx_row).execute()
+
+    # 3. Update target balance
     new_amount = target["current_amount"] + amount
-    updated_res = (
+    
+    # Optional: If new_amount >= target_amount, mark as completed?
+    # Keeping it simple for MVP: just update the balance.
+    update_res = await (
         client.table("savings_targets")
         .update({"current_amount": new_amount})
         .eq("id", target_id)
         .execute()
     )
-
-    return updated_res.data[0]
+    
+    return update_res.data[0]

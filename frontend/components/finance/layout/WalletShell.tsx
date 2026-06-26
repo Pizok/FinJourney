@@ -29,6 +29,8 @@
 // =============================================================================
 
 import { useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { apiFetchClient } from '@/lib/apiClient.client';
 import { useWalletStore } from '@/components/finance/stores/walletStore';
 import { DashboardSidebar } from '@/components/dashboard/layout/DashboardSidebar';
 import { WalletCardList } from '@/components/finance/overview/WalletCardList';
@@ -347,26 +349,31 @@ export function WalletShell({ initialData }: { initialData?: WalletBootstrapResp
     loading,
   } = useWalletStore();
 
+  const { data: clientData, error: clientError, isLoading: isClientLoading } = useQuery({
+    queryKey: ['wallet', 'bootstrap'],
+    queryFn: () => apiFetchClient<WalletBootstrapResponse>('wallets/bootstrap'),
+    enabled: !initialData && !isBootstrapped,
+  });
+
   // ── Bootstrap on mount ──────────────────────────────────────────────────
   useEffect(() => {
     if (isBootstrapped) return;
 
-    setLoading('bootstrap', true);
-
     if (initialData) {
       hydrate(initialData);
       setLoading('bootstrap', false);
-    } else {
-      // If initialData is missing (e.g. server error), set global error
-      setGlobalError(
-        'Could not load wallet data. Check your connection and try again.',
-      );
+    } else if (clientData) {
+      hydrate(clientData);
       setLoading('bootstrap', false);
+    } else if (clientError) {
+      setGlobalError('Could not load wallet data. Check your connection and try again.');
+      setLoading('bootstrap', false);
+    } else {
+      setLoading('bootstrap', true);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialData, isBootstrapped]);
+  }, [initialData, clientData, clientError, isBootstrapped, hydrate, setLoading, setGlobalError]);
 
-  const isLoading = loading.bootstrap || !isBootstrapped;
+  const isLoading = loading.bootstrap || (!isBootstrapped && isClientLoading);
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (

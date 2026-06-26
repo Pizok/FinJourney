@@ -14,8 +14,6 @@ export interface ProfileSettings {
   timezone: string
   /** ISO timestamp. Null when no active lock. */
   timezone_locked_until: string | null
-  /** Payday of month: 1–31 */
-  primary_payday: number
 }
 
 // ── Financials ───────────────────────────────────────────────────────────────
@@ -60,8 +58,6 @@ export interface PreferencesSettings {
   theme: ThemePreference
   /** Disables CSS animations and transitions across the app. */
   reduced_motion: boolean
-  /** Masks financial values with Rp ***.*** on Dashboard, Wallet, Analytics. */
-  privacy_mode: boolean
 }
 
 // ── Notifications ────────────────────────────────────────────────────────────
@@ -92,7 +88,6 @@ export interface Settings {
 export interface ProfileSettingsUpdate {
   username: string
   timezone: string
-  primary_payday: number
   avatar_key: string
 }
 

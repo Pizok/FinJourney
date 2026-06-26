@@ -23,7 +23,7 @@ class AvatarPath(str, Enum):
     """Selectable progression path / avatar class, locked for 6 months after setup."""
 
     SENTINEL = "SENTINEL"
-    CATALYST = "CATALYST"
+    VANGUARD = "VANGUARD"
     PHANTOM = "PHANTOM"
 
 

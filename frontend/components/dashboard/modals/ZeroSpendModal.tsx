@@ -19,7 +19,11 @@ export function ZeroSpendModal() {
       closeModal();
     },
     onError: (err: any) => {
-      alert(err.message || 'Failed to claim zero-spend day.');
+      if (err?.message?.includes('409') || err?.message?.includes('already been claimed')) {
+        alert("You've already claimed your zero-spend day for today!");
+      } else {
+        alert(err.message || 'Failed to claim zero-spend day.');
+      }
     }
   });
 

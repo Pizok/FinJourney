@@ -6,13 +6,14 @@ Handles node advancement via cumulative XP thresholds.
 
 from __future__ import annotations
 import json
+import uuid
 from uuid import UUID
 
 from supabase import Client
 from app.core.constants import NODE_XP_THRESHOLDS, GameEvent
 
 
-def evaluate_node_advancement(client: Client, user_id: str) -> None:
+async def evaluate_node_advancement(client: Client, user_id: str) -> None:
     """
     Evaluates total_xp against cumulative thresholds. If the current node's 
     threshold is met or exceeded, the node is shifted, and the next node is unlocked.
@@ -20,7 +21,7 @@ def evaluate_node_advancement(client: Client, user_id: str) -> None:
     """
     # 1. Fetch total_xp
     profile_res = (
-        client.table("journey_profiles")
+        await client.table("journey_profiles")
         .select("total_xp")
         .eq("id", user_id)
         .single()
@@ -32,7 +33,7 @@ def evaluate_node_advancement(client: Client, user_id: str) -> None:
 
     # 2. Fetch thresholds from system_flags, fallback to constants
     flags_res = (
-        client.table("system_flags")
+        await client.table("system_flags")
         .select("value")
         .eq("key", "node_xp_thresholds")
         .execute()
@@ -57,7 +58,7 @@ def evaluate_node_advancement(client: Client, user_id: str) -> None:
     while True:
         # 3. Fetch CURRENT node
         curr_node_res = (
-            client.table("journey_region_nodes")
+            await client.table("journey_region_nodes")
             .select("*")
             .eq("user_id", user_id)
             .eq("status", "CURRENT")
@@ -73,12 +74,22 @@ def evaluate_node_advancement(client: Client, user_id: str) -> None:
             region_id = first_node.split("-")[0]
             
             # Upsert region 1 if it doesn't exist
-            client.table("journey_regions").upsert(
-                {"user_id": user_id, "region_id": region_id, "status": "CURRENT"}
+            from datetime import datetime, timezone, timedelta
+            now = datetime.now(timezone.utc)
+            one_year_later = now + timedelta(days=365)
+            
+            await client.table("journey_regions").upsert(
+                {
+                    "user_id": user_id, 
+                    "region_id": region_id, 
+                    "status": "CURRENT",
+                    "started_at": now.isoformat(),
+                    "ends_at": one_year_later.isoformat()
+                }
             ).execute()
             
             # Insert first node
-            insert_res = client.table("journey_region_nodes").insert({
+            insert_res = await client.table("journey_region_nodes").insert({
                 "user_id": user_id,
                 "node_id": first_node,
                 "region_id": region_id,
@@ -89,7 +100,8 @@ def evaluate_node_advancement(client: Client, user_id: str) -> None:
             current_record = insert_res.data[0]
             current_node_id = first_node
             
-            client.table("journey_events").insert({
+            await client.table("journey_events").insert({
+                "idempotency_key": str(uuid.uuid4()),
                 "user_id": user_id,
                 "event_type": GameEvent.NODE_UNLOCKED.value,
                 "payload": {"node_id": current_node_id, "action": "SEED"}
@@ -104,12 +116,13 @@ def evaluate_node_advancement(client: Client, user_id: str) -> None:
             break # Not enough XP to advance, break the loop
 
         # Threshold crossed! Shift it.
-        client.table("journey_region_nodes").update({
+        await client.table("journey_region_nodes").update({
             "status": "SHIFTED",
             "shifted_at": "now()"
         }).eq("id", current_record["id"]).execute()
 
-        client.table("journey_events").insert({
+        await client.table("journey_events").insert({
+            "idempotency_key": str(uuid.uuid4()),
             "user_id": user_id,
             "event_type": GameEvent.NODE_SHIFTED.value,
             "payload": {"node_id": current_node_id, "xp_at_shift": total_xp}
@@ -124,7 +137,7 @@ def evaluate_node_advancement(client: Client, user_id: str) -> None:
                 next_region_id = next_node_id.split("-")[0]
                 
                 # Unlock next node
-                client.table("journey_region_nodes").insert({
+                await client.table("journey_region_nodes").insert({
                     "user_id": user_id,
                     "node_id": next_node_id,
                     "region_id": next_region_id,
@@ -132,7 +145,8 @@ def evaluate_node_advancement(client: Client, user_id: str) -> None:
                     "unlocked_at": "now()"
                 }).execute()
 
-                client.table("journey_events").insert({
+                await client.table("journey_events").insert({
+                    "idempotency_key": str(uuid.uuid4()),
                     "user_id": user_id,
                     "event_type": GameEvent.NODE_UNLOCKED.value,
                     "payload": {"node_id": next_node_id}
@@ -142,17 +156,28 @@ def evaluate_node_advancement(client: Client, user_id: str) -> None:
                 curr_region_id = current_node_id.split("-")[0]
                 if curr_region_id != next_region_id:
                     # Current region completed
-                    client.table("journey_regions").update({
+                    await client.table("journey_regions").update({
                         "status": "SHIFTED",
                         "shifted_at": "now()"
                     }).eq("user_id", user_id).eq("region_id", curr_region_id).execute()
                     
                     # Next region unlocked
-                    client.table("journey_regions").upsert(
-                        {"user_id": user_id, "region_id": next_region_id, "status": "CURRENT"}
+                    from datetime import datetime, timezone, timedelta
+                    now = datetime.now(timezone.utc)
+                    one_year_later = now + timedelta(days=365)
+
+                    await client.table("journey_regions").upsert(
+                        {
+                            "user_id": user_id, 
+                            "region_id": next_region_id, 
+                            "status": "CURRENT",
+                            "started_at": now.isoformat(),
+                            "ends_at": one_year_later.isoformat()
+                        }
                     ).execute()
                     
-                    client.table("journey_events").insert({
+                    await client.table("journey_events").insert({
+                        "idempotency_key": str(uuid.uuid4()),
                         "user_id": user_id,
                         "event_type": GameEvent.REGION_COMPLETED.value,
                         "payload": {"region_id": curr_region_id}
@@ -160,7 +185,7 @@ def evaluate_node_advancement(client: Client, user_id: str) -> None:
             else:
                 # All nodes completed! Final node shifted.
                 curr_region_id = current_node_id.split("-")[0]
-                client.table("journey_regions").update({
+                await client.table("journey_regions").update({
                     "status": "SHIFTED",
                     "shifted_at": "now()"
                 }).eq("user_id", user_id).eq("region_id", curr_region_id).execute()

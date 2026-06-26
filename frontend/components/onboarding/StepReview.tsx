@@ -104,11 +104,12 @@ function ConfirmModal({
 }) {
   const totalIncome = state.incomeEntries.reduce((s, e) => s + e.amount, 0);
   const totalFixed  = state.fixedCostEntries.reduce((s, e) => s + e.amount, 0);
+  const totalSavings = state.savingsEntries.reduce((s, e) => s + e.monthly_contribution, 0);
 
   const rows = [
     { label: 'Monthly income',  value: fmt(totalIncome),          color: 'text-muted-emerald' },
     { label: 'Fixed costs',     value: fmt(totalFixed),           color: 'text-dawn-gold'     },
-    { label: 'Savings target',  value: fmt(state.savingsTarget),  color: 'text-pearl-text'    },
+    { label: 'Savings target',  value: fmt(totalSavings),         color: 'text-pearl-text'    },
     { label: 'Daily budget',    value: fmt(Math.max(0, dailyBudget)), color: 'text-muted-emerald' },
   ] as const;
 
@@ -185,14 +186,15 @@ export default function StepReview({
 
   const totalIncome = state.incomeEntries.reduce((s, e) => s + e.amount, 0);
   const totalFixed  = state.fixedCostEntries.reduce((s, e) => s + e.amount, 0);
+  const totalSavings = state.savingsEntries.reduce((s, e) => s + e.monthly_contribution, 0);
   const dailyBudget = calcDailyBudget({
     monthlyIncome: totalIncome,
     fixedCosts:    totalFixed,
-    savingsTarget: state.savingsTarget,
+    savingsTarget: totalSavings,
   });
 
-  const fmt = (n: number) =>
-    `Rp ${n.toLocaleString('id-ID', { maximumFractionDigits: 0 })}`;
+  const fmt = (n: number | undefined | null) =>
+    `Rp ${(Number(n) || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 })}`;
 
   const handleFinalize = async () => {
     setLoading(true);
@@ -216,7 +218,7 @@ export default function StepReview({
         <SectionCard label="Financial path" onEdit={onEditPath}>
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-steel-violet/10 border border-steel-violet/28 text-[#a5b4fc]">
             <Shield size={11} strokeWidth={2} />
-            {state.selectedPath ?? 'Not selected'}
+            {state.selectedPath ? state.selectedPath.charAt(0).toUpperCase() + state.selectedPath.slice(1) : 'Not selected'}
           </span>
         </SectionCard>
 
@@ -244,7 +246,7 @@ export default function StepReview({
 
         {/* Savings */}
         <SectionCard label="Savings target" onEdit={onEditSavings}>
-          <ReviewRow label="Monthly savings" value={fmt(state.savingsTarget)} />
+          <ReviewRow label="Monthly savings" value={fmt(totalSavings)} />
         </SectionCard>
 
         {/* Budget callout */}

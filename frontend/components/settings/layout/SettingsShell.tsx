@@ -16,6 +16,7 @@ import { toast } from 'sonner'
 import { useSettingsStore } from '../store/settingsStore'
 import { DashboardSidebar } from '../../dashboard/layout/DashboardSidebar'
 import { SettingsSidebar } from './SettingsSidebar'
+import { UnsavedChangesBar } from '../states/UnsavedChangesBar'
 
 // ── Section placeholder — replaced by real cards in Part 2+ ──────────────────
 
@@ -121,23 +122,7 @@ export function SettingsShell({ children }: SettingsShellProps) {
     }
   })
 
-  // Debounced auto-save effect
-  useEffect(() => {
-    if (!isDirty) return
-
-    if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current)
-    }
-
-    debounceTimer.current = setTimeout(() => {
-      setSaving(true)
-      saveMutation.mutate()
-    }, 1000)
-
-    return () => {
-      if (debounceTimer.current) clearTimeout(debounceTimer.current)
-    }
-  }, [currentSettings, isDirty, saveMutation, setSaving])
+  // Removed debounced auto-save effect to allow manual saving via UnsavedChangesBar
 
   return (
     <>
@@ -183,7 +168,7 @@ export function SettingsShell({ children }: SettingsShellProps) {
                 <SectionPlaceholder
                   id="profile"
                   title="Profile & Account"
-                  description="Manage your identity, timezone, and payday."
+                  description="Manage your identity and timezone."
                 />
                 <SectionPlaceholder
                   id="progression"
@@ -193,7 +178,7 @@ export function SettingsShell({ children }: SettingsShellProps) {
                 <SectionPlaceholder
                   id="preferences"
                   title="Preferences & Experience"
-                  description="Theme, motion, and privacy controls."
+                  description="Theme and motion controls."
                 />
                 <SectionPlaceholder
                   id="notifications"
@@ -208,6 +193,7 @@ export function SettingsShell({ children }: SettingsShellProps) {
           </main>
         </div>
       </div>
+      <UnsavedChangesBar onSave={() => saveMutation.mutateAsync().then(() => {})} />
     </>
   )
 }

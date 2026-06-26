@@ -66,17 +66,6 @@ const TIMEZONE_OPTIONS: TimezoneOption[] = [
   { value: 'UTC', label: 'UTC' },
 ]
 
-// ─── Payday Options ───────────────────────────────────────────────────────────
-
-const PAYDAY_OPTIONS = Array.from({ length: 31 }, (_, i) => i + 1)
-
-function ordinalSuffix(day: number): string {
-  if (day % 10 === 1 && day !== 11) return 'st'
-  if (day % 10 === 2 && day !== 12) return 'nd'
-  if (day % 10 === 3 && day !== 13) return 'rd'
-  return 'th'
-}
-
 // ─── FieldLabel ───────────────────────────────────────────────────────────────
 // Shared label + helper text pattern used by every control in this card.
 
@@ -197,30 +186,117 @@ function UsernameInput({
 
 function EmailDisplay({ email }: { email: string }) {
   const id = useId()
+  const [isEditing, setIsEditing] = useState(false)
+  const [newEmail, setNewEmail] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  async function handleUpdateEmail(e: React.FormEvent) {
+    e.preventDefault()
+    if (!newEmail || newEmail === email) {
+      setIsEditing(false)
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      const { createClient } = await import('@/lib/supabase.client')
+      const supabase = createClient()
+      
+      const { error } = await supabase.auth.updateUser({ email: newEmail })
+      if (error) throw error
+
+      toast.success(
+        'Email update initiated. Please check BOTH your old and new inboxes to confirm the change.'
+      )
+      setIsEditing(false)
+      setNewEmail('')
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update email')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  if (isEditing) {
+    return (
+      <form onSubmit={handleUpdateEmail}>
+        <FieldLabel htmlFor={id}>New Email Address</FieldLabel>
+        <div className="flex gap-2">
+          <input
+            id={id}
+            type="email"
+            value={newEmail}
+            onChange={(e) => setNewEmail(e.target.value)}
+            className={[
+              'w-full rounded-lg border border-tactical-border bg-abyssal-slate px-3 py-2.5',
+              'font-sans text-sm text-pearl-text',
+              'transition-colors duration-150',
+              'focus:outline-none focus:border-muted-emerald/60',
+              'focus:ring-1 focus:ring-muted-emerald/30',
+              isSubmitting && 'opacity-50 cursor-not-allowed',
+            ].join(' ')}
+            placeholder={email}
+            disabled={isSubmitting}
+            autoFocus
+            required
+          />
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="rounded-lg bg-muted-emerald px-4 py-2 text-sm font-semibold text-[#0B0D17] hover:bg-muted-emerald/90 disabled:opacity-50"
+          >
+            {isSubmitting ? 'Sending...' : 'Update'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsEditing(false)}
+            disabled={isSubmitting}
+            className="rounded-lg border border-tactical-border px-4 py-2 text-sm font-semibold text-muted-text hover:text-pearl-text disabled:opacity-50"
+          >
+            Cancel
+          </button>
+        </div>
+        <HelperText>
+          You will need to confirm this change from both your old and new email addresses.
+        </HelperText>
+      </form>
+    )
+  }
 
   return (
     <div>
       <FieldLabel htmlFor={id}>Connected Email</FieldLabel>
-      <div
-        id={id}
-        className={[
-          'flex items-center gap-2.5 rounded-lg border border-tactical-border',
-          'bg-abyssal-slate/60 px-3 py-2.5',
-        ].join(' ')}
-      >
-        <Mail
-          className="shrink-0 text-muted-text/60"
-          size={14}
-          strokeWidth={2}
-          aria-hidden="true"
-        />
-        <span className="truncate font-sans text-sm text-muted-text">
-          {email}
-        </span>
+      <div className="flex gap-2 items-center">
+        <div
+          id={id}
+          className={[
+            'flex flex-1 items-center gap-2.5 rounded-lg border border-tactical-border',
+            'bg-abyssal-slate/60 px-3 py-2.5',
+          ].join(' ')}
+        >
+          <Mail
+            className="shrink-0 text-muted-text/60"
+            size={14}
+            strokeWidth={2}
+            aria-hidden="true"
+          />
+          <span className="truncate font-sans text-sm text-muted-text">
+            {email}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setNewEmail(email)
+            setIsEditing(true)
+          }}
+          className="rounded-lg border border-tactical-border px-4 py-2.5 text-sm font-semibold text-muted-text hover:text-pearl-text transition-colors"
+        >
+          Change
+        </button>
       </div>
       <HelperText>
-        Managed via your authentication provider. Change it through your
-        account login settings.
+        Managed via Supabase Auth.
       </HelperText>
     </div>
   )
@@ -340,52 +416,6 @@ function TimezoneSelector({ value, lockedUntil, onChange }: TimezoneSelectorProp
           timing. Changing this starts a 30-day lock.
         </HelperText>
       )}
-    </div>
-  )
-}
-
-// ─── PaydaySelector ───────────────────────────────────────────────────────────
-
-function PaydaySelector({
-  value,
-  onChange,
-}: {
-  value: number
-  onChange: (day: number) => void
-}) {
-  const id = useId()
-
-  return (
-    <div>
-      <FieldLabel htmlFor={id}>Primary Payday</FieldLabel>
-      <div className="relative">
-        <select
-          id={id}
-          value={value}
-          onChange={(e) => onChange(Number(e.target.value))}
-          className={[
-            'w-full appearance-none rounded-lg border border-tactical-border bg-abyssal-slate px-3 py-2.5 pr-9',
-            'font-sans text-sm text-pearl-text',
-            'transition-colors duration-150',
-            'focus:outline-none focus:border-muted-emerald/60',
-            'focus:ring-1 focus:ring-muted-emerald/30',
-          ].join(' ')}
-        >
-          {PAYDAY_OPTIONS.map((day) => (
-            <option key={day} value={day}>
-              {day}
-              {ordinalSuffix(day)} of the month
-            </option>
-          ))}
-        </select>
-        <ChevronDown
-          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-text/60"
-          size={14}
-          strokeWidth={2}
-          aria-hidden="true"
-        />
-      </div>
-      <HelperText>Used for monthly planning and budget projections.</HelperText>
     </div>
   )
 }
@@ -668,16 +698,12 @@ export function ProfileCard() {
           <EmailDisplay email={profile.email} />
         </div>
 
-        {/* Timezone + Payday — two columns on desktop */}
+        {/* Timezone — full width row */}
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
           <TimezoneSelector
             value={profile.timezone}
             lockedUntil={profile.timezone_locked_until}
             onChange={(timezone) => updateProfile({ timezone })}
-          />
-          <PaydaySelector
-            value={profile.primary_payday}
-            onChange={(primary_payday) => updateProfile({ primary_payday })}
           />
         </div>
       </div>

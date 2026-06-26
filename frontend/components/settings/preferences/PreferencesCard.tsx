@@ -4,19 +4,7 @@
 // Controls:
 //   1. Theme — segmented control: Light / Dark / System
 //   2. Reduced Motion — toggle; disables CSS animations app-wide
-//   3. Privacy Mode — toggle; masks financial values on Dashboard/Wallet/Analytics
-//
-// Privacy Mode global access:
-//   The `selectPrivacyMode` selector is exported from this file so that any
-//   page outside Settings can read the current mask state:
-//
-//     import { selectPrivacyMode } from '@/components/settings/preferences/PreferencesCard'
-//     const isPrivate = useSettingsStore(selectPrivacyMode)
-//     // then: value = isPrivate ? 'Rp ***.***' : formatRupiah(amount)
-//
-//   NOTE: The selector depends on the store being hydrated. Pages that render
-//   before the user visits Settings should fetch their own privacy_mode from
-//   the /api/v1/settings or /me/bootstrap endpoint independently.
+//   2. Reduced Motion — toggle; disables CSS animations app-wide
 // ─────────────────────────────────────────────────────────────────────────────
 
 'use client'
@@ -29,25 +17,6 @@ import {
 } from '../store/settingsStore'
 import { Toggle } from '../shared/Toggle'
 import type { ThemePreference } from '../types/settings.types'
-
-// ─── Public selector — import on Dashboard / Wallet / Analytics ───────────────
-
-/**
- * Reads the current privacy mode preference from the global settings store.
- *
- * Usage on any page:
- *   ```ts
- *   import { selectPrivacyMode } from '@/components/settings/preferences/PreferencesCard'
- *   const isPrivate = useSettingsStore(selectPrivacyMode)
- *   const display = isPrivate ? 'Rp ***.***' : formatRupiah(amount)
- *   ```
- *
- * Scope: values are masked on Dashboard, Wallet, and Analytics.
- * Values within Settings inputs remain visible (editing requires the real value).
- */
-export const selectPrivacyMode = (state: {
-  currentSettings: { preferences: { privacy_mode: boolean } }
-}) => state.currentSettings.preferences.privacy_mode
 
 // ─── Theme option metadata ────────────────────────────────────────────────────
 // (Removed as requested)
@@ -166,22 +135,6 @@ export function PreferencesCard() {
           iconClass={preferences.reduced_motion ? 'text-muted-emerald' : 'text-muted-text'}
         />
 
-        <div className="border-t border-tactical-border/60" aria-hidden="true" />
-
-        {/* ── Privacy Mode ───────────────────────────────────────────────── */}
-        <ToggleRow
-          label="Privacy Mode"
-          description={
-            preferences.privacy_mode
-              ? 'Active. Financial values on the Dashboard, Wallet, and Analytics are masked as Rp ***.***.  Values here remain visible for editing.'
-              : 'When enabled, masks all financial values on Dashboard, Wallet, and Analytics as Rp ***.***.'
-          }
-          checked={preferences.privacy_mode}
-          onChange={(val) => updatePreferences({ privacy_mode: val })}
-          Icon={preferences.privacy_mode ? EyeOff : Eye}
-          iconClass={preferences.privacy_mode ? 'text-steel-violet' : 'text-muted-text'}
-          badge={preferences.privacy_mode ? 'Active' : undefined}
-        />
       </div>
     </section>
   )

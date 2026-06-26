@@ -23,53 +23,28 @@ function SkeletonBlock({
   )
 }
 
-/** Full-page skeleton that mirrors the SettingsShell layout */
+/** Card skeleton that matches the Settings card layout */
 export function SettingsSkeleton() {
   return (
     <div
       aria-label="Loading settings…"
       aria-busy="true"
-      className="min-h-screen bg-abyssal-slate"
+      className="flex flex-col gap-6"
     >
-      {/* Header */}
-      <div className="border-b border-tactical-border">
-        <div className="mx-auto max-w-[1440px] px-6 py-6 lg:px-10">
-          <SkeletonBlock className="h-7 w-32" />
-        </div>
-      </div>
-
-      {/* Content grid */}
-      <div className="mx-auto max-w-[1440px] px-6 py-8 lg:px-10">
-        <div className="flex gap-10 lg:gap-12">
-          {/* Sidebar skeleton */}
-          <div className="hidden w-[220px] shrink-0 lg:block">
-            <SkeletonBlock className="mb-4 h-3 w-16" />
-            <div className="flex flex-col gap-1">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <SkeletonBlock key={i} className="h-10 w-full rounded-lg" />
-              ))}
-            </div>
-          </div>
-
-          {/* Card skeletons */}
-          <div className="min-w-0 flex-1 space-y-6">
-            {[180, 220, 160, 140, 140].map((height, i) => (
-              <div
-                key={i}
-                className="rounded-xl border border-tactical-border bg-canvas-surface p-8"
-                style={{ height }}
-              >
-                <SkeletonBlock className="mb-3 h-5 w-40" />
-                <SkeletonBlock className="mb-6 h-3 w-64" />
-                <div className="space-y-3">
-                  <SkeletonBlock className="h-10 w-full" />
-                  {i < 2 && <SkeletonBlock className="h-10 w-full" />}
-                </div>
-              </div>
-            ))}
+      {[180, 220, 160, 140, 140].map((height, i) => (
+        <div
+          key={i}
+          className="rounded-xl border border-tactical-border bg-canvas-surface p-8"
+          style={{ height }}
+        >
+          <SkeletonBlock className="mb-3 h-5 w-40" />
+          <SkeletonBlock className="mb-6 h-3 w-64" />
+          <div className="space-y-3">
+            <SkeletonBlock className="h-10 w-full" />
+            {i < 2 && <SkeletonBlock className="h-10 w-full" />}
           </div>
         </div>
-      </div>
+      ))}
     </div>
   )
 }

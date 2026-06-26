@@ -5,7 +5,7 @@ import { BaseModal, FormField, FormInput, FormSelect, ModalFooter, PrimaryButton
 import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query';
 import { apiFetchClient } from '@/lib/apiClient.client';
 import { useWalletStore } from '@/components/finance/stores/walletStore';
-import type { SavingsTarget } from '../baselines/FinancialAssumptionsCard';
+import type { SavingsTarget } from '../baselines/FinancialSummaryCard';
 import type { Wallet } from '@/types/wallet.types';
 
 export interface LogSavingsModalProps {

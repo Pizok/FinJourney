@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 import pytz
 from fastapi import APIRouter, HTTPException, status
 
-from app.api.v1.dependencies import CurrentUser, DbClient
+from app.api.v1.dependencies import CurrentUser, AuthUser, DbClient
 from app.db.queries.daily_queries import (
     fetch_baselines,
     fetch_daily_status,
@@ -18,14 +18,14 @@ router = APIRouter()
 
 
 @router.get("/daily-status", summary="Today's budget and streak summary")
-async def get_daily_status(user: CurrentUser, db: DbClient):
-    profile = await fetch_profile(db, user["id"])
+async def get_daily_status(user: AuthUser, db: DbClient):
+    profile = await fetch_profile(db, user.user_id)
     if not profile:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found.")
 
     user_tz = profile.get("timezone", "UTC")
 
-    daily_raw, baselines, streak = await _gather_daily_data(db, user["id"], user_tz)
+    daily_raw, baselines, streak = await _gather_daily_data(db, user.user_id, user_tz)
 
     daily_budget = 0.0
     if baselines:
@@ -44,17 +44,18 @@ async def get_daily_status(user: CurrentUser, db: DbClient):
             "remaining_budget": round(daily_budget - spent_today, 2),
             "streak_count": streak,
             "zero_spend_marked": daily_raw.get("zero_spend_marked", False),
+            "baseline_set": bool(baselines),
         },
     }
 
 
 @router.post("/daily/use-standby", summary="Activate a standby token")
-async def use_standby(user: CurrentUser, db: DbClient):
+async def use_standby(user: AuthUser, db: DbClient):
     """
     Consumes one standby token to freeze penalties for 24 hours.
     Each user has 7 tokens per year; no refill mid-year.
     """
-    player_state = await fetch_player_state(db, user["id"])
+    player_state = await fetch_player_state(db, user.user_id)
     if not player_state:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Player state not found.")
 
@@ -66,7 +67,7 @@ async def use_standby(user: CurrentUser, db: DbClient):
         )
 
     # Freeze expires at end of today (local midnight → UTC)
-    profile = await fetch_profile(db, user["id"])
+    profile = await fetch_profile(db, user.user_id)
     user_tz = pytz.timezone(profile.get("timezone", "UTC") if profile else "UTC")
     now_local = datetime.now(user_tz)
     freeze_until = now_local.replace(
@@ -75,13 +76,13 @@ async def use_standby(user: CurrentUser, db: DbClient):
 
     await update_player_state(
         db=db,
-        user_id=user["id"],
+        user_id=user.user_id,
         standby_tokens=tokens - 1,
         extra={"standby_active_until": freeze_until},
     )
     await insert_game_event(
         db=db,
-        user_id=user["id"],
+        user_id=user.user_id,
         event_type="STANDBY_USED",
         metadata={"tokens_remaining": tokens - 1, "freeze_until_utc": freeze_until},
     )

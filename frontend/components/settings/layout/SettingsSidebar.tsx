@@ -16,7 +16,7 @@ const NAV_ITEMS: SettingsNavItem[] = [
   {
     id: 'profile',
     label: 'Profile & Account',
-    description: 'Identity, timezone, payday',
+    description: 'Identity and timezone',
   },
   {
     id: 'progression',
@@ -26,7 +26,7 @@ const NAV_ITEMS: SettingsNavItem[] = [
   {
     id: 'preferences',
     label: 'Preferences',
-    description: 'Theme, motion, privacy',
+    description: 'Theme and motion',
   },
   {
     id: 'notifications',

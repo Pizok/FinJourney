@@ -20,8 +20,8 @@ router = APIRouter(prefix="/income-streams", tags=["income_streams"])
 
 
 @router.get("", response_model=list[IncomeStreamResponse])
-def list_income_streams(user: AuthUser, db: DBClient) -> Any:
-    response = (
+async def list_income_streams(user: AuthUser, db: DBClient) -> Any:
+    response = await (
         db.table("income_streams")
         .select("*")
         .eq("user_id", user.user_id)
@@ -33,20 +33,20 @@ def list_income_streams(user: AuthUser, db: DBClient) -> Any:
 
 
 @router.post("", response_model=IncomeStreamResponse, status_code=status.HTTP_201_CREATED)
-def create_income_stream(
+async def create_income_stream(
     payload: IncomeStreamCreate, user: AuthUser, db: DBClient
 ) -> Any:
     row_data = payload.model_dump(mode="json")
     row_data["user_id"] = user.user_id
-    response = db.table("income_streams").insert(row_data).execute()
+    response = await db.table("income_streams").insert(row_data).execute()
 
     # Trigger scalar recalculation
-    recalculate_scalars(db, user.user_id)
+    await recalculate_scalars(db, user.user_id)
     return response.data[0]
 
 
 @router.patch("/{stream_id}", response_model=IncomeStreamResponse)
-def update_income_stream(
+async def update_income_stream(
     stream_id: UUID, payload: IncomeStreamUpdate, user: AuthUser, db: DBClient
 ) -> Any:
     updates = payload.model_dump(exclude_unset=True, mode="json")
@@ -56,7 +56,7 @@ def update_income_stream(
             detail="No fields provided to update.",
         )
 
-    response = (
+    response = await (
         db.table("income_streams")
         .update(updates)
         .eq("id", str(stream_id))
@@ -68,13 +68,13 @@ def update_income_stream(
         raise HTTPException(status_code=404, detail="Income stream not found")
 
     # Trigger scalar recalculation
-    recalculate_scalars(db, user.user_id)
+    await recalculate_scalars(db, user.user_id)
     return response.data[0]
 
 
 @router.delete("/{stream_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_income_stream(stream_id: UUID, user: AuthUser, db: DBClient) -> None:
-    response = (
+async def delete_income_stream(stream_id: UUID, user: AuthUser, db: DBClient) -> None:
+    response = await (
         db.table("income_streams")
         .update({"deleted_at": datetime.now(timezone.utc).isoformat()})
         .eq("id", str(stream_id))
@@ -86,4 +86,4 @@ def delete_income_stream(stream_id: UUID, user: AuthUser, db: DBClient) -> None:
         raise HTTPException(status_code=404, detail="Income stream not found")
 
     # Trigger scalar recalculation
-    recalculate_scalars(db, user.user_id)
+    await recalculate_scalars(db, user.user_id)

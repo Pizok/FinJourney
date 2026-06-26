@@ -70,23 +70,7 @@ import { JourneyModals } from "../modals/JourneyModals";
 // ─── API fetcher ──────────────────────────────────────────────────────────────
 
 async function fetchJourneyOverview(): Promise<JourneyOverview> {
-  const res = await fetch("/api/v1/journey/overview", {
-    credentials: "include",
-  });
-
-  if (!res.ok) {
-    throw new Error(
-      `Journey overview request failed with status ${res.status}`
-    );
-  }
-
-  const json: ApiResponse<JourneyOverview> = await res.json();
-
-  if (!json.success) {
-    throw new Error(json.error.message);
-  }
-
-  return json.data;
+  return await apiFetchClient<JourneyOverview>("journey/overview");
 }
 
 // ─── Page-level error state ───────────────────────────────────────────────────

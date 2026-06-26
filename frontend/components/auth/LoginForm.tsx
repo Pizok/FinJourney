@@ -15,9 +15,10 @@ import { GoogleIcon } from './GoogleIcon';
 interface LoginFormProps {
   onSuccess: () => void;
   onSwitchToSignUp: () => void;
+  onSwitchToForgotPassword: () => void;
 }
 
-export default function LoginForm({ onSuccess, onSwitchToSignUp }: LoginFormProps) {
+export default function LoginForm({ onSuccess, onSwitchToSignUp, onSwitchToForgotPassword }: LoginFormProps) {
   const [loading,  setLoading]  = React.useState(false);
   const [apiError, setApiError] = React.useState('');
   
@@ -115,7 +116,16 @@ export default function LoginForm({ onSuccess, onSwitchToSignUp }: LoginFormProp
 
         {/* Password */}
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="login-password">Password</Label>
+          <div className="flex justify-between items-center">
+            <Label htmlFor="login-password">Password</Label>
+            <button
+              type="button"
+              onClick={onSwitchToForgotPassword}
+              className="text-xs text-muted-emerald hover:text-pearl-text hover:underline transition-colors bg-transparent border-none cursor-pointer"
+            >
+              Forgot password?
+            </button>
+          </div>
           <Input
             id="login-password"
             type="password"

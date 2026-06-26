@@ -3,6 +3,7 @@
 import { Clock, Swords, CheckCircle2 } from 'lucide-react';
 import { useDashboardData } from '../hooks/useDashboardData';
 import { pluralise } from '../utils/dashboard.helpers';
+import { getChallengeColor } from '@/lib/challenge-colors';
 
 // ─── Active Challenge ──────────────────────────────────────────────────────────
 
@@ -10,25 +11,35 @@ function ActiveChallenge({
   title,
   description,
   days_remaining,
+  icon,
+  color,
 }: {
   title: string;
   description: string;
   days_remaining: number | null;
+  icon: string;
+  color: string;
 }) {
+  const c = getChallengeColor(color);
   const [prefix, ...rest] = title.split(':');
   const suffix = rest.join(':').trim();
 
   return (
     <div className="flex flex-col h-full">
-      {/* Top row: label + status badge */}
+      {/* Top row: label + status badge + icon pill */}
       <div className="flex items-start justify-between gap-4 mb-5">
         <span className="font-sans text-xs uppercase tracking-widest text-muted-text">
           {prefix}
         </span>
-        <span className="inline-flex items-center gap-1.5 font-sans text-xs text-muted-emerald border border-muted-emerald/30 rounded-full px-2.5 py-0.5 flex-shrink-0">
-          <span className="w-1.5 h-1.5 rounded-full bg-muted-emerald" />
-          Review active
-        </span>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className="inline-flex items-center gap-1.5 font-sans text-xs text-muted-emerald border border-muted-emerald/30 rounded-full px-2.5 py-0.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-muted-emerald" />
+            Review active
+          </span>
+          <div className={`flex items-center justify-center w-9 h-9 rounded-xl ${c.iconBg}`}>
+            <i className={`${icon} text-base ${c.iconText}`} aria-hidden="true" />
+          </div>
+        </div>
       </div>
 
       {/* Challenge title */}
@@ -105,6 +116,8 @@ export function CurrentChallengeCard() {
           title={challenge.title}
           description={challenge.description}
           days_remaining={challenge.days_remaining}
+          icon={challenge.icon ?? 'ti-sword'}
+          color={challenge.color ?? 'gray'}
         />
       ) : (
         <IdleState />

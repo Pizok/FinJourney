@@ -69,6 +69,14 @@ class WalletCreate(BaseModel):
         default=None,
         description="Asset registry key for the wallet icon (unlocked via Level 2 icon customization).",
     )
+    balance: int = Field(
+        default=0,
+        description="Initial balance for the wallet.",
+    )
+    visible_category_ids: list[UUID] = Field(
+        default_factory=list,
+        description="List of category UUIDs that are visible when this wallet is selected.",
+    )
 
 
 # ── Out (read) ────────────────────────────────────────────────────────────────
@@ -98,6 +106,10 @@ class WalletOut(BaseModel):
     wallet_type: WalletType
     icon: Optional[str] = None
     balance: int = Field(..., description="Current balance in IDR.")
+    visible_category_ids: list[UUID] = Field(
+        default_factory=list,
+        description="Categories linked to this wallet."
+    )
 
     model_config = {"from_attributes": True}
 
@@ -168,4 +180,6 @@ class WalletBootstrapResponse(BaseModel):
     fixed_expenses: list[dict] = Field(default_factory=list)
     active_loans: list[dict] = Field(default_factory=list)
     financial_assumptions: FinancialAssumptions = Field(default_factory=FinancialAssumptions)
+    pagination: dict = Field(default_factory=dict)
+    feature_unlocks: dict = Field(default_factory=dict)
 

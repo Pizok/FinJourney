@@ -354,7 +354,7 @@ class EventBus:
                 self._background_tasks.add_task(evaluate_node_advancement, self._db, ctx.user_id)
             else:
                 # Fallback if no background_tasks (e.g. tests)
-                evaluate_node_advancement(self._db, ctx.user_id)
+                await evaluate_node_advancement(self._db, ctx.user_id)
 
             logger.debug(
                 "EventBus._dispatch: completed — type=%s id=%s user=%s",

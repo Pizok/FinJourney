@@ -2,6 +2,8 @@ from datetime import datetime
 import pytz
 from supabase import AsyncClient
 
+from app.db.utils import maybe_one
+
 
 def _today_utc_bounds(tz_name: str) -> tuple[str, str]:
     """Return UTC ISO strings for start and end of today in the user's timezone."""
@@ -34,15 +36,14 @@ async def fetch_daily_status(db: AsyncClient, user_id: str, tz_name: str) -> dic
     tz = pytz.timezone(tz_name)
     today_str = datetime.now(tz).date().isoformat()
 
-    snapshot = await (
+    snapshot = await maybe_one(
         db.table("journey_daily_survival")
         .select("zero_spend_xp_claimed")
         .eq("user_id", user_id)
         .eq("tracking_date", today_str)
         .maybe_single()
-        .execute()
     )
-    zero_spend_marked = bool(snapshot.data and snapshot.data.get("zero_spend_xp_claimed"))
+    zero_spend_marked = bool(snapshot and snapshot.get("zero_spend_xp_claimed"))
 
     return {
         "spent_today": spent_today,
@@ -52,28 +53,24 @@ async def fetch_daily_status(db: AsyncClient, user_id: str, tz_name: str) -> dic
 
 
 async def fetch_streak(db: AsyncClient, user_id: str) -> int:
-    result = await (
+    result = await maybe_one(
         db.table("journey_profiles")
         .select("current_streak")
         .eq("id", user_id)
         .maybe_single()
-        .execute()
     )
-    if result.data:
-        return result.data.get("current_streak", 0)
-    return 0
+    return result.get("current_streak", 0) if result else 0
 
 
 async def fetch_baselines(db: AsyncClient, user_id: str) -> dict | None:
     """Return the most recent financial baseline for the user."""
-    profile_res = await (
+    profile = await maybe_one(
         db.table("journey_profiles")
         .select("expected_monthly_income, monthly_savings_target")
         .eq("id", user_id)
         .maybe_single()
-        .execute()
     )
-    if not profile_res.data:
+    if not profile:
         return None
 
     expenses_res = await (
@@ -85,9 +82,9 @@ async def fetch_baselines(db: AsyncClient, user_id: str) -> dict | None:
     fixed_costs = sum(item["amount"] for item in (expenses_res.data or []))
 
     return {
-        "monthly_income": profile_res.data.get("expected_monthly_income", 0),
+        "monthly_income": profile.get("expected_monthly_income", 0),
         "fixed_costs": fixed_costs,
-        "savings_target": profile_res.data.get("monthly_savings_target", 0),
+        "savings_target": profile.get("monthly_savings_target", 0),
         "created_at": datetime.utcnow().isoformat()
     }
 
@@ -104,15 +101,13 @@ async def fetch_tasks(db: AsyncClient, user_id: str) -> list[dict]:
 
 
 async def fetch_active_region(db: AsyncClient, user_id: str) -> dict | None:
-    result = await (
+    return await maybe_one(
         db.table("journey_regions")
-        .select("*, region_catalog(name, description, visual_theme, asset_bundle_key)")
+        .select("id, region_id, status, started_at, ends_at")
         .eq("user_id", user_id)
-        .eq("status", "active")
+        .eq("status", "CURRENT")
         .maybe_single()
-        .execute()
     )
-    return result.data
 
 
 async def upsert_daily_snapshot(
@@ -123,16 +118,15 @@ async def upsert_daily_snapshot(
 ) -> None:
     if "zero_spend_marked" in updates:
         updates["zero_spend_xp_claimed"] = updates.pop("zero_spend_marked")
-        
-    existing = await (
+
+    existing = await maybe_one(
         db.table("journey_daily_survival")
         .select("user_id")
         .eq("user_id", user_id)
         .eq("tracking_date", snapshot_date)
         .maybe_single()
-        .execute()
     )
-    if existing.data:
+    if existing:
         await (
             db.table("journey_daily_survival")
             .update(updates)

@@ -80,13 +80,16 @@ import type { BootstrapData } from '../types/dashboard.types';
  * If bootstrapData is provided, the Zustand store is hydrated with it.
  */
 export function DashboardShell({ bootstrapData }: { bootstrapData?: BootstrapData | null }) {
-  const { data, isLoading, setData } = useDashboardStore();
+  const { data, isLoading, setData, setLoading } = useDashboardStore();
 
   useEffect(() => {
     if (bootstrapData) {
       setData(bootstrapData);
+      setLoading(false);
     }
-  }, [bootstrapData, setData]);
+  }, [bootstrapData, setData, setLoading]);
+
+  // Empty state to avoid early return layout flash
 
   return (
     <div className="flex min-h-screen bg-abyssal-slate">

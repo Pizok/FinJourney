@@ -34,7 +34,6 @@ export const MOCK_SETTINGS: Settings = {
     email: 'user@email.com',
     timezone: 'Asia/Jakarta',
     timezone_locked_until: null,
-    primary_payday: 25,
   },
   financials: {
     expected_monthly_income: 10_000_000,
@@ -59,7 +58,6 @@ export const MOCK_SETTINGS: Settings = {
   preferences: {
     theme: 'system',
     reduced_motion: false,
-    privacy_mode: false,
   },
   notifications: {
     daily_reminder: true,

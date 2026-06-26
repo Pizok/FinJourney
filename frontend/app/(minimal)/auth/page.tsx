@@ -6,8 +6,10 @@ import AuthLayout from '@/components/auth/AuthLayout';
 import SignUpForm from '@/components/auth/SignUpForm';
 import OtpForm   from '@/components/auth/OtpForm';
 import LoginForm from '@/components/auth/LoginForm';
+import ForgotPasswordForm from '@/components/auth/ForgotPasswordForm';
+import UpdatePasswordForm from '@/components/auth/UpdatePasswordForm';
 
-type AuthView = 'signup' | 'verify' | 'login';
+type AuthView = 'signup' | 'verify' | 'login' | 'forgot-password' | 'update-password';
 
 // 1. We move the main logic into a sub-component
 function AuthContent() {
@@ -21,7 +23,7 @@ function AuthContent() {
 
   // 3. Keep the state synced if the URL changes (like hitting the back button)
   useEffect(() => {
-    if (urlView === 'login' || urlView === 'signup' || urlView === 'verify') {
+    if (['login', 'signup', 'verify', 'forgot-password', 'update-password'].includes(urlView)) {
       setView(urlView);
     }
   }, [urlView]);
@@ -58,7 +60,16 @@ function AuthContent() {
         <LoginForm
           onSuccess={handleLoginSuccess}
           onSwitchToSignUp={() => router.push('?view=signup')}
+          onSwitchToForgotPassword={() => router.push('?view=forgot-password')}
         />
+      )}
+      {view === 'forgot-password' && (
+        <ForgotPasswordForm
+          onBackToLogin={() => router.push('?view=login')}
+        />
+      )}
+      {view === 'update-password' && (
+        <UpdatePasswordForm />
       )}
     </AuthLayout>
   );

@@ -17,7 +17,7 @@ async def insert_transaction(
         .insert(
             {
                 "user_id": user_id,
-                "wallet_id": wallet_id,
+                "primary_wallet_id": wallet_id,
                 "category_id": category_id,
                 "type": tx_type,
                 "amount": amount,
@@ -143,7 +143,7 @@ async def fetch_transactions(
 ) -> list[dict]:
     query = (
         db.table("transactions")
-        .select("id, wallet_id, category_id, type, amount, note, logged_at")
+        .select("id, primary_wallet_id, category_id, type, amount, note, logged_at")
         .eq("user_id", user_id)
         .is_("deleted_at", "null")
         .order("logged_at", desc=True)
@@ -151,11 +151,14 @@ async def fetch_transactions(
         .offset(offset)
     )
     if wallet_id:
-        query = query.eq("wallet_id", wallet_id)
+        query = query.eq("primary_wallet_id", wallet_id)
     if category_id:
         query = query.eq("category_id", category_id)
     if tx_type:
         query = query.eq("type", tx_type)
 
     result = await query.execute()
-    return result.data or []
+    data = result.data or []
+    for tx in data:
+        tx["wallet_id"] = tx.pop("primary_wallet_id", None)
+    return data

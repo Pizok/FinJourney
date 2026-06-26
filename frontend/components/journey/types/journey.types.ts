@@ -71,6 +71,8 @@ export interface PlayerState {
   path: PlayerPath;
   /** Chosen avatar key (e.g. 'Roan') */
   avatar_key: string;
+  /** Player's current streak */
+  current_streak?: number;
 }
 
 // ─── Feature Gates ────────────────────────────────────────────────────────────

@@ -50,6 +50,7 @@ export interface PlayerState {
   shield: number;
   standby_tokens: number;
   standby_active: boolean;
+  current_streak?: number;
 }
 
 export interface DailyStatus {

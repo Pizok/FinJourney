@@ -322,7 +322,7 @@ class ProfileRepository:
             .table("journey_daily_xp")
             .select("*")
             .eq("user_id", user_id)
-            .eq("current_date", current_date.isoformat())
+            .eq("tracking_date", current_date.isoformat())
             .maybe_single()
             .execute()
         )
@@ -338,7 +338,7 @@ class ProfileRepository:
         """
         payload = {
             "user_id": user_id,
-            "current_date": current_date.isoformat(),
+            "tracking_date": current_date.isoformat(),
             "expense_xp_claimed": False,
             "income_xp_claimed": False,
             "zero_spend_xp_claimed": False,
@@ -346,7 +346,7 @@ class ProfileRepository:
         await (
             self._db
             .table("journey_daily_xp")
-            .upsert(payload, on_conflict="user_id,current_date", ignore_duplicates=True)
+            .upsert(payload, on_conflict="user_id,tracking_date", ignore_duplicates=True)
             .execute()
         )
         return await self.get_daily_xp_record(user_id, current_date)
@@ -366,7 +366,7 @@ class ProfileRepository:
                 "updated_at": _NOW(),
             })
             .eq("user_id", user_id)
-            .eq("current_date", current_date.isoformat())
+            .eq("tracking_date", current_date.isoformat())
             .execute()
         )
         return result.data[0]
@@ -386,7 +386,7 @@ class ProfileRepository:
                 "updated_at": _NOW(),
             })
             .eq("user_id", user_id)
-            .eq("current_date", current_date.isoformat())
+            .eq("tracking_date", current_date.isoformat())
             .execute()
         )
         return result.data[0]
@@ -403,7 +403,7 @@ class ProfileRepository:
                 "updated_at": _NOW(),
             })
             .eq("user_id", user_id)
-            .eq("current_date", current_date.isoformat())
+            .eq("tracking_date", current_date.isoformat())
             .execute()
         )
         return result.data[0]
@@ -424,7 +424,7 @@ class ProfileRepository:
                 "updated_at": _NOW(),
             })
             .eq("user_id", user_id)
-            .eq("current_date", current_date.isoformat())
+            .eq("tracking_date", current_date.isoformat())
             .execute()
         )
         logger.info(

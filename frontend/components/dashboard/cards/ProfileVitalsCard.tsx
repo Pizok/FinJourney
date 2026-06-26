@@ -106,7 +106,7 @@ export function ProfileVitalsCard() {
             {profile.username}
           </p>
           <p className="font-sans text-xs text-muted-text truncate">
-            {profile.avatar_class}
+            {profile.avatar_key || 'Explorer'}
           </p>
         </div>
         {/* Level badge */}

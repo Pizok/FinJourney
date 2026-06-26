@@ -5,7 +5,7 @@ Manages all positive progression mechanics for the Journey Engine.
 
 Responsibilities:
   - Daily XP cap enforcement via journey_daily_xp (anti-spam, game_rules.md §3)
-  - Path-specific XP multipliers (CATALYST +income, PHANTOM +zero-spend)
+  - Path-specific XP multipliers (VANGUARD +income, PHANTOM +zero-spend)
   - Atomic XP delta application and journey_profiles persistence
   - Level threshold detection using L = floor(sqrt(XP / 100)) + 1
   - LEVEL_UP event emission for each crossed threshold (handles multi-level jumps)
@@ -94,7 +94,7 @@ _XP_SOURCES: dict[str, _XPSourceConfig] = {
     "INCOME_LOGGED": _XPSourceConfig(
         cap_field="income_xp_claimed",
         base_xp=5,
-        path_overrides={"CATALYST": 10},
+        path_overrides={"VANGUARD": 10},
     ),
     "ZERO_SPEND_CLAIMED": _XPSourceConfig(
         cap_field="zero_spend_xp_claimed",
@@ -201,7 +201,7 @@ class XPService:
 
         Daily cap rules (journey_game_rules.md §3.1):
           EXPENSE_LOGGED:     +5 XP, capped once per calendar day.
-          INCOME_LOGGED:      +5 XP (CATALYST path: +10), capped once per day.
+          INCOME_LOGGED:      +5 XP (VANGUARD path: +10), capped once per day.
           ZERO_SPEND_CLAIMED: +10 XP (PHANTOM path: +15), once per day.
                               Mutually exclusive with expense — revoked if an expense
                               is later logged the same day (see revoke_zero_spend_xp).

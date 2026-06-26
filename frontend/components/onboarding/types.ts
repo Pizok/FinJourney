@@ -22,7 +22,7 @@ export interface OnboardingState {
   username: string;
 
   // Step 2
-  selectedPath: 'Sentinel' | 'Catalyst' | 'Phantom' | null;
+  selectedPath: 'sentinel' | 'phantom' | 'vanguard' | null;
   selectedAvatar: 'Roan' | 'Lyss' | null;
 
   // Step 3A

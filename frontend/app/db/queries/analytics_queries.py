@@ -295,7 +295,7 @@ async def get_top_transactions(
             t.note
         FROM transactions t
         JOIN categories c ON c.id = t.category_id
-        JOIN wallets    w ON w.id = t.wallet_id
+        JOIN wallets    w ON w.id = t.primary_wallet_id
         WHERE
             t.user_id          = $1
             AND t.type         = 'expense'

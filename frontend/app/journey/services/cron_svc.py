@@ -107,6 +107,27 @@ class CleanupResult:
     advancements_synced: int = 0
 
 
+@dataclass(frozen=True, slots=True)
+class EveningReminderResult:
+    """
+    Outcome of a single send_evening_reminder_emails() invocation.
+
+    Attributes:
+        timezone_processed: IANA timezone string that was evaluated.
+        trigger_date:       Local date string evaluated "YYYY-MM-DD".
+        users_checked:      Total users queried in this timezone.
+        emails_sent:        Reminder emails successfully dispatched.
+        emails_skipped:     Users skipped because they already had activity today.
+        emails_failed:      Users where the email send raised an exception.
+    """
+    timezone_processed: str
+    trigger_date: str
+    users_checked: int
+    emails_sent: int
+    emails_skipped: int
+    emails_failed: int
+
+
 # ---------------------------------------------------------------------------
 # CronService
 # ---------------------------------------------------------------------------
@@ -392,7 +413,7 @@ class CronService:
             user_id = user_row.get("id")
             if user_id:
                 try:
-                    evaluate_node_advancement(self._db, user_id)
+                    await evaluate_node_advancement(self._db, user_id)
                     result.advancements_synced += 1
                 except Exception as exc:
                     logger.error("CronService.run_daily_cleanup: advancement sync failed for %s — %s", user_id, exc)
@@ -405,7 +426,165 @@ class CronService:
         return result
 
     # ------------------------------------------------------------------
-    # Timezone Utility — Determine Current Midnight Timezones
+    # Job 3 -- Evening Reminder
+    # ------------------------------------------------------------------
+
+    async def send_evening_reminder_emails(
+        self,
+        target_timezone: str,
+        trigger_date: str,
+    ) -> EveningReminderResult:
+        """
+        Sends the daily 20:00 reminder email to eligible users.
+
+        Called by the router's BackgroundTask after QStash fires the hourly
+        webhook (0 * * * *). This method handles one timezone per invocation.
+        The router determines which timezone(s) are currently at 20:00 local.
+
+        Eligibility criteria:
+          - User has daily_reminder = True in notification_settings.
+          - User's journey_daily_survival status is PENDING for trigger_date
+            (no expense, income, or zero-spend claimed today).
+
+        Args:
+            target_timezone: IANA timezone string, e.g. "Asia/Jakarta".
+            trigger_date:    Local date being evaluated "YYYY-MM-DD".
+
+        Returns:
+            EveningReminderResult with send/skip/fail counts.
+        """
+        logger.info(
+            "CronService.send_evening_reminder_emails: START timezone=%s date=%s",
+            target_timezone, trigger_date,
+        )
+
+        try:
+            ZoneInfo(target_timezone)
+        except (ZoneInfoNotFoundError, KeyError):
+            logger.error(
+                "CronService.send_evening_reminder_emails: invalid timezone '%s' -- aborting.",
+                target_timezone,
+            )
+            return EveningReminderResult(
+                timezone_processed=target_timezone,
+                trigger_date=trigger_date,
+                users_checked=0,
+                emails_sent=0,
+                emails_skipped=0,
+                emails_failed=0,
+            )
+
+        # -- 1. Query users with daily_reminder = True in this timezone ---------
+        # Supabase JSON path filter: notification_settings->>'daily_reminder' = 'true'
+        try:
+            raw = await (
+                self._db.table("journey_profiles")
+                .select("id, projected_safe_daily_budget, current_streak, notification_settings")
+                .eq("timezone", target_timezone)
+                .eq("has_completed_setup", True)
+                .execute()
+            )
+            all_users = raw.data or []
+        except Exception as exc:
+            logger.error(
+                "CronService.send_evening_reminder_emails: query failed timezone=%s -- %s",
+                target_timezone, exc,
+            )
+            return EveningReminderResult(
+                timezone_processed=target_timezone,
+                trigger_date=trigger_date,
+                users_checked=0,
+                emails_sent=0,
+                emails_skipped=0,
+                emails_failed=0,
+            )
+
+        # Filter in Python: keep only users with daily_reminder enabled
+        reminder_users = [
+            u for u in all_users
+            if (u.get("notification_settings") or {}).get("daily_reminder", True)
+        ]
+
+        total = len(reminder_users)
+        sent = skipped = failed = 0
+
+        from app.services.user_lookup_svc import get_user_email, get_user_display_name
+        from app.services.email_svc import send_daily_reminder
+
+        # -- 2. Process in batches of _BATCH_SIZE ----------------------------
+        for batch_start in range(0, max(1, total), _BATCH_SIZE):
+            batch = reminder_users[batch_start: batch_start + _BATCH_SIZE]
+            for user_row in batch:
+                user_id: str = user_row.get("id", "")
+                if not user_id:
+                    continue
+
+                # -- 3. Eligibility: check survival status --------------------
+                try:
+                    survival_raw = await (
+                        self._db.table("journey_daily_survival")
+                        .select("status")
+                        .eq("user_id", user_id)
+                        .eq("tracking_date", trigger_date)
+                        .maybe_single()
+                        .execute()
+                    )
+                    survival_status = (
+                        survival_raw.data.get("status") if survival_raw.data else "PENDING"
+                    )
+                    if survival_status != "PENDING":
+                        skipped += 1
+                        continue
+                except Exception as exc:
+                    logger.debug(
+                        "CronService.send_evening_reminder_emails: survival check failed "
+                        "user=%s -- %s. Treating as PENDING.",
+                        user_id, exc,
+                    )
+
+                # -- 4. Fetch email + display name ----------------------------
+                try:
+                    email = await get_user_email(self._db, user_id)
+                    if not email:
+                        skipped += 1
+                        continue
+
+                    name = await get_user_display_name(self._db, user_id)
+                    daily_budget = int(user_row.get("projected_safe_daily_budget") or 0)
+                    streak = int(user_row.get("current_streak") or 0)
+
+                    # -- 5. Send -------------------------------------------------
+                    await send_daily_reminder(
+                        to=email,
+                        username=name,
+                        daily_budget=daily_budget,
+                        streak=streak,
+                    )
+                    sent += 1
+                except Exception as exc:
+                    failed += 1
+                    logger.warning(
+                        "CronService.send_evening_reminder_emails: send failed user=%s -- %s",
+                        user_id, exc,
+                    )
+
+        result = EveningReminderResult(
+            timezone_processed=target_timezone,
+            trigger_date=trigger_date,
+            users_checked=total,
+            emails_sent=sent,
+            emails_skipped=skipped,
+            emails_failed=failed,
+        )
+        logger.info(
+            "CronService.send_evening_reminder_emails: DONE timezone=%s "
+            "checked=%d sent=%d skipped=%d failed=%d",
+            target_timezone, total, sent, skipped, failed,
+        )
+        return result
+
+    # ------------------------------------------------------------------
+    # Timezone Utility -- Determine Current Midnight Timezones
     # ------------------------------------------------------------------
 
     @staticmethod
@@ -430,9 +609,9 @@ class CronService:
         # Common timezones used by FinJourney's target demographic (SE Asia + global).
         # Production: replace with a DB query of `SELECT DISTINCT timezone FROM journey_profiles`.
         _SUPPORTED_TIMEZONES = [
-            "Asia/Jakarta",      # UTC+7  — Indonesia (primary market)
-            "Asia/Makassar",     # UTC+8  — Indonesia East
-            "Asia/Jayapura",     # UTC+9  — Indonesia Far East
+            "Asia/Jakarta",      # UTC+7  -- Indonesia (primary market)
+            "Asia/Makassar",     # UTC+8  -- Indonesia East
+            "Asia/Jayapura",     # UTC+9  -- Indonesia Far East
             "Asia/Singapore",    # UTC+8
             "Asia/Kuala_Lumpur", # UTC+8
             "Asia/Bangkok",      # UTC+7
@@ -462,14 +641,71 @@ class CronService:
 
                 # Midnight window: 00:00:00 to 00:59:59 local time.
                 if local_now.hour == 0:
-                    # The date being evaluated is "yesterday" local time —
+                    # The date being evaluated is "yesterday" local time --
                     # the day that just ended at this midnight.
                     evaluated_date = (local_now.date() - timedelta(days=1)).isoformat()
                     result.append((tz_name, evaluated_date))
 
             except (ZoneInfoNotFoundError, KeyError, Exception) as exc:
                 logger.warning(
-                    "get_timezones_at_midnight_now: error checking timezone=%s — %s",
+                    "get_timezones_at_midnight_now: error checking timezone=%s -- %s",
+                    tz_name, exc,
+                )
+
+        return result
+
+    @staticmethod
+    def get_timezones_at_evening_now() -> list[tuple[str, str]]:
+        """
+        Returns a list of (iana_timezone, local_date) tuples for all IANA
+        timezones where the current UTC time corresponds to 20:00 local time
+        (20:00:00 to 20:59:59 local time).
+
+        Called by the router before dispatching send_evening_reminder_emails()
+        to determine which timezone(s) should receive reminder emails now.
+
+        Uses the same supported timezone list as get_timezones_at_midnight_now().
+        trigger_date is today's local date (the active day, not yesterday).
+        """
+        _SUPPORTED_TIMEZONES = [
+            "Asia/Jakarta",
+            "Asia/Makassar",
+            "Asia/Jayapura",
+            "Asia/Singapore",
+            "Asia/Kuala_Lumpur",
+            "Asia/Bangkok",
+            "Asia/Manila",
+            "Asia/Tokyo",
+            "Asia/Seoul",
+            "Asia/Kolkata",
+            "Asia/Dubai",
+            "Europe/London",
+            "Europe/Paris",
+            "America/New_York",
+            "America/Chicago",
+            "America/Denver",
+            "America/Los_Angeles",
+            "America/Sao_Paulo",
+            "Australia/Sydney",
+            "UTC",
+        ]
+
+        now_utc = datetime.now(timezone.utc)
+        result: list[tuple[str, str]] = []
+
+        for tz_name in _SUPPORTED_TIMEZONES:
+            try:
+                tz = ZoneInfo(tz_name)
+                local_now = now_utc.astimezone(tz)
+
+                # Evening window: 20:00:00 to 20:59:59 local time.
+                if local_now.hour == 20:
+                    # trigger_date is today's date -- the active day being evaluated.
+                    result.append((tz_name, local_now.date().isoformat()))
+
+            except (ZoneInfoNotFoundError, KeyError, Exception) as exc:
+                logger.warning(
+                    "get_timezones_at_evening_now: error checking timezone=%s -- %s",
                     tz_name, exc,
                 )
 

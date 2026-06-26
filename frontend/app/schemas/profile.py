@@ -1,12 +1,12 @@
 from typing import Literal
 from pydantic import BaseModel, field_validator
 
-_AVATAR_CLASSES = ("Sentinel", "Navigator", "Architect", "Wanderer")
+_AVATAR_CLASSES = ("Sentinel", "Phantom", "Vanguard", "Navigator", "Architect", "Wanderer")
 
 
 class ProfileSetupRequest(BaseModel):
     username: str
-    avatar_class: Literal["Sentinel", "Navigator", "Architect", "Wanderer"]
+    avatar_class: Literal["Sentinel", "Phantom", "Vanguard", "Navigator", "Architect", "Wanderer"]
     avatar_key: str
     timezone: str
 
@@ -43,7 +43,14 @@ class BaselineEntry(BaseModel):
     label: str
     amount: float
 
+class SavingsSetupEntry(BaseModel):
+    id: str
+    label: str
+    target_amount: float
+    monthly_contribution: float
+    deadline: str
+
 class BaselinesSetupRequest(BaseModel):
     incomeEntries: list[BaselineEntry]
     fixedCostEntries: list[BaselineEntry]
-    savingsTarget: float
+    savingsEntries: list[SavingsSetupEntry]

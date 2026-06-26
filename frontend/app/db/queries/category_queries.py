@@ -174,7 +174,7 @@ def get_category_usage(
     )
 
     if wallet_id is not None:
-        expense_query = expense_query.eq("wallet_id", wallet_id)
+        expense_query = expense_query.eq("primary_wallet_id", wallet_id)
 
     expense_response = expense_query.execute()
     expenses: list[dict[str, Any]] = expense_response.data or []

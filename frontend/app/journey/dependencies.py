@@ -47,9 +47,14 @@ def _require_env(key: str) -> str:
 # Supabase credentials are managed centrally in app.db.supabase.
 # Do NOT read SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY here.
 
+from app.core.config import settings
+
 # Upstash QStash signing key for webhook signature verification.
-_QSTASH_CURRENT_SIGNING_KEY: str = _require_env("QSTASH_CURRENT_SIGNING_KEY")
-_QSTASH_NEXT_SIGNING_KEY: str = os.environ.get("QSTASH_NEXT_SIGNING_KEY", "")
+_QSTASH_CURRENT_SIGNING_KEY: str = settings.qstash_current_signing_key
+_QSTASH_NEXT_SIGNING_KEY: str = settings.qstash_next_signing_key
+
+if not _QSTASH_CURRENT_SIGNING_KEY:
+    raise RuntimeError("QSTASH_CURRENT_SIGNING_KEY is missing from config/.env")
 
 
 # ---------------------------------------------------------------------------

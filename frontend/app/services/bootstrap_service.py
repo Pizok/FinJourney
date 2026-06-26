@@ -17,6 +17,7 @@ from app.db.queries.profile_queries import (
 )
 from app.services.budget_service import calculate_daily_budget
 from app.services.progression_service import calculate_level, get_feature_unlocks
+from app.db.queries.transaction_queries import fetch_transactions
 
 
 async def build_bootstrap_payload(db: AsyncClient, user_id: str) -> dict:
@@ -49,6 +50,7 @@ async def build_bootstrap_payload(db: AsyncClient, user_id: str) -> dict:
         active_region,
         daily_raw,
         streak,
+        recent_transactions,
     ) = await asyncio.gather(
         fetch_wallets(db, user_id),
         fetch_categories(db, user_id),
@@ -57,6 +59,7 @@ async def build_bootstrap_payload(db: AsyncClient, user_id: str) -> dict:
         fetch_active_region(db, user_id),
         fetch_daily_status(db, user_id, user_tz),
         fetch_streak(db, user_id),
+        fetch_transactions(db, user_id, limit=5),
     )
 
     # ── Derived daily status ──────────────────────────────────────────────────
@@ -71,21 +74,23 @@ async def build_bootstrap_payload(db: AsyncClient, user_id: str) -> dict:
     spent_today: float = daily_raw.get("spent_today", 0.0)
 
     return {
-        "profile": profile,
-        "player_state": {
-            **player_state,
+        "profile": {
+            **profile,
             "level": level,
         },
+        "player_state": player_state,
         "daily_status": {
             "daily_budget": round(daily_budget, 2),
             "spent_today": round(spent_today, 2),
             "remaining_budget": round(daily_budget - spent_today, 2),
             "streak_count": streak,
             "zero_spend_marked": daily_raw.get("zero_spend_marked", False),
+            "baseline_set": bool(baselines),
         },
         "wallets": wallets,
         "categories": categories,
         "tasks": tasks,
         "active_region": active_region,
+        "recent_transactions": recent_transactions,
         "feature_unlocks": get_feature_unlocks(level),
     }

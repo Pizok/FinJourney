@@ -24,7 +24,7 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  BaseModal, FormField, FormInput, FormTextarea,
+  BaseModal, FormField, FormInput, FormCurrencyInput, FormTextarea,
   ModalFooter, PrimaryButton, GhostButton,
 } from './BaseModal';
 import { useWalletStore } from '@/components/finance/stores/walletStore';
@@ -52,6 +52,7 @@ interface FormValues {
   starting_balance: string;
   description: string;
   color_token: ColorToken;
+  visible_category_ids: string[];
 }
 
 interface FormErrors {
@@ -64,6 +65,7 @@ const DEFAULTS: FormValues = {
   starting_balance: '',
   description: '',
   color_token: 'emerald',
+  visible_category_ids: [],
 };
 
 function validate(v: FormValues): FormErrors {
@@ -96,6 +98,7 @@ export function CreateWalletModal() {
     addWallet,
     setLoading,
     setGlobalError,
+    categories,
   } = useWalletStore();
 
   const [values, setValues] = useState<FormValues>(DEFAULTS);
@@ -110,11 +113,21 @@ export function CreateWalletModal() {
     closeAddWallet();
   };
 
-  const set = (key: keyof FormValues, value: string) => {
+  const set = (key: keyof FormValues, value: string | string[]) => {
     setValues((prev) => ({ ...prev, [key]: value }));
     if (submitted) {
       setErrors(validate({ ...values, [key]: value }));
     }
+  };
+
+  const toggleCategory = (categoryId: string) => {
+    setValues((prev) => {
+      const current = prev.visible_category_ids;
+      const next = current.includes(categoryId)
+        ? current.filter(id => id !== categoryId)
+        : [...current, categoryId];
+      return { ...prev, visible_category_ids: next };
+    });
   };
 
   const queryClient = useQueryClient();
@@ -147,11 +160,11 @@ export function CreateWalletModal() {
     if (Object.keys(errs).length > 0) return;
 
     const payload = {
-      name:              values.name.trim(),
-      wallet_type:       'bank', // default
-      icon:              values.color_token as ColorToken,
-      // Note: Starting balance and description are currently omitted from backend MVP API
-      // but passed down to support future capabilities.
+      name:                 values.name.trim(),
+      wallet_type:          'bank', // default
+      icon:                 values.color_token as ColorToken,
+      balance:              Number(values.starting_balance),
+      visible_category_ids: values.visible_category_ids,
     };
 
     createWalletMutation.mutate(payload);
@@ -208,15 +221,12 @@ export function CreateWalletModal() {
             >
               Rp
             </span>
-            <FormInput
+            <FormCurrencyInput
               id="wallet-balance"
-              type="number"
               value={values.starting_balance}
               onChange={(e) => set('starting_balance', e.target.value)}
               placeholder="0"
               hasError={Boolean(errors.starting_balance)}
-              min={0}
-              step={1000}
               className="pl-9"
               disabled={isAtLimit}
             />
@@ -285,6 +295,40 @@ export function CreateWalletModal() {
             })}
           </div>
         </div>
+
+        {/* Categories Selection */}
+        {categories.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <span
+              className="text-sm font-medium text-[var(--color-pearl-text)]"
+              style={{ fontFamily: 'var(--font-sans)' }}
+            >
+              Tracked Categories
+            </span>
+            <p className="text-xs text-[var(--color-muted-text)] mb-1" style={{ fontFamily: 'var(--font-sans)' }}>
+              Select which categories this wallet should track. You can change this later.
+            </p>
+            <div className="max-h-40 overflow-y-auto rounded-lg border border-[var(--color-tactical-border)] bg-[var(--color-canvas-surface)] p-2">
+              <div className="flex flex-col gap-1">
+                {categories.map((cat) => (
+                  <label
+                    key={cat.id}
+                    className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 hover:bg-[var(--color-abyssal-slate)]"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={values.visible_category_ids.includes(cat.id)}
+                      onChange={() => toggleCategory(cat.id)}
+                      disabled={isAtLimit}
+                      className="h-4 w-4 rounded border-[var(--color-tactical-border)] bg-[var(--color-abyssal-slate)] text-[var(--color-muted-emerald)] focus:ring-[var(--color-muted-emerald)] focus:ring-offset-0 disabled:cursor-not-allowed"
+                    />
+                    <span className="text-sm text-[var(--color-pearl-text)]">{cat.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Footer */}

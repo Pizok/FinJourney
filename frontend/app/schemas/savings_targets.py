@@ -81,7 +81,7 @@ class SavingsTargetCreate(BaseModel):
         description="Target completion date. Must be in the future.",
     )
     monthly_contribution: int = Field(
-        ...,
+        default=0,
         ge=0,
         description="Expected monthly contribution in IDR. Must be non-negative.",
     )
@@ -174,7 +174,7 @@ class SavingsTargetOut(BaseModel):
     current_amount: int = Field(..., ge=0)
     deadline: date
     status: SavingsTargetStatus
-    monthly_contribution: int = Field(..., ge=0)
+    monthly_contribution: int = Field(default=0, ge=0)
     created_at: datetime
     deleted_at: Optional[datetime] = None
 

@@ -43,14 +43,17 @@ export async function apiFetchClient<T = unknown>(endpoint: string, options: Req
     if (json?.error?.message) {
       throw new Error(json.error.message)
     } else if (json?.detail) {
-      throw new Error(json.detail)
+      if (Array.isArray(json.detail)) {
+        throw new Error(json.detail.map((e: any) => `${e.loc?.join('.')} - ${e.msg}`).join(', '))
+      }
+      throw new Error(String(json.detail))
     }
     throw new Error(`Failed to load data (${response.status})`)
   }
 
-  if (json && !json.success) {
+  if (json && json.success === false) {
     throw new Error(json.error?.message ?? 'Unknown API Error')
   }
 
-  return (json ? json.data : null) as T
+  return (json && 'data' in json ? json.data : json) as T
 }

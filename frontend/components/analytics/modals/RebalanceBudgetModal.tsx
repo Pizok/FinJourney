@@ -194,12 +194,11 @@ function AdjustmentRow({ category, currentValue, onAdjust }: AdjustmentRowProps)
           <span className="shrink-0 font-sans text-sm text-muted-text">Rp</span>
           <input
             id={`adj-${category.category_id}`}
-            type="number"
-            min={0}
-            step={1000}
-            value={currentValue || ''}
+            type="text"
+            inputMode="numeric"
+            value={currentValue ? currentValue.toLocaleString('id-ID') : ''}
             onChange={(e) =>
-              onAdjust(category.category_id, parseFloat(e.target.value) || 0)
+              onAdjust(category.category_id, parseFloat(e.target.value.replace(/\D/g, '')) || 0)
             }
             placeholder="0"
             className={cn(

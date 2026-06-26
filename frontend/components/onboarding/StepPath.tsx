@@ -30,40 +30,14 @@ import {
 } from './OnboardingCard';
 import type { OnboardingState } from './types';
 
+import { PATH_LIST } from '../settings/modals/pathCatalog';
+import type { PathId } from '../settings/types/settings.types';
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type PathKey   = 'Sentinel' | 'Catalyst' | 'Phantom';
 type AvatarKey = 'Roan' | 'Lyss';
 
-// ── Path data ─────────────────────────────────────────────────────────────────
 
-interface PathConfig {
-  key:         PathKey;
-  Icon:        React.FC<{ size: number; strokeWidth: number; className?: string }>;
-  heading:     string;
-  description: string;
-}
-
-const PATHS: PathConfig[] = [
-  {
-    key:         'Sentinel',
-    Icon:        Shield,
-    heading:     'Sentinel',
-    description: 'Defensive. Bonus shield generation and emergency fund bonuses.',
-  },
-  {
-    key:         'Catalyst',
-    Icon:        Zap,
-    heading:     'Catalyst',
-    description: 'Aggressive growth. Income expansion and investment track bonuses.',
-  },
-  {
-    key:         'Phantom',
-    Icon:        Ghost,
-    heading:     'Phantom',
-    description: 'Efficiency. Reduced penalties and minimalist spending bonuses.',
-  },
-];
 
 // ── Avatar data ───────────────────────────────────────────────────────────────
 
@@ -118,11 +92,11 @@ function PathRow({
   selected,
   onSelect,
 }: {
-  config:   PathConfig;
+  config:   typeof PATH_LIST[0];
   selected: boolean;
   onSelect: () => void;
 }) {
-  const { Icon, heading, description } = config;
+  const { Icon, name, tagline, description } = config;
   return (
     <button
       type="button"
@@ -151,9 +125,17 @@ function PathRow({
           'font-display text-[13px] font-semibold mb-0.5',
           selected ? 'text-muted-emerald' : 'text-pearl-text',
         ].join(' ')}>
-          {heading}
+          {name} <span className="font-sans text-[11px] font-normal text-muted-text ml-1 border-l border-tactical-border pl-1">{tagline}</span>
         </h3>
-        <p className="text-[11px] text-muted-text leading-relaxed">{description}</p>
+        <p className="text-[11px] text-muted-text leading-relaxed mb-2">{description}</p>
+        <ul className="flex flex-col gap-1">
+          {config.bonuses.map((bonus, idx) => (
+            <li key={idx} className="text-[10px] text-muted-text/80 flex items-start">
+              <span className="text-muted-emerald mr-1.5 opacity-80">{bonus.charAt(0)}</span>
+              {bonus.slice(1).trim()}
+            </li>
+          ))}
+        </ul>
       </div>
 
       {/* Radio */}
@@ -270,7 +252,7 @@ interface StepPathProps {
 export default function StepPath({ state, onChange, onNext, onBack }: StepPathProps) {
   const [attempted, setAttempted] = React.useState(false);
 
-  const handleSelectPath = (key: PathKey) => {
+  const handleSelectPath = (key: PathId) => {
     onChange({ selectedPath: key });
     setAttempted(false);
   };
@@ -300,12 +282,12 @@ export default function StepPath({ state, onChange, onNext, onBack }: StepPathPr
         </StepSubtitle>
 
         <div className="flex flex-col gap-2">
-          {PATHS.map((p) => (
+          {PATH_LIST.map((p) => (
             <PathRow
-              key={p.key}
+              key={p.id}
               config={p}
-              selected={state.selectedPath === p.key}
-              onSelect={() => handleSelectPath(p.key)}
+              selected={state.selectedPath === p.id}
+              onSelect={() => handleSelectPath(p.id)}
             />
           ))}
         </div>

@@ -60,8 +60,9 @@ async def create_wallet(
         user_id=user_id,
         name=payload.name,
         wallet_type=payload.wallet_type.value,
-        balance=0,  # Or use a starting balance if provided, schema currently has no starting_balance
-        color_token=payload.icon, # Map icon to color_token per old schema compatibility
+        balance=payload.balance,
+        color_token=payload.icon,
+        visible_category_ids=[str(cid) for cid in payload.visible_category_ids],
     )
 
 async def update_wallet(

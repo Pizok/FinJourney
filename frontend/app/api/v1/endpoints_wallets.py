@@ -136,7 +136,7 @@ async def get_wallet_bootstrap(
     transactions_task = db.table("transactions").select("*").eq("user_id", str(user.user_id)).eq("status", "active").order("transaction_date", desc=True).limit(20).execute()
     fixed_expenses_task = db.table("fixed_expenses").select("*").eq("user_id", str(user.user_id)).execute()
     loans_task = db.table("loans").select("*").eq("user_id", str(user.user_id)).eq("status", "ACTIVE").execute()
-    profile_task = db.table("journey_profiles").select("expected_monthly_income, monthly_savings_target").eq("id", str(user.user_id)).execute()
+    profile_task = db.table("journey_profiles").select("expected_monthly_income, monthly_savings_target, total_xp").eq("id", str(user.user_id)).execute()
 
     wallets, categories, transactions, fixed_expenses, loans, profile = await asyncio.gather(
         wallets_task,
@@ -154,6 +154,9 @@ async def get_wallet_bootstrap(
         "monthly_savings_target": profile_data["monthly_savings_target"] if profile_data and profile_data.get("monthly_savings_target") else 0,
     }
 
+    from app.services.progression_service import calculate_level, get_feature_unlocks
+    level = calculate_level(profile_data["total_xp"] if profile_data and profile_data.get("total_xp") else 0)
+
     data = WalletBootstrapResponse(
         wallets=wallets.data if wallets.data else [],
         category_limits=categories.data if categories.data else [],
@@ -161,6 +164,13 @@ async def get_wallet_bootstrap(
         fixed_expenses=fixed_expenses.data if fixed_expenses.data else [],
         active_loans=loans.data if loans.data else [],
         financial_assumptions=financial_assumptions,
+        pagination={
+            "page": 1,
+            "limit": 20,
+            "total_items": len(transactions.data if transactions.data else []),
+            "total_pages": 1,
+        },
+        feature_unlocks=get_feature_unlocks(level)
     ).model_dump(mode="json")
 
     return {"success": True, "data": data}

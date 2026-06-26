@@ -238,12 +238,11 @@ function ModalBody({ onClose }: { onClose: () => void }) {
               </span>
               <input
                 id="remaining-debt"
-                type="number"
-                min={0}
-                step={100_000}
-                value={remainingDebt}
-                onChange={(e) => setRemainingDebt(e.target.value)}
-                placeholder="10,000,000"
+                type="text"
+                inputMode="numeric"
+                value={remainingDebt ? Number(remainingDebt).toLocaleString('id-ID') : ''}
+                onChange={(e) => setRemainingDebt(e.target.value.replace(/\D/g, ''))}
+                placeholder="10.000.000"
                 className={cn(
                   'w-full rounded-lg border border-tactical-border bg-abyssal-slate py-2.5 pl-9 pr-4',
                   'font-sans text-sm text-pearl-text placeholder:text-muted-text/40',
@@ -264,12 +263,11 @@ function ModalBody({ onClose }: { onClose: () => void }) {
               </span>
               <input
                 id="monthly-payment"
-                type="number"
-                min={0}
-                step={50_000}
-                value={monthlyPayment}
-                onChange={(e) => setMonthlyPayment(e.target.value)}
-                placeholder="500,000"
+                type="text"
+                inputMode="numeric"
+                value={monthlyPayment ? Number(monthlyPayment).toLocaleString('id-ID') : ''}
+                onChange={(e) => setMonthlyPayment(e.target.value.replace(/\D/g, ''))}
+                placeholder="500.000"
                 className={cn(
                   'w-full rounded-lg border border-tactical-border bg-abyssal-slate py-2.5 pl-9 pr-4',
                   'font-sans text-sm text-pearl-text placeholder:text-muted-text/40',

@@ -78,9 +78,10 @@ function EntryList({ entries, errors, onUpdate, onAdd, onRemove, addLabel }: Ent
 
             <div className="w-36">
               <Input
-                value={entry.amount === 0 ? '' : String(entry.amount)}
+                type="text"
+                value={entry.amount === 0 ? '' : entry.amount.toLocaleString('id-ID')}
                 onChange={(e) =>
-                  onUpdate(entry.id, 'amount', Number(sanitizeCurrencyInput(e.target.value)) || 0)
+                  onUpdate(entry.id, 'amount', Number(e.target.value.replace(/\D/g, '')) || 0)
                 }
                 placeholder="0"
                 suffix="IDR"
@@ -154,42 +155,48 @@ function SavingsEntryList({ entries, errors, onUpdate, onAdd, onRemove, addLabel
               <Input
                 value={entry.label}
                 onChange={(e) => onUpdate(entry.id, 'label', e.target.value)}
-                placeholder="E.g. Emergency Fund"
+                placeholder="Goal Name (e.g. Emergency Fund)"
                 error={!!labelErr}
               />
               {labelErr && <FieldError message={labelErr} />}
             </div>
 
-            <div className="flex gap-2.5 flex-col md:flex-row">
-              <div className="flex-1">
+            <div className="flex gap-2.5 flex-col md:flex-row mt-1">
+              <div className="flex-1 flex flex-col gap-1.5">
+                <label className="text-xs text-muted-text font-medium">Goal Amount</label>
                 <Input
-                  value={entry.target_amount === 0 ? '' : String(entry.target_amount)}
-                  onChange={(e) => onUpdate(entry.id, 'target_amount', Number(sanitizeCurrencyInput(e.target.value)) || 0)}
-                  placeholder="Target Amount"
+                  type="text"
+                  value={entry.target_amount === 0 ? '' : entry.target_amount.toLocaleString('id-ID')}
+                  onChange={(e) => onUpdate(entry.id, 'target_amount', Number(e.target.value.replace(/\D/g, '')) || 0)}
+                  placeholder="0"
                   suffix="IDR"
                   inputMode="numeric"
                   error={!!targetErr}
                 />
                 {targetErr && <FieldError message={targetErr} />}
               </div>
-              <div className="flex-1">
+              <div className="flex-1 flex flex-col gap-1.5">
+                <label className="text-xs text-muted-text font-medium">Monthly Save</label>
                 <Input
-                  value={entry.monthly_contribution === 0 ? '' : String(entry.monthly_contribution)}
-                  onChange={(e) => onUpdate(entry.id, 'monthly_contribution', Number(sanitizeCurrencyInput(e.target.value)) || 0)}
-                  placeholder="Monthly Contrib."
+                  type="text"
+                  value={entry.monthly_contribution === 0 ? '' : entry.monthly_contribution.toLocaleString('id-ID')}
+                  onChange={(e) => onUpdate(entry.id, 'monthly_contribution', Number(e.target.value.replace(/\D/g, '')) || 0)}
+                  placeholder="0"
                   suffix="IDR"
                   inputMode="numeric"
                   error={!!monthlyErr}
                 />
                 {monthlyErr && <FieldError message={monthlyErr} />}
               </div>
-              <div className="w-full md:w-36">
+              <div className="w-full md:w-36 flex flex-col gap-1.5">
+                <label className="text-xs text-muted-text font-medium" title="Target deadline for your savings goal">Target Deadline</label>
                 <Input
                   type="month"
                   value={entry.deadline}
                   onChange={(e) => onUpdate(entry.id, 'deadline', e.target.value)}
                   error={!!deadlineErr}
                 />
+                <p className="text-[10px] text-muted-text/70 mt-0.5">Target deadline for this goal.</p>
                 {deadlineErr && <FieldError message={deadlineErr} />}
               </div>
             </div>

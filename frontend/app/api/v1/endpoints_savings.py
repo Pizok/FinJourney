@@ -21,8 +21,8 @@ router = APIRouter(prefix="/savings-targets", tags=["savings_targets"])
 
 
 @router.get("", response_model=list[SavingsTargetOut])
-def list_savings_targets(user: AuthUser, db: DBClient) -> Any:
-    response = (
+async def list_savings_targets(user: AuthUser, db: DBClient) -> Any:
+    response = await (
         db.table("savings_targets")
         .select("*")
         .eq("user_id", user.user_id)
@@ -34,20 +34,20 @@ def list_savings_targets(user: AuthUser, db: DBClient) -> Any:
 
 
 @router.post("", response_model=SavingsTargetOut, status_code=status.HTTP_201_CREATED)
-def create_savings_target(
+async def create_savings_target(
     payload: SavingsTargetCreate, user: AuthUser, db: DBClient
 ) -> Any:
     row_data = payload.model_dump(mode="json")
     row_data["user_id"] = user.user_id
-    response = db.table("savings_targets").insert(row_data).execute()
+    response = await db.table("savings_targets").insert(row_data).execute()
     
     # Trigger scalar recalculation
-    recalculate_scalars(db, user.user_id)
+    await recalculate_scalars(db, user.user_id)
     return response.data[0]
 
 
 @router.patch("/{target_id}", response_model=SavingsTargetOut)
-def update_savings_target(
+async def update_savings_target(
     target_id: UUID, payload: SavingsTargetUpdate, user: AuthUser, db: DBClient
 ) -> Any:
     updates = payload.model_dump(exclude_unset=True, mode="json")
@@ -57,7 +57,7 @@ def update_savings_target(
             detail="No fields provided to update.",
         )
 
-    response = (
+    response = await (
         db.table("savings_targets")
         .update(updates)
         .eq("id", str(target_id))
@@ -69,17 +69,17 @@ def update_savings_target(
         raise HTTPException(status_code=404, detail="Savings target not found")
 
     # Trigger scalar recalculation
-    recalculate_scalars(db, user.user_id)
+    await recalculate_scalars(db, user.user_id)
     return response.data[0]
 
 
-from datetime import datetime, timezone
-
 @router.delete("/{target_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_savings_target(target_id: UUID, user: AuthUser, db: DBClient) -> None:
-    response = (
+async def delete_savings_target(target_id: UUID, user: AuthUser, db: DBClient) -> None:
+    from datetime import datetime, timezone
+    now_utc = datetime.now(timezone.utc).isoformat()
+    response = await (
         db.table("savings_targets")
-        .update({"deleted_at": datetime.now(timezone.utc).isoformat()})
+        .update({"deleted_at": now_utc})
         .eq("id", str(target_id))
         .eq("user_id", user.user_id)
         .is_("deleted_at", "null")
@@ -89,14 +89,14 @@ def delete_savings_target(target_id: UUID, user: AuthUser, db: DBClient) -> None
         raise HTTPException(status_code=404, detail="Savings target not found")
 
     # Trigger scalar recalculation
-    recalculate_scalars(db, user.user_id)
+    await recalculate_scalars(db, user.user_id)
 
 
 @router.post("/{target_id}/log", response_model=LogSavingsResponse)
-def log_savings_endpoint(
+async def log_savings_endpoint(
     target_id: UUID, payload: LogSavingsRequest, user: AuthUser, db: DBClient
 ) -> Any:
-    updated_target = log_savings(
+    updated_target = await log_savings(
         client=db,
         user_id=user.user_id,
         target_id=str(target_id),
@@ -104,4 +104,11 @@ def log_savings_endpoint(
         wallet_id=str(payload.wallet_id),
         note=payload.note,
     )
-    return {"success": True, "savings_target": updated_target}
+    
+    # Note: log_savings only impacts the current_amount, 
+    # not the monthly_contribution, so recalculate_scalars is not strictly needed.
+    
+    return {
+        "success": True,
+        "data": updated_target
+    }

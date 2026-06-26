@@ -25,7 +25,7 @@
 import { useState, useCallback } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  BaseModal, FormField, FormInput, FormTextarea, FormSelect,
+  BaseModal, FormField, FormInput, FormCurrencyInput, FormTextarea, FormSelect,
   ModalFooter, PrimaryButton, GhostButton,
 } from './BaseModal';
 import { useWalletStore } from '@/components/finance/stores/walletStore';
@@ -261,15 +261,12 @@ export function AddTransactionModal() {
             >
               Rp
             </span>
-            <FormInput
+            <FormCurrencyInput
               id="tx-amount"
-              type="number"
               value={values.amount}
               onChange={(e) => setField('amount', e.target.value)}
               placeholder="0"
               hasError={Boolean(errors.amount)}
-              min={0}
-              step={1000}
               className="pl-9"
               autoComplete="off"
             />

@@ -21,7 +21,7 @@ class PlayerPath(str, Enum):
     """The four selectable progression paths available to a player."""
 
     SENTINEL = "SENTINEL"
-    CATALYST = "CATALYST"
+    VANGUARD = "VANGUARD"
     PHANTOM = "PHANTOM"
     UNASSIGNED = "UNASSIGNED"
 
@@ -73,7 +73,7 @@ class PathChangeRequest(BaseModel):
         if v == PlayerPath.UNASSIGNED:
             raise ValueError(
                 "UNASSIGNED is a system-only state. "
-                "Select one of: SENTINEL, CATALYST, PHANTOM."
+                "Select one of: SENTINEL, VANGUARD, PHANTOM."
             )
         return v
 
@@ -183,6 +183,24 @@ class CronSystemCleanupRequest(BaseModel):
     """
 
     model_config = {"extra": "forbid"}
+
+
+class CronEveningReminderRequest(BaseModel):
+    """
+    Optional override body for the POST /cron/evening-reminder webhook.
+
+    When provided, bypasses the auto-detection of evening timezones and
+    processes the given timezone/date directly — useful for testing.
+
+    Fields:
+        target_timezone: IANA timezone string, e.g. "Asia/Jakarta".
+        trigger_date:    ISO-8601 date string for today's local date.
+    """
+
+    model_config = {"extra": "forbid"}
+
+    target_timezone: str = ""
+    trigger_date: str = ""
 
 
 # ---------------------------------------------------------------------------

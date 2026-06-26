@@ -163,7 +163,7 @@ _BASE_XP: dict[str, int] = {
 
 # Path-specific XP overrides keyed by (path, action).
 _PATH_XP_OVERRIDES: dict[str, dict[str, int]] = {
-    "CATALYST": {"income_logged": 10},
+    "VANGUARD": {"income_logged": 10},
     "PHANTOM": {"zero_spend_claimed": 15},
 }
 
@@ -425,7 +425,7 @@ async def handle_income_logged(ctx: "EventContext") -> None:
       INCOME_LOGGED
         ├─ If PENDING → transition survival state to SAFE_LOGGED
         │  (Income does NOT revoke SAFE_CLAIMED — only expenses do)
-        └─ [ONCE/DAY cap] emit XP_CHANGED (+5, or +10 for CATALYST path)
+        └─ [ONCE/DAY cap] emit XP_CHANGED (+5, or +10 for VANGUARD path)
 
     Publish: Journal ("Logged Income: Rp X")
 
@@ -911,6 +911,31 @@ async def handle_ghost_penalty_applied(ctx: "EventContext") -> None:
         action_type="navigate_to_dashboard",
     )
 
+    # -- Email: hazard_alerts pref check --
+    try:
+        from app.journey.repos.notification_repo import get_notification_prefs
+        from app.services.user_lookup_svc import get_user_email, get_user_display_name
+        from app.services.email_svc import send_hazard_alert as _send_hazard
+
+        prefs = await get_notification_prefs(ctx.db, ctx.user_id)
+        if prefs.get("hazard_alerts", True):
+            email = await get_user_email(ctx.db, ctx.user_id)
+            if email:
+                name = await get_user_display_name(ctx.db, ctx.user_id)
+                profile_snap = await ProfileRepository(ctx.db).get_profile(ctx.user_id)
+                new_hp_snap = profile_snap.get("current_hp", 100) if profile_snap else 100
+                await _send_hazard(
+                    to=email,
+                    username=name,
+                    current_hp=new_hp_snap,
+                    source_event="GHOST_PENALTY",
+                )
+    except Exception as _email_exc:
+        logger.warning(
+            "GHOST_PENALTY_APPLIED: email dispatch failed for user=%s -- %s",
+            ctx.user_id, _email_exc,
+        )
+
 
 @on("SHIELD_GENERATED")
 async def handle_shield_generated(ctx: "EventContext") -> None:
@@ -1212,6 +1237,32 @@ async def handle_region_shift_completed(ctx: "EventContext") -> None:
         action_type="open_passport",
     )
 
+    # -- Email: achievement_notifications pref check --
+    try:
+        from app.journey.repos.notification_repo import get_notification_prefs
+        from app.services.user_lookup_svc import get_user_email, get_user_display_name
+        from app.services.email_svc import send_achievement as _send_achievement
+
+        prefs = await get_notification_prefs(ctx.db, ctx.user_id)
+        if prefs.get("achievement_notifications", True):
+            email = await get_user_email(ctx.db, ctx.user_id)
+            if email:
+                name = await get_user_display_name(ctx.db, ctx.user_id)
+                await _send_achievement(
+                    to=email,
+                    username=name,
+                    achievement_type="region",
+                    details={
+                        "region_name": next_label,
+                        "previous_region": previous_label,
+                    },
+                )
+    except Exception as _email_exc:
+        logger.warning(
+            "REGION_SHIFT_COMPLETED: email dispatch failed for user=%s -- %s",
+            ctx.user_id, _email_exc,
+        )
+
 
 # ===========================================================================
 # ── ENGINE EVENT HANDLERS ───────────────────────────────────────────────────
@@ -1375,7 +1426,7 @@ async def handle_hp_changed(ctx: "EventContext") -> None:
         ctx.user_id, delta, old_hp, new_hp, new_vitality, source_event,
     )
 
-    # ── Critical Failure gate ─────────────────────────────────────────────────
+    # -- Critical Failure gate ─────────────────────────────────────────────────
     if new_hp == 0:
         idem_key = event_repo.build_idempotency_key(
             ctx.user_id, local_date, "hp_critical_failure"
@@ -1388,6 +1439,32 @@ async def handle_hp_changed(ctx: "EventContext") -> None:
             idempotency_key=idem_key,
             payload={"final_hp": 0, "source_event": source_event},
         )
+
+    # -- Email: hazard_alerts pref check (only on damage events entering HAZARD zone) --
+    # Only send if delta is negative, new HP is in the HAZARD band (1-30), and the HP
+    # did not just hit 0 (HP_CRITICAL_FAILURE has its own notification path).
+    if delta < 0 and 1 <= new_hp <= 30:
+        try:
+            from app.journey.repos.notification_repo import get_notification_prefs
+            from app.services.user_lookup_svc import get_user_email, get_user_display_name
+            from app.services.email_svc import send_hazard_alert as _send_hazard
+
+            prefs = await get_notification_prefs(ctx.db, ctx.user_id)
+            if prefs.get("hazard_alerts", True):
+                email = await get_user_email(ctx.db, ctx.user_id)
+                if email:
+                    name = await get_user_display_name(ctx.db, ctx.user_id)
+                    await _send_hazard(
+                        to=email,
+                        username=name,
+                        current_hp=new_hp,
+                        source_event=source_event,
+                    )
+        except Exception as _email_exc:
+            logger.warning(
+                "HP_CHANGED: email dispatch failed for user=%s -- %s",
+                ctx.user_id, _email_exc,
+            )
 
 
 @on("OVERSPEND_DETECTED")
@@ -1537,6 +1614,36 @@ async def handle_level_up(ctx: "EventContext") -> None:
             payload={"level": new_level, "feature_key": feature_key},
         )
 
+    # -- Email: achievement_notifications pref check --
+    try:
+        from app.journey.repos.notification_repo import get_notification_prefs
+        from app.services.user_lookup_svc import get_user_email, get_user_display_name
+        from app.services.email_svc import send_achievement as _send_achievement
+
+        prefs = await get_notification_prefs(ctx.db, ctx.user_id)
+        if prefs.get("achievement_notifications", True):
+            email = await get_user_email(ctx.db, ctx.user_id)
+            if email:
+                name = await get_user_display_name(ctx.db, ctx.user_id)
+                total_xp: int = ctx.payload.get("total_xp", 0)
+                features = LEVEL_UNLOCK_REGISTRY.get(new_level, [])
+                await _send_achievement(
+                    to=email,
+                    username=name,
+                    achievement_type="level_up",
+                    details={
+                        "old_level": old_level,
+                        "new_level": new_level,
+                        "total_xp": total_xp,
+                        "features_unlocked": features,
+                    },
+                )
+    except Exception as _email_exc:
+        logger.warning(
+            "LEVEL_UP: email dispatch failed for user=%s -- %s",
+            ctx.user_id, _email_exc,
+        )
+
 
 @on("FEATURE_UNLOCKED")
 async def handle_feature_unlocked(ctx: "EventContext") -> None:
@@ -1664,6 +1771,29 @@ async def handle_quarter_completed(ctx: "EventContext") -> None:
         action_payload={"challenge_id": challenge_id},
     )
 
+    # -- Email: achievement_notifications pref check --
+    try:
+        from app.journey.repos.notification_repo import get_notification_prefs
+        from app.services.user_lookup_svc import get_user_email, get_user_display_name
+        from app.services.email_svc import send_achievement as _send_achievement
+
+        prefs = await get_notification_prefs(ctx.db, ctx.user_id)
+        if prefs.get("achievement_notifications", True):
+            email = await get_user_email(ctx.db, ctx.user_id)
+            if email:
+                name = await get_user_display_name(ctx.db, ctx.user_id)
+                await _send_achievement(
+                    to=email,
+                    username=name,
+                    achievement_type="quarter",
+                    details={"challenge_id": challenge_id},
+                )
+    except Exception as _email_exc:
+        logger.warning(
+            "QUARTER_COMPLETED: email dispatch failed for user=%s -- %s",
+            ctx.user_id, _email_exc,
+        )
+
 
 @on("PASSPORT_STAMP_EARNED")
 async def handle_passport_stamp_earned(ctx: "EventContext") -> None:
@@ -1697,3 +1827,26 @@ async def handle_passport_stamp_earned(ctx: "EventContext") -> None:
         ),
         action_type="open_passport",
     )
+
+    # -- Email: achievement_notifications pref check --
+    try:
+        from app.journey.repos.notification_repo import get_notification_prefs
+        from app.services.user_lookup_svc import get_user_email, get_user_display_name
+        from app.services.email_svc import send_achievement as _send_achievement
+
+        prefs = await get_notification_prefs(ctx.db, ctx.user_id)
+        if prefs.get("achievement_notifications", True):
+            email = await get_user_email(ctx.db, ctx.user_id)
+            if email:
+                name = await get_user_display_name(ctx.db, ctx.user_id)
+                await _send_achievement(
+                    to=email,
+                    username=name,
+                    achievement_type="stamp",
+                    details={"region_name": region_label},
+                )
+    except Exception as _email_exc:
+        logger.warning(
+            "PASSPORT_STAMP_EARNED: email dispatch failed for user=%s -- %s",
+            ctx.user_id, _email_exc,
+        )

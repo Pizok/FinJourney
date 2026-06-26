@@ -45,10 +45,14 @@ const savingsGoalSchema = z.object({
     .min(1, 'Goal name is required.')
     .max(100, 'Goal name must be 100 characters or fewer.'),
 
-  amount: z.coerce
+  amount: z.preprocess((val) => {
+    if (typeof val === 'string') return Number(val.replace(/\D/g, ''))
+    return Number(val)
+  }, z.coerce
     .number()
     .int('Amount must be a whole number.')
-    .positive('Amount must be greater than zero.'),
+    .positive('Amount must be greater than zero.')
+  ),
 
   deadline: z
     .string()
@@ -287,12 +291,17 @@ function ModalBody({ onClose }: { onClose: () => void }) {
             </span>
             <input
               id="goal-amount"
-              type="number"
-              min={1}
-              step={100_000}
-              placeholder="10,000,000"
+              type="text"
+              inputMode="numeric"
+              placeholder="10.000.000"
               className={cn(inputClass(!!errors.amount), 'pl-10')}
-              {...register('amount')}
+              {...register('amount', {
+                onChange: (e) => {
+                  const rawValue = e.target.value.replace(/\D/g, '')
+                  const formatted = rawValue ? parseInt(rawValue, 10).toLocaleString('id-ID') : ''
+                  e.target.value = formatted
+                }
+              })}
             />
           </div>
         </Field>
