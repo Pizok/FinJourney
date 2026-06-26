@@ -42,6 +42,7 @@ CREATE TABLE public.wallets (
   color_token text,
   created_at timestamp with time zone DEFAULT now(),
   deleted_at timestamp with time zone,
+  visible_category_ids ARRAY DEFAULT '{}'::uuid[],
   CONSTRAINT wallets_pkey PRIMARY KEY (id),
   CONSTRAINT wallets_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.journey_profiles(id)
 );
