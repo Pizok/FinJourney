@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import uuid
 from supabase import AsyncClient
 
 
@@ -34,33 +35,32 @@ async def insert_game_event(
     db: AsyncClient,
     user_id: str,
     event_type: str,
-    xp_delta: float = 0.0,
-    hp_delta: float = 0.0,
-    gold_delta: float = 0.0,
-    shield_delta: float = 0.0,
-    source_id: str | None = None,
+    xp_delta: int = 0,
+    hp_delta: int = 0,
+    shield_delta: int = 0,
+    source: str = "SYSTEM",
     metadata: dict | None = None,
+    severity: str = "INFO",
+    status: str = "PROCESSED",
 ) -> dict:
     """Append to the immutable event ledger. Never call UPDATE or DELETE on journey_events."""
     
-    # Map old columns to new journey_events schema
-    actual_metadata = metadata or {}
-    if gold_delta:
-        actual_metadata["gold_delta"] = gold_delta
+    actual_payload = metadata or {}
         
     result = await (
         db.table("journey_events")
         .insert(
             {
+                "idempotency_key": str(uuid.uuid4()),
                 "user_id": user_id,
                 "event_type": event_type,
                 "xp_delta": xp_delta,
                 "hp_delta": hp_delta,
                 "shield_delta": shield_delta,
-                "source": source_id or "system",
-                "severity": "info",
-                "status": "applied",
-                "metadata": actual_metadata,
+                "source": source,
+                "severity": severity,
+                "status": status,
+                "payload": actual_payload,
             }
         )
         .execute()
@@ -143,7 +143,7 @@ async def fetch_transactions(
 ) -> list[dict]:
     query = (
         db.table("transactions")
-        .select("id, primary_wallet_id, category_id, type, amount, note, logged_at")
+        .select("id, primary_wallet_id, category_id, type, amount, note, logged_at, wallets!transactions_primary_wallet_id_fkey(name), categories(name)")
         .eq("user_id", user_id)
         .is_("deleted_at", "null")
         .order("logged_at", desc=True)
@@ -158,7 +158,17 @@ async def fetch_transactions(
         query = query.eq("type", tx_type)
 
     result = await query.execute()
-    data = result.data or []
-    for tx in data:
-        tx["wallet_id"] = tx.pop("primary_wallet_id", None)
-    return data
+    
+    # Map to frontend schema
+    transactions = []
+    for tx in (result.data if result.data else []):
+        mapped = dict(tx)
+        mapped["wallet_id"] = mapped.pop("primary_wallet_id", None)
+        mapped["created_at"] = mapped.pop("logged_at", None)
+        w = mapped.pop("wallets", None)
+        mapped["wallet_name"] = w.get("name") if isinstance(w, dict) else None
+        c = mapped.pop("categories", None)
+        mapped["category_name"] = c.get("name") if isinstance(c, dict) else None
+        transactions.append(mapped)
+        
+    return transactions

@@ -38,6 +38,8 @@ async def create_savings_target(
     payload: SavingsTargetCreate, user: AuthUser, db: DBClient
 ) -> Any:
     row_data = payload.model_dump(mode="json")
+    if "monthly_contribution" in row_data:
+        row_data["monthly_contribution_target"] = row_data.pop("monthly_contribution")
     row_data["user_id"] = user.user_id
     response = await db.table("savings_targets").insert(row_data).execute()
     
@@ -51,6 +53,9 @@ async def update_savings_target(
     target_id: UUID, payload: SavingsTargetUpdate, user: AuthUser, db: DBClient
 ) -> Any:
     updates = payload.model_dump(exclude_unset=True, mode="json")
+    if "monthly_contribution" in updates:
+        updates["monthly_contribution_target"] = updates.pop("monthly_contribution")
+
     if not updates:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

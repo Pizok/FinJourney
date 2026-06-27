@@ -2,7 +2,7 @@ from fastapi import APIRouter, status
 from pydantic import BaseModel
 from typing import Optional
 from app.api.v1.dependencies import AuthUser, DbClient
-from app.db.queries.loans_queries import insert_loan, update_loan, soft_delete_loan
+from app.db.queries.loans_queries import insert_loan, update_loan, hard_delete_loan
 
 router = APIRouter(prefix="/loans", tags=["loans"])
 
@@ -63,11 +63,11 @@ async def patch_loan(
 @router.delete(
     "/{loan_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="Soft-delete a loan",
+    summary="Hard-delete a loan",
 )
 async def delete_loan(
     loan_id: str,
     user: AuthUser,
     db: DbClient,
 ):
-    await soft_delete_loan(db, loan_id, user.user_id)
+    await hard_delete_loan(db, loan_id, user.user_id)

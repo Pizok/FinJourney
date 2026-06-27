@@ -8,6 +8,7 @@ from app.db.queries.daily_queries import (
     fetch_daily_status,
     fetch_streak,
     fetch_tasks,
+    fetch_active_challenge,
 )
 from app.db.queries.profile_queries import (
     fetch_categories,
@@ -51,6 +52,7 @@ async def build_bootstrap_payload(db: AsyncClient, user_id: str) -> dict:
         daily_raw,
         streak,
         recent_transactions,
+        active_challenge,
     ) = await asyncio.gather(
         fetch_wallets(db, user_id),
         fetch_categories(db, user_id),
@@ -59,7 +61,8 @@ async def build_bootstrap_payload(db: AsyncClient, user_id: str) -> dict:
         fetch_active_region(db, user_id),
         fetch_daily_status(db, user_id, user_tz),
         fetch_streak(db, user_id),
-        fetch_transactions(db, user_id, limit=5),
+        fetch_transactions(db, user_id, limit=10),
+        fetch_active_challenge(db, user_id),
     )
 
     # ── Derived daily status ──────────────────────────────────────────────────
@@ -72,6 +75,10 @@ async def build_bootstrap_payload(db: AsyncClient, user_id: str) -> dict:
         )
 
     spent_today: float = daily_raw.get("spent_today", 0.0)
+    budget_percent_used: float = (
+        round((spent_today / daily_budget) * 100, 1) if daily_budget > 0 else 0.0
+    )
+    last_transaction_at = daily_raw.get("last_transaction_at")
 
     return {
         "profile": {
@@ -83,14 +90,24 @@ async def build_bootstrap_payload(db: AsyncClient, user_id: str) -> dict:
             "daily_budget": round(daily_budget, 2),
             "spent_today": round(spent_today, 2),
             "remaining_budget": round(daily_budget - spent_today, 2),
+            "budget_percent_used": budget_percent_used,
             "streak_count": streak,
             "zero_spend_marked": daily_raw.get("zero_spend_marked", False),
+            "expense_logged_today": daily_raw.get("expense_logged_today", False),
+            "income_logged_today": daily_raw.get("income_logged_today", False),
+            "standby_active": False,
+            "last_transaction_at": last_transaction_at,
+            "ghost_warning": False,
+            "ghost_penalty_active": False,
             "baseline_set": bool(baselines),
+            "tasks_completed": 0,
+            "tasks_total": len(tasks),
         },
         "wallets": wallets,
         "categories": categories,
         "tasks": tasks,
         "active_region": active_region,
+        "active_challenge": active_challenge,
         "recent_transactions": recent_transactions,
         "feature_unlocks": get_feature_unlocks(level),
     }

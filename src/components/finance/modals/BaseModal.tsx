@@ -260,6 +260,7 @@ export const inputBase = [
   'placeholder:text-[var(--color-muted-text)]',
   'transition-colors duration-150',
   'focus:outline-none focus:border-[var(--color-muted-emerald)]',
+  '[color-scheme:dark]',
 ].join(' ');
 
 export const inputError = 'border-[var(--color-terracotta)] focus:border-[var(--color-terracotta)]';

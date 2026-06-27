@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { Shield, Coins, CheckSquare } from 'lucide-react';
+import { Shield, CheckSquare, Flame, CheckCircle2 } from 'lucide-react';
 import { useDashboardData } from '../hooks/useDashboardData';
 import { hpBarColor, clampPercent, formatCurrency, initial } from '../utils/dashboard.helpers';
 
@@ -131,16 +131,17 @@ export function ProfileVitalsCard() {
         </p>
       )}
 
-      {/* XP Bar */}
-      <StatBar
-        label="XP"
-        value={player_state.xp}
-        percent={player_state.xp_progress_percent}
-        barClass="bg-dawn-gold"
-        detail={xpLabel}
-      />
+      {/* XP (Text Only) */}
+      <div className="flex items-center justify-between">
+        <span className="font-sans text-xs uppercase tracking-widest text-muted-text">
+          XP
+        </span>
+        <span className="font-sans text-xs text-muted-text">
+          {xpLabel}
+        </span>
+      </div>
 
-      {/* Shield + Gold */}
+      {/* Shield + Streak */}
       <div className="grid grid-cols-2 gap-3 pt-1">
         <SmallStat
           icon={Shield}
@@ -148,21 +149,59 @@ export function ProfileVitalsCard() {
           value={String(player_state.shield)}
         />
         <SmallStat
-          icon={Coins}
-          label="Gold"
-          value={String(player_state.gold)}
+          icon={Flame}
+          label="Streak"
+          value={`${player_state.current_streak || 0} days`}
         />
       </div>
 
-      {/* Task Progress */}
-      <div className="flex items-center gap-2 pt-1 border-t border-tactical-border">
-        <CheckSquare size={13} strokeWidth={2} className="text-muted-text flex-shrink-0" />
-        <span className="font-sans text-xs text-muted-text">
-          Daily Tasks:{' '}
-          <span className="text-pearl-text font-medium">
-            {daily_status.tasks_completed}/{daily_status.tasks_total} Complete
+      {/* Daily Log Status */}
+      <div className="flex flex-col gap-2 pt-3 border-t border-tactical-border">
+        <div className="flex items-center gap-2">
+          <CheckSquare size={14} strokeWidth={2} className="text-muted-text flex-shrink-0" />
+          <span className="font-sans text-xs text-muted-text">
+            Daily XP Opportunities:
           </span>
-        </span>
+        </div>
+        <div className="pl-6 flex flex-col gap-1.5">
+          <div className="flex items-start gap-2">
+            <CheckCircle2 
+              size={12} 
+              strokeWidth={2.5} 
+              className={`mt-0.5 flex-shrink-0 ${
+                daily_status.expense_logged_today || daily_status.zero_spend_marked 
+                  ? 'text-muted-emerald' 
+                  : 'text-muted-text/50'
+              }`} 
+            />
+            <span className={`font-sans text-[11px] leading-tight ${
+              daily_status.expense_logged_today || daily_status.zero_spend_marked 
+                ? 'text-muted-emerald line-through opacity-80' 
+                : 'text-muted-text'
+            }`}>
+              Log an expense (or Zero-Spend) to earn +5 XP
+            </span>
+          </div>
+          
+          <div className="flex items-start gap-2">
+            <CheckCircle2 
+              size={12} 
+              strokeWidth={2.5} 
+              className={`mt-0.5 flex-shrink-0 ${
+                daily_status.income_logged_today
+                  ? 'text-muted-emerald' 
+                  : 'text-muted-text/50'
+              }`} 
+            />
+            <span className={`font-sans text-[11px] leading-tight ${
+                daily_status.income_logged_today
+                  ? 'text-muted-emerald line-through opacity-80' 
+                  : 'text-muted-text'
+            }`}>
+              Log an income today to earn +5 XP
+            </span>
+          </div>
+        </div>
       </div>
     </article>
   );

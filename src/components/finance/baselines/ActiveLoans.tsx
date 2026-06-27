@@ -19,9 +19,12 @@
 import { useState } from 'react';
 import { CalendarClock, PlusCircle, TrendingDown } from 'lucide-react';
 import { useWalletStore } from '@/components/finance/stores/walletStore';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Progress } from '@/components/ui/Progress';
 import type { Loan } from '@/types/wallet.types';
 import { AddLoanModal } from '@/components/finance/modals/AddLoanModal';
+import { EditButton, RemoveButton } from './ActionButtons';
+import { apiFetchClient } from '@/lib/apiClient.client';
 import { toast } from 'sonner';
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
@@ -44,7 +47,51 @@ function formatDueDate(iso: string): string {
 
 // ─── LoanRow ──────────────────────────────────────────────────────────────────
 
-function LoanRow({ loan }: { loan: Loan }) {
+function LoanRow({ 
+  loan, 
+  onEdit, 
+  onDelete, 
+  isConfirmingDelete,
+  onConfirmDelete,
+  onCancelDelete,
+  isDeleting 
+}: { 
+  loan: Loan,
+  onEdit: () => void,
+  onDelete: () => void,
+  isConfirmingDelete: boolean,
+  onConfirmDelete: () => void,
+  onCancelDelete: () => void,
+  isDeleting: boolean
+}) {
+  if (isConfirmingDelete) {
+    return (
+      <div className="py-4">
+        <div className="flex flex-col gap-2 rounded-lg border border-[var(--color-terracotta)] bg-[var(--color-terracotta)]/5 px-4 py-3">
+          <p className="text-sm text-[var(--color-pearl-text)]">
+            Remove <strong>{loan.name}</strong>?
+          </p>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onConfirmDelete}
+              disabled={isDeleting}
+              className="text-xs font-medium text-[var(--color-terracotta)] hover:underline disabled:opacity-50"
+            >
+              {isDeleting ? 'Removing...' : 'Yes, remove'}
+            </button>
+            <button
+              onClick={onCancelDelete}
+              disabled={isDeleting}
+              className="text-xs font-medium text-[var(--color-muted-text)] hover:underline disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const remaining = loan.total_amount - loan.paid_amount;
   const progressPct = loan.total_amount > 0
     ? Math.min(100, Math.round((loan.paid_amount / loan.total_amount) * 100))
@@ -70,21 +117,27 @@ function LoanRow({ loan }: { loan: Loan }) {
           </p>
         </div>
 
-        {/* Remaining balance — Coral Danger palette */}
-        <div className="shrink-0 text-right">
-          <p
-            className="tabular-nums text-sm font-semibold text-[var(--color-terracotta)]"
-            style={{ fontFamily: 'var(--font-sans)' }}
-            aria-label={`${formatRupiah(remaining)} remaining`}
-          >
-            {formatRupiah(remaining)}
-          </p>
-          <p
-            className="text-[11px] text-[var(--color-muted-text)]"
-            style={{ fontFamily: 'var(--font-sans)' }}
-          >
-            remaining
-          </p>
+        {/* Remaining balance + action buttons */}
+        <div className="shrink-0 flex items-start gap-4">
+          <div className="text-right">
+            <p
+              className="tabular-nums text-sm font-semibold text-[var(--color-terracotta)]"
+              style={{ fontFamily: 'var(--font-sans)' }}
+              aria-label={`${formatRupiah(remaining)} remaining`}
+            >
+              {formatRupiah(remaining)}
+            </p>
+            <p
+              className="text-[11px] text-[var(--color-muted-text)]"
+              style={{ fontFamily: 'var(--font-sans)' }}
+            >
+              remaining
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0 -mt-1">
+            <EditButton ariaLabel={`Edit ${loan.name}`} onClick={onEdit} />
+            <RemoveButton ariaLabel={`Remove ${loan.name}`} onRemove={onDelete} />
+          </div>
         </div>
       </div>
 
@@ -161,7 +214,25 @@ function EmptyLoans({ onAdd }: { onAdd: () => void }) {
 
 export function ActiveLoans() {
   const loans = useWalletStore((s) => s.loans);
+  const queryClient = useQueryClient();
+
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [editingLoan, setEditingLoan] = useState<Loan | null>(null);
+  const [confirmDeleteLoanId, setConfirmDeleteLoanId] = useState<string | null>(null);
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiFetchClient(`loans/${id}`, { method: 'DELETE' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['wallet', 'bootstrap'] });
+      toast.success('Loan removed.');
+      setConfirmDeleteLoanId(null);
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to remove loan');
+    }
+  });
 
   const totalRemaining = loans.reduce(
     (sum, l) => sum + (l.total_amount - l.paid_amount),
@@ -222,7 +293,18 @@ export function ActiveLoans() {
           <div>
             {loans.map((loan, idx) => (
               <div key={loan.id}>
-                <LoanRow loan={loan} />
+                <LoanRow 
+                  loan={loan} 
+                  onEdit={() => {
+                    setEditingLoan(loan);
+                    setIsAddOpen(true);
+                  }}
+                  onDelete={() => setConfirmDeleteLoanId(loan.id)}
+                  isConfirmingDelete={confirmDeleteLoanId === loan.id}
+                  onConfirmDelete={() => deleteMutation.mutate(loan.id)}
+                  onCancelDelete={() => setConfirmDeleteLoanId(null)}
+                  isDeleting={deleteMutation.isPending}
+                />
                 {idx < loans.length - 1 && (
                   <div
                     className="border-t border-[var(--color-tactical-border)]/50"
@@ -249,7 +331,11 @@ export function ActiveLoans() {
       {/* Add Loan Modal */}
       <AddLoanModal
         isOpen={isAddOpen}
-        onClose={() => setIsAddOpen(false)}
+        onClose={() => {
+          setIsAddOpen(false);
+          setEditingLoan(null);
+        }}
+        initialData={editingLoan}
       />
     </>
   );

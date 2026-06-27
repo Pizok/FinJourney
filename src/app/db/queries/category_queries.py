@@ -29,7 +29,7 @@ from collections import defaultdict
 from datetime import date, datetime, timezone
 from typing import Any, Optional
 
-from supabase import Client
+from supabase import Client, AsyncClient
 
 
 # ---------------------------------------------------------------------------
@@ -65,7 +65,7 @@ def _current_month_bounds() -> tuple[str, str]:
     return month_start.isoformat(), month_end.isoformat()
 
 
-def _active_categories_query(client: Client, user_id: str):
+def _active_categories_query(client: AsyncClient, user_id: str):
     """Base query: all non-deleted categories belonging to user_id."""
     return (
         client.table("categories")
@@ -79,7 +79,7 @@ def _active_categories_query(client: Client, user_id: str):
 # Read
 # ---------------------------------------------------------------------------
 
-def get_categories_by_user(client: Client, user_id: str) -> list[dict[str, Any]]:
+async def get_categories_by_user(client: AsyncClient, user_id: str) -> list[dict[str, Any]]:
     """
     Fetch all active (non-deleted) categories for a user.
 
@@ -87,7 +87,7 @@ def get_categories_by_user(client: Client, user_id: str) -> list[dict[str, Any]]
     -------
     list[dict] — ordered by created_at ascending; empty list if none exist.
     """
-    response = (
+    response = await (
         _active_categories_query(client, user_id)
         .order("created_at", desc=False)
         .execute()
@@ -95,8 +95,8 @@ def get_categories_by_user(client: Client, user_id: str) -> list[dict[str, Any]]
     return response.data or []
 
 
-def get_category_by_id(
-    client: Client,
+async def get_category_by_id(
+    client: AsyncClient,
     category_id: str,
     user_id: str,
 ) -> Optional[dict[str, Any]]:
@@ -106,20 +106,20 @@ def get_category_by_id(
     Returns None if the category does not exist, is soft-deleted,
     or belongs to a different user. Used for ownership validation.
     """
-    response = (
+    response = await (
         client.table("categories")
         .select("*")
         .eq("id", category_id)
         .eq("user_id", user_id)
         .is_("deleted_at", "null")
-        .single()
+        .maybe_single()
         .execute()
     )
     return response.data
 
 
-def get_category_usage(
-    client: Client,
+async def get_category_usage(
+    client: AsyncClient,
     user_id: str,
     wallet_id: Optional[str] = None,
 ) -> list[dict[str, Any]]:
@@ -155,7 +155,7 @@ def get_category_usage(
         supabase.rpc("get_category_usage", {"p_user_id": user_id, ...})
     """
     # ── Step 1: All active categories ──────────────────────────────────────
-    categories = get_categories_by_user(client, user_id)
+    categories = await get_categories_by_user(client, user_id)
     if not categories:
         return []
 
@@ -176,7 +176,7 @@ def get_category_usage(
     if wallet_id is not None:
         expense_query = expense_query.eq("primary_wallet_id", wallet_id)
 
-    expense_response = expense_query.execute()
+    expense_response = await expense_query.execute()
     expenses: list[dict[str, Any]] = expense_response.data or []
 
     # ── Step 3: Group expenses by category_id ──────────────────────────────
@@ -226,8 +226,8 @@ def get_category_usage(
 # Create
 # ---------------------------------------------------------------------------
 
-def insert_category(
-    client: Client,
+async def insert_category(
+    client: AsyncClient,
     user_id: str,
     name: str,
     monthly_limit: int = 0,
@@ -253,7 +253,7 @@ def insert_category(
         "deleted_at":    None,
     }
 
-    response = (
+    response = await (
         client.table("categories")
         .insert(payload)
         .execute()
@@ -266,8 +266,8 @@ def insert_category(
 # Update
 # ---------------------------------------------------------------------------
 
-def update_category(
-    client: Client,
+async def update_category(
+    client: AsyncClient,
     category_id: str,
     user_id: str,
     updates: dict[str, Any],
@@ -294,7 +294,7 @@ def update_category(
             f"Allowed: {MUTABLE_FIELDS}"
         )
 
-    response = (
+    response = await (
         client.table("categories")
         .update(safe_updates)
         .eq("id", category_id)
@@ -310,8 +310,8 @@ def update_category(
 # Soft Delete
 # ---------------------------------------------------------------------------
 
-def soft_delete_category(
-    client: Client,
+async def soft_delete_category(
+    client: AsyncClient,
     category_id: str,
     user_id: str,
 ) -> None:
@@ -324,6 +324,6 @@ def soft_delete_category(
     The service layer is responsible for any precondition checks (e.g., warning
     the user that existing transactions reference this category before deletion).
     """
-    client.table("categories").update(
+    await client.table("categories").update(
         {"deleted_at": _now_utc()}
     ).eq("id", category_id).eq("user_id", user_id).is_("deleted_at", "null").execute()

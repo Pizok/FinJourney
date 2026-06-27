@@ -28,7 +28,7 @@
  * The structural role of a wallet.
  * Drives icon selection and downstream business-logic hints.
  */
-export type WalletType = 'cash' | 'bank' | 'credit';
+export type WalletType = 'cash' | 'bank' | 'savings' | 'investment' | 'credit' | 'e_wallet';
 
 /**
  * How a transaction was executed.
@@ -38,7 +38,10 @@ export type PaymentMethod =
   | 'cash'
   | 'debit_card'
   | 'credit_card'
-  | 'transfer';
+  | 'transfer'
+  | 'qr_code'
+  | 'e_wallet' // legacy
+  | 'other';   // legacy
 
 /**
  * The financial nature of a transaction.
@@ -212,9 +215,11 @@ export interface Transaction {
   type: TransactionType;
   /** Always > 0. Sign is inferred from `type`. */
   amount: number;
-  wallet_id: string;
+  wallet_id?: string;
   /** Denormalised wallet name — avoids a join in the UI. */
-  wallet_name: string;
+  wallet_name?: string;
+  source_wallet_id?: string;
+  destination_wallet_id?: string;
   /** Not present on transfers (no category required). */
   category_id?: string;
   category_name?: string;

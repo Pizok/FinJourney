@@ -7,6 +7,8 @@
 // =============================================================================
 
 import { useState, useEffect } from 'react';
+import { apiFetchClient } from '@/lib/apiClient.client';
+import { calculateMinimumSavings } from '@/lib/savings-utils';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   BaseModal,
@@ -122,6 +124,17 @@ export function AddSavingsTargetModal({ isOpen, onClose, initialData }: AddSavin
     onClose();
   };
 
+  const minimumContribution = calculateMinimumSavings(values.target_amount, values.current_amount, values.deadline);
+  const isSurplus = values.monthly_contribution > minimumContribution && minimumContribution > 0;
+
+  const handleMonthlyContributionBlur = () => {
+    if (values.target_amount > 0 && values.deadline) {
+      if (values.monthly_contribution < minimumContribution) {
+        setField('monthly_contribution', minimumContribution);
+      }
+    }
+  };
+
   function setField<K extends keyof FormValues>(key: K, value: FormValues[K]) {
     const next = { ...values, [key]: value };
     setValues(next);
@@ -130,22 +143,12 @@ export function AddSavingsTargetModal({ isOpen, onClose, initialData }: AddSavin
 
   const addMutation = useMutation({
     mutationFn: async (payload: FormValues) => {
-      const url = initialData ? `/api/v1/savings-targets/${initialData.id}` : '/api/v1/savings-targets';
+      const endpoint = initialData ? `savings-targets/${initialData.id}` : 'savings-targets';
       const method = initialData ? 'PATCH' : 'POST';
-      const response = await fetch(url, {
+      return apiFetchClient(endpoint, {
         method,
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      if (!response.ok) {
-        let msg = initialData ? 'Failed to update savings target' : 'Failed to add savings target';
-        try {
-          const errData = await response.json();
-          msg = errData.detail || msg;
-        } catch { /* ignore */ }
-        throw new Error(msg);
-      }
-      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['savings_targets'] });
@@ -230,12 +233,13 @@ export function AddSavingsTargetModal({ isOpen, onClose, initialData }: AddSavin
             label="Monthly Contribution"
             htmlFor="st-monthly"
             error={errors.monthly_contribution}
-            hint="Planned monthly deposit."
+            hint={isSurplus ? "Surplus active: You'll meet your target earlier! 🚀" : "Planned monthly deposit."}
           >
             <FormCurrencyInput
               id="st-monthly"
               value={values.monthly_contribution}
               onChange={(e) => setField('monthly_contribution', Number(e.target.value))}
+              onBlur={handleMonthlyContributionBlur}
               hasError={Boolean(errors.monthly_contribution)}
               placeholder="0"
             />

@@ -159,59 +159,60 @@ export function DeleteWalletModal() {
           To confirm, type the wallet name below.
         </p>
 
-        {/* Name confirmation input */}
-        <div className="flex flex-col gap-1.5">
-          {deleteError && (
-            <div className="mb-2 rounded border border-[var(--color-terracotta)]/50 bg-[var(--color-terracotta)]/10 px-3 py-2 text-sm text-[var(--color-terracotta)]" style={{ fontFamily: 'var(--font-sans)' }}>
-              {deleteError}
-            </div>
-          )}
-          <label
-            htmlFor="delete-wallet-confirm"
-            className="text-sm font-medium text-[var(--color-pearl-text)]"
-            style={{ fontFamily: 'var(--font-sans)' }}
-          >
-            Confirm wallet name
-          </label>
-          <input
-            id="delete-wallet-confirm"
-            type="text"
-            value={confirmText}
-            onChange={(e) => setConfirmText(e.target.value)}
-            // Exact placeholder copy per spec
-            placeholder="Type wallet name..."
-            disabled={isLastWallet || loading.mutation}
-            autoComplete="off"
-            className={[
-              inputBase,
-              !isLastWallet && confirmText && nameMatches
-                ? 'border-[var(--color-muted-emerald)]'
-                : !isLastWallet && confirmText && !nameMatches
-                  ? 'border-[var(--color-terracotta)]'
-                  : '',
-            ].join(' ')}
-            style={{ fontFamily: 'var(--font-sans)' }}
-          />
-          {/* Inline mismatch hint */}
-          {!isLastWallet && confirmText && !nameMatches && (
-            <p
-              className="text-xs text-[var(--color-terracotta)]"
-              style={{ fontFamily: 'var(--font-sans)' }}
-              role="alert"
-            >
-              Name doesn't match. Check capitalisation and spacing.
-            </p>
-          )}
-          {/* Match success hint */}
-          {!isLastWallet && nameMatches && confirmText && (
-            <p
-              className="text-xs text-[var(--color-muted-emerald)]"
+        {/* Name confirmation input — only shown when deletion is allowed */}
+        {!isLastWallet && (
+          <div className="flex flex-col gap-1.5">
+            {deleteError && (
+              <div className="mb-2 rounded border border-[var(--color-terracotta)]/50 bg-[var(--color-terracotta)]/10 px-3 py-2 text-sm text-[var(--color-terracotta)]" style={{ fontFamily: 'var(--font-sans)' }}>
+                {deleteError}
+              </div>
+            )}
+            <label
+              htmlFor="delete-wallet-confirm"
+              className="text-sm font-medium text-[var(--color-pearl-text)]"
               style={{ fontFamily: 'var(--font-sans)' }}
             >
-              Name confirmed. You may now delete this wallet.
-            </p>
-          )}
-        </div>
+              Confirm wallet name
+            </label>
+            <input
+              id="delete-wallet-confirm"
+              type="text"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder="Type wallet name..."
+              disabled={deleteWalletMutation.isPending}
+              autoComplete="off"
+              className={[
+                inputBase,
+                confirmText && nameMatches
+                  ? 'border-[var(--color-muted-emerald)]'
+                  : confirmText && !nameMatches
+                    ? 'border-[var(--color-terracotta)]'
+                    : '',
+              ].join(' ')}
+              style={{ fontFamily: 'var(--font-sans)' }}
+            />
+            {/* Inline mismatch hint */}
+            {confirmText && !nameMatches && (
+              <p
+                className="text-xs text-[var(--color-terracotta)]"
+                style={{ fontFamily: 'var(--font-sans)' }}
+                role="alert"
+              >
+                Name doesn't match. Check capitalisation and spacing.
+              </p>
+            )}
+            {/* Match success hint */}
+            {nameMatches && confirmText && (
+              <p
+                className="text-xs text-[var(--color-muted-emerald)]"
+                style={{ fontFamily: 'var(--font-sans)' }}
+              >
+                Name confirmed. You may now delete this wallet.
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Footer */}

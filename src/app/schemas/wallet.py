@@ -41,6 +41,7 @@ class WalletType(str, Enum):
     SAVINGS = "savings"
     INVESTMENT = "investment"
     CREDIT = "credit"
+    E_WALLET = "e_wallet"
 
 
 # ── Create ────────────────────────────────────────────────────────────────────

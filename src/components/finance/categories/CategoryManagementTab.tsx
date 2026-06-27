@@ -13,8 +13,10 @@ import { Pencil, Trash2, Plus, AlertCircle, LayoutGrid } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetchClient } from '@/lib/apiClient.client';
 import { Category } from '@/types/wallet.types';
+import { useState } from 'react';
 
 export function CategoryManagementTab() {
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const {
     categories,
     openAddCategory,
@@ -46,7 +48,8 @@ export function CategoryManagementTab() {
     }
   });
 
-  const handleDelete = (category: Category) => {
+  const confirmDelete = (category: Category) => {
+    setConfirmDeleteId(null);
     // 1. Optimistically remove from store
     removeCategory(category.id);
     
@@ -152,21 +155,41 @@ export function CategoryManagementTab() {
                 </div>
                 
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => openEditCategory(category.id)}
-                    className="flex h-8 w-8 items-center justify-center rounded-md text-[var(--color-muted-text)] transition-colors hover:bg-[var(--color-abyssal-slate)] hover:text-[var(--color-pearl-text)]"
-                    aria-label={`Edit ${category.name}`}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(category)}
-                    disabled={deleteCategoryMutation.isPending}
-                    className="flex h-8 w-8 items-center justify-center rounded-md text-[var(--color-muted-text)] transition-colors hover:bg-[var(--color-terracotta)]/10 hover:text-[var(--color-terracotta)] disabled:opacity-50 disabled:cursor-not-allowed"
-                    aria-label={`Delete ${category.name}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  {confirmDeleteId === category.id ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-[var(--color-terracotta)] font-medium">Remove?</span>
+                      <button
+                        onClick={() => confirmDelete(category)}
+                        className="rounded bg-[var(--color-terracotta)] px-2 py-1 text-xs font-semibold text-white transition-colors hover:bg-red-600"
+                      >
+                        Yes
+                      </button>
+                      <button
+                        onClick={() => setConfirmDeleteId(null)}
+                        className="rounded bg-[var(--color-abyssal-slate)] px-2 py-1 text-xs font-semibold text-[var(--color-pearl-text)] transition-colors hover:bg-gray-600"
+                      >
+                        No
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => openEditCategory(category.id)}
+                        className="flex h-8 w-8 items-center justify-center rounded-md text-[var(--color-muted-text)] transition-colors hover:bg-[var(--color-abyssal-slate)] hover:text-[var(--color-pearl-text)]"
+                        aria-label={`Edit ${category.name}`}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => setConfirmDeleteId(category.id)}
+                        disabled={deleteCategoryMutation.isPending}
+                        className="flex h-8 w-8 items-center justify-center rounded-md text-[var(--color-muted-text)] transition-colors hover:bg-[var(--color-terracotta)]/10 hover:text-[var(--color-terracotta)] disabled:opacity-50 disabled:cursor-not-allowed"
+                        aria-label={`Delete ${category.name}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </>
+                  )}
                 </div>
               </li>
             ))}

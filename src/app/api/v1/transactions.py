@@ -23,13 +23,13 @@ async def get_transactions(
     type: str | None = Query(default=None),
 ):
     data = await list_transactions(
-        db=db,
-        user_id=user["id"],
+        client=db,
+        user_id=user.user_id,
         limit=limit,
-        offset=offset,
+        page=(offset // limit) + 1,
         wallet_id=wallet_id,
         category_id=category_id,
-        tx_type=type,
+        txn_type=type,
     )
     return {"success": True, "data": data}
 
@@ -49,19 +49,9 @@ async def post_transaction(
     if the user is over budget, and appends all state changes to game_events.
     Returns the created transaction alongside the updated player state.
     """
-    profile = await fetch_profile(db, user["id"])
-    if not profile:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found.")
-
-    player_state = await fetch_player_state(db, user["id"])
-    if not player_state:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Player state not found.")
-
     result = await create_transaction(
-        db=db,
-        user_id=user["id"],
-        user_tz=profile.get("timezone", "UTC"),
-        player_state=player_state,
+        client=db,
+        user_id=user.user_id,
         payload=payload,
     )
     return {"success": True, "data": result}
@@ -96,10 +86,6 @@ async def patch_transaction(
 
 @router.delete("/transactions/{tx_id}", summary="Soft-delete a transaction")
 async def remove_transaction(user: AuthUser, db: DbClient, tx_id: str):
-    result = await delete_transaction(db, tx_id, user.user_id)
-    if not result.get("found"):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Transaction not found or already deleted.",
-        )
-    return {"success": True, "data": {"deleted": True, "id": tx_id}}
+    from app.services.transaction_service import delete_transaction
+    await delete_transaction(client=db, transaction_id=tx_id, user_id=user.user_id)
+    return {"success": True}

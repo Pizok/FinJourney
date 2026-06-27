@@ -21,6 +21,8 @@
 // =============================================================================
 
 import { useState, useEffect, useCallback } from 'react';
+import { Calendar, Wallet as WalletIcon, CheckCircle2, ChevronDown } from 'lucide-react';
+import { apiFetchClient } from '@/lib/apiClient.client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   BaseModal, FormField, FormInput, FormCurrencyInput, FormTextarea, FormSelect,
@@ -35,6 +37,9 @@ import type { PaymentMethod } from '@/types/wallet.types';
 
 interface FormValues {
   amount: string;
+  wallet_id: string;
+  source_wallet_id: string;
+  destination_wallet_id: string;
   category_id: string;
   payment_method: PaymentMethod;
   note: string;
@@ -42,6 +47,9 @@ interface FormValues {
 
 interface FormErrors {
   amount?: string;
+  wallet_id?: string;
+  source_wallet_id?: string;
+  destination_wallet_id?: string;
 }
 
 function validate(v: FormValues): FormErrors {
@@ -52,6 +60,12 @@ function validate(v: FormValues): FormErrors {
   } else if (n <= 0) {
     e.amount = 'Amount must be greater than 0.';
   }
+
+  // When we add wallet editing (wallet_id is passed down for income/expense)
+  if (v.source_wallet_id && v.destination_wallet_id && v.source_wallet_id === v.destination_wallet_id) {
+    e.destination_wallet_id = 'Source and destination must be different.';
+  }
+
   return e;
 }
 
@@ -59,7 +73,8 @@ const PAYMENT_OPTIONS: { value: PaymentMethod; label: string }[] = [
   { value: 'cash',        label: 'Cash' },
   { value: 'debit_card',  label: 'Debit Card' },
   { value: 'credit_card', label: 'Credit Card' },
-  { value: 'transfer',    label: 'Transfer' },
+  { value: 'transfer',    label: 'Bank/E-wallet Transfer' },
+  { value: 'qr_code',     label: 'QR Code' },
 ];
 
 const TYPE_LABELS: Record<string, string> = {
@@ -74,6 +89,7 @@ const TYPE_LABELS: Record<string, string> = {
 
 export function EditTransactionModal() {
   const {
+    wallets,
     categories,
     loading,
     ui: { isEditTransactionOpen },
@@ -86,6 +102,9 @@ export function EditTransactionModal() {
 
   const [values, setValues] = useState<FormValues>({
     amount: '',
+    wallet_id: '',
+    source_wallet_id: '',
+    destination_wallet_id: '',
     category_id: '',
     payment_method: 'cash',
     note: '',
@@ -98,8 +117,11 @@ export function EditTransactionModal() {
     if (transaction) {
       setValues({
         amount:         String(transaction.amount),
+        wallet_id:      transaction.wallet_id ?? '',
+        source_wallet_id: transaction.source_wallet_id ?? '',
+        destination_wallet_id: transaction.destination_wallet_id ?? '',
         category_id:    transaction.category_id ?? '',
-        payment_method: transaction.payment_method,
+        payment_method: transaction.payment_method ?? 'cash',
         note:           transaction.note ?? '',
       });
       setErrors({});
@@ -123,17 +145,11 @@ export function EditTransactionModal() {
 
   const updateTransactionMutation = useMutation({
     mutationFn: async (payload: any) => {
-      if (!transaction) throw new Error('No transaction selected');
-      const response = await fetch(`/api/v1/transactions/${transaction.id}`, {
+      if (!transaction) throw new Error('No transaction to edit');
+      return apiFetchClient(`transactions/${transaction.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const json = await response.json();
-      if (!response.ok || !json.success) {
-        throw new Error(json.error?.message || 'Failed to update transaction');
-      }
-      return json.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wallet', 'bootstrap'] });
@@ -153,8 +169,11 @@ export function EditTransactionModal() {
 
     const payload = {
       amount:         parseFloat(values.amount),
-      category_id:    values.category_id || undefined,
-      payment_method: values.payment_method,
+      wallet_id:      transaction.type !== 'transfer' && values.wallet_id ? values.wallet_id : undefined,
+      source_wallet_id: transaction.type === 'transfer' && values.source_wallet_id ? values.source_wallet_id : undefined,
+      destination_wallet_id: transaction.type === 'transfer' && values.destination_wallet_id ? values.destination_wallet_id : undefined,
+      category_id:    transaction.type === 'expense' ? (values.category_id || undefined) : undefined,
+      payment_method: transaction.type !== 'transfer' ? values.payment_method : undefined,
       note:           values.note.trim() || undefined,
     };
 
@@ -233,6 +252,49 @@ export function EditTransactionModal() {
           </div>
         </FormField>
 
+        {/* Wallets */}
+        {transaction?.type === 'transfer' ? (
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Source Wallet" htmlFor="edit-tx-source-wallet" error={errors.source_wallet_id} required>
+              <FormSelect
+                id="edit-tx-source-wallet"
+                value={values.source_wallet_id}
+                onChange={(e) => setField('source_wallet_id', e.target.value)}
+                hasError={Boolean(errors.source_wallet_id)}
+              >
+                {wallets.map((w) => (
+                  <option key={w.id} value={w.id}>{w.name}</option>
+                ))}
+              </FormSelect>
+            </FormField>
+            <FormField label="Destination Wallet" htmlFor="edit-tx-dest-wallet" error={errors.destination_wallet_id} required>
+              <FormSelect
+                id="edit-tx-dest-wallet"
+                value={values.destination_wallet_id}
+                onChange={(e) => setField('destination_wallet_id', e.target.value)}
+                hasError={Boolean(errors.destination_wallet_id)}
+              >
+                {wallets.map((w) => (
+                  <option key={w.id} value={w.id}>{w.name}</option>
+                ))}
+              </FormSelect>
+            </FormField>
+          </div>
+        ) : (
+          <FormField label="Wallet" htmlFor="edit-tx-wallet" error={errors.wallet_id} required>
+            <FormSelect
+              id="edit-tx-wallet"
+              value={values.wallet_id}
+              onChange={(e) => setField('wallet_id', e.target.value)}
+              hasError={Boolean(errors.wallet_id)}
+            >
+              {wallets.map((w) => (
+                <option key={w.id} value={w.id}>{w.name}</option>
+              ))}
+            </FormSelect>
+          </FormField>
+        )}
+
         {/* Category — for expense transactions */}
         {transaction?.type === 'expense' && (
           <FormField label="Category" htmlFor="edit-tx-category">
@@ -252,17 +314,25 @@ export function EditTransactionModal() {
         )}
 
         {/* Payment Method */}
-        <FormField label="Payment Method" htmlFor="edit-tx-method">
-          <FormSelect
-            id="edit-tx-method"
-            value={values.payment_method}
-            onChange={(e) => setField('payment_method', e.target.value as PaymentMethod)}
-          >
-            {PAYMENT_OPTIONS.map(({ value, label }) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </FormSelect>
-        </FormField>
+        {transaction?.type !== 'transfer' && (
+          <FormField label="Payment Method" htmlFor="edit-tx-method">
+            <FormSelect
+              id="edit-tx-method"
+              value={values.payment_method}
+              onChange={(e) => setField('payment_method', e.target.value as PaymentMethod)}
+            >
+              {PAYMENT_OPTIONS.map(({ value, label }) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+              {values.payment_method === 'e_wallet' && (
+                <option value="e_wallet">E-Wallet (Legacy)</option>
+              )}
+              {values.payment_method === 'other' && (
+                <option value="other">Other (Legacy)</option>
+              )}
+            </FormSelect>
+          </FormField>
+        )}
 
         {/* Note */}
         <FormField label="Note (Optional)" htmlFor="edit-tx-note">

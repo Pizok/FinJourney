@@ -122,6 +122,12 @@ export function DashboardSidebar() {
   const { data } = useDashboardData();
   const setData = useDashboardStore(s => s.setData);
   const pathname = usePathname();
+  const router = useRouter();
+
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    setIsMobileOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (!data) {
@@ -158,8 +164,6 @@ export function DashboardSidebar() {
     return item;
   });
 
-  const router = useRouter();
-
   async function handleLogout() {
     try {
       const supabase = createClient();
@@ -172,11 +176,6 @@ export function DashboardSidebar() {
       toast.error(err.message || 'Failed to logout');
     }
   }
-
-  // Close mobile sidebar on route change
-  useEffect(() => {
-    setIsMobileOpen(false);
-  }, [pathname]);
 
   return (
     <>
@@ -249,6 +248,18 @@ export function DashboardSidebar() {
 
         {/* Bottom Navigation */}
         <div className="py-4 border-t border-tactical-border space-y-1">
+          <div className="flex items-center gap-4 px-6 py-3 mt-1 min-w-max" title="Standby tokens">
+            <Lock size={20} strokeWidth={2} className="text-muted-text flex-shrink-0" />
+            <div className="flex items-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 flex-1">
+              <span className="font-sans text-xs text-muted-text whitespace-nowrap">
+                Standby tokens
+              </span>
+              <span className="ml-auto font-sans text-xs text-pearl-text font-medium pl-4">
+                {player_state.standby_tokens}/7
+              </span>
+            </div>
+          </div>
+
           {BOTTOM_ITEMS.map((item) => (
             <NavLink 
               key={item.href} 
@@ -272,30 +283,6 @@ export function DashboardSidebar() {
               <span className="font-sans text-sm">Log Out</span>
             </div>
           </button>
-
-          <div className="flex items-center gap-4 px-6 py-3 mt-1 min-w-max" title="Current streak">
-            <Flame size={20} strokeWidth={2} className="text-orange-400 flex-shrink-0" />
-            <div className="flex items-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 flex-1">
-              <span className="font-sans text-xs text-muted-text whitespace-nowrap">
-                Current streak
-              </span>
-              <span className="ml-auto font-sans text-xs text-pearl-text font-medium pl-4">
-                {player_state.current_streak || 0}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4 px-6 py-3 mt-1 min-w-max" title="Standby tokens">
-            <Lock size={20} strokeWidth={2} className="text-muted-text flex-shrink-0" />
-            <div className="flex items-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 flex-1">
-              <span className="font-sans text-xs text-muted-text whitespace-nowrap">
-                Standby tokens
-              </span>
-              <span className="ml-auto font-sans text-xs text-pearl-text font-medium pl-4">
-                {player_state.standby_tokens}/7
-              </span>
-            </div>
-          </div>
         </div>
       </aside>
     </>

@@ -89,7 +89,19 @@ export function DashboardShell({ bootstrapData }: { bootstrapData?: BootstrapDat
     }
   }, [bootstrapData, setData, setLoading]);
 
-  // Empty state to avoid early return layout flash
+  // If no data is available (e.g., initial load or backend fetch failed)
+  if (!data) {
+    return (
+      <div className="flex min-h-screen bg-abyssal-slate">
+        <DashboardSidebar />
+        <main className="flex-1 overflow-y-auto">
+          <div className="max-w-[1440px] mx-auto px-8 py-8">
+            <DashboardSkeleton />
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-abyssal-slate">

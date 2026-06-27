@@ -200,6 +200,7 @@ async def save_baselines(user: AuthUser, db: DbClient, payload: dict):
                     "id": str(uuid.uuid4()),
                     "user_id": user.user_id,
                     "name": cat["name"],
+                    "category_group": "expense",
                     "monthly_limit": cat["monthly_limit"],
                     "created_at": now_utc,
                     "deleted_at": None,

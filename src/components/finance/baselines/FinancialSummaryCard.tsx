@@ -18,6 +18,7 @@ import {
   PiggyBank,
   Edit2
 } from 'lucide-react';
+import { EditButton, RemoveButton } from './ActionButtons';
 import { useWalletStore } from '@/components/finance/stores/walletStore';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetchClient } from '@/lib/apiClient.client';
@@ -149,43 +150,7 @@ function SectionHeader({ title, onAdd }: { title: string; onAdd: () => void }) {
   );
 }
 
-// ─── Rows ─────────────────────────────────────────────────────────────────────
 
-function EditButton({ ariaLabel, onClick }: { ariaLabel: string, onClick?: () => void }) {
-  return (
-    <button
-      type="button"
-      aria-label={ariaLabel}
-      onClick={onClick}
-      className={[
-        'shrink-0 rounded-md p-1.5 text-[var(--color-muted-text)]',
-        'transition-colors duration-150',
-        'hover:bg-[var(--color-muted-emerald)]/10 hover:text-[var(--color-muted-emerald)]',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-muted-emerald)]',
-      ].join(' ')}
-    >
-      <Edit2 size={13} strokeWidth={2} />
-    </button>
-  );
-}
-
-function RemoveButton({ onRemove, ariaLabel }: { onRemove: () => void, ariaLabel: string }) {
-  return (
-    <button
-      type="button"
-      onClick={onRemove}
-      aria-label={ariaLabel}
-      className={[
-        'shrink-0 rounded-md p-1.5 text-[var(--color-muted-text)]',
-        'transition-colors duration-150',
-        'hover:bg-[var(--color-terracotta)]/10 hover:text-[var(--color-terracotta)]',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-muted-emerald)]',
-      ].join(' ')}
-    >
-      <Trash2 size={13} strokeWidth={2} />
-    </button>
-  );
-}
 
 // ─── Main Card ────────────────────────────────────────────────────────────────
 
@@ -209,41 +174,51 @@ export function FinancialSummaryCard() {
 
   const [isAddIncomeOpen, setIsAddIncomeOpen] = useState(false);
   const [editingIncome, setEditingIncome] = useState<IncomeStream | null>(null);
+  const [confirmDeleteIncomeId, setConfirmDeleteIncomeId] = useState<string | null>(null);
 
   const [isAddFixedOpen, setIsAddFixedOpen] = useState(false);
+  const [editingFixed, setEditingFixed] = useState<FixedExpense | null>(null);
+  const [confirmDeleteFixedId, setConfirmDeleteFixedId] = useState<string | null>(null);
 
   const [isAddSavingsOpen, setIsAddSavingsOpen] = useState(false);
   const [editingSavings, setEditingSavings] = useState<SavingsTarget | null>(null);
+  const [confirmDeleteSavingsId, setConfirmDeleteSavingsId] = useState<string | null>(null);
 
   const deleteIncomeMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/v1/income-streams/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete income stream');
+      await apiFetchClient(`income-streams/${id}`, { method: 'DELETE' });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['income_streams'] });
+      setConfirmDeleteIncomeId(null);
       toast.success('Income stream removed.');
+    },
+    onError: (err: any) => toast.error(err.message)
+  });
+
+  const deleteFixedMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiFetchClient(`fixed-expenses/${id}`, { method: 'DELETE' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['wallet', 'bootstrap'] });
+      setConfirmDeleteFixedId(null);
+      toast.success('Fixed expense removed.');
     },
     onError: (err: any) => toast.error(err.message)
   });
 
   const deleteSavingsMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/v1/savings-targets/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete savings target');
+      await apiFetchClient(`savings-targets/${id}`, { method: 'DELETE' });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['savings_targets'] });
+      setConfirmDeleteSavingsId(null);
       toast.success('Savings target removed.');
     },
     onError: (err: any) => toast.error(err.message)
   });
-
-  const handleRemoveSavings = (id: string) => {
-    if (window.confirm('Are you sure you want to remove this savings target?')) {
-      deleteSavingsMutation.mutate(id);
-    }
-  };
 
   const isLoading = !isBootstrapped || isIncomePending || isSavingsPending;
 
@@ -302,11 +277,21 @@ export function FinancialSummaryCard() {
                       {formatRupiah(stream.amount)} <span className="text-xs text-[var(--color-muted-text)] font-normal">/ mo</span>
                     </span>
                     <div className="flex items-center gap-1">
-                      <EditButton ariaLabel={`Edit ${stream.name}`} onClick={() => {
-                        setEditingIncome(stream);
-                        setIsAddIncomeOpen(true);
-                      }} />
-                      <RemoveButton onRemove={() => deleteIncomeMutation.mutate(stream.id)} ariaLabel={`Remove ${stream.name}`} />
+                      {confirmDeleteIncomeId === stream.id ? (
+                        <>
+                          <span className="text-xs text-[var(--color-terracotta)] font-medium">Remove?</span>
+                          <button type="button" onClick={() => deleteIncomeMutation.mutate(stream.id)} className="rounded-md px-2 py-1 text-xs font-semibold text-[var(--color-terracotta)] hover:bg-[var(--color-terracotta)]/10 transition-colors">Yes</button>
+                          <button type="button" onClick={() => setConfirmDeleteIncomeId(null)} className="rounded-md px-2 py-1 text-xs font-semibold text-[var(--color-muted-text)] hover:bg-[var(--color-abyssal-slate)] transition-colors">No</button>
+                        </>
+                      ) : (
+                        <>
+                          <EditButton ariaLabel={`Edit ${stream.name}`} onClick={() => {
+                            setEditingIncome(stream);
+                            setIsAddIncomeOpen(true);
+                          }} />
+                          <RemoveButton onRemove={() => setConfirmDeleteIncomeId(stream.id)} ariaLabel={`Remove ${stream.name}`} />
+                        </>
+                      )}
                     </div>
                   </div>
                   {idx < incomeStreams.length - 1 && <div className="border-t border-[var(--color-tactical-border)]/50" />}
@@ -339,14 +324,21 @@ export function FinancialSummaryCard() {
                       {formatRupiah(expense.amount)} <span className="text-xs text-[var(--color-muted-text)] font-normal">/ mo</span>
                     </span>
                     <div className="flex items-center gap-1">
-                      <EditButton ariaLabel={`Edit ${expense.name}`} />
-                      <RemoveButton 
-                        onRemove={() => {
-                          removeFixedExpense(expense.id);
-                          toast.success('Fixed expense removed.');
-                        }} 
-                        ariaLabel={`Remove ${expense.name}`} 
-                      />
+                      {confirmDeleteFixedId === expense.id ? (
+                        <>
+                          <span className="text-xs text-[var(--color-terracotta)] font-medium">Remove?</span>
+                          <button type="button" onClick={() => deleteFixedMutation.mutate(expense.id)} className="rounded-md px-2 py-1 text-xs font-semibold text-[var(--color-terracotta)] hover:bg-[var(--color-terracotta)]/10 transition-colors">Yes</button>
+                          <button type="button" onClick={() => setConfirmDeleteFixedId(null)} className="rounded-md px-2 py-1 text-xs font-semibold text-[var(--color-muted-text)] hover:bg-[var(--color-abyssal-slate)] transition-colors">No</button>
+                        </>
+                      ) : (
+                        <>
+                          <EditButton ariaLabel={`Edit ${expense.name}`} onClick={() => {
+                            setEditingFixed(expense);
+                            setIsAddFixedOpen(true);
+                          }} />
+                          <RemoveButton onRemove={() => setConfirmDeleteFixedId(expense.id)} ariaLabel={`Remove ${expense.name}`} />
+                        </>
+                      )}
                     </div>
                   </div>
                   {idx < fixedExpenses.length - 1 && <div className="border-t border-[var(--color-tactical-border)]/50" />}
@@ -386,11 +378,21 @@ export function FinancialSummaryCard() {
                           <p className="text-[10px] text-[var(--color-muted-text)] mt-0.5">Planned Contribution</p>
                         </div>
                         <div className="flex items-center gap-1">
-                          <EditButton ariaLabel={`Edit ${target.name}`} onClick={() => {
-                            setEditingSavings(target);
-                            setIsAddSavingsOpen(true);
-                          }} />
-                          <RemoveButton onRemove={() => handleRemoveSavings(target.id)} ariaLabel={`Remove ${target.name}`} />
+                          {confirmDeleteSavingsId === target.id ? (
+                            <>
+                              <span className="text-xs text-[var(--color-terracotta)] font-medium">Remove?</span>
+                              <button type="button" onClick={() => deleteSavingsMutation.mutate(target.id)} className="rounded-md px-2 py-1 text-xs font-semibold text-[var(--color-terracotta)] hover:bg-[var(--color-terracotta)]/10 transition-colors">Yes</button>
+                              <button type="button" onClick={() => setConfirmDeleteSavingsId(null)} className="rounded-md px-2 py-1 text-xs font-semibold text-[var(--color-muted-text)] hover:bg-[var(--color-abyssal-slate)] transition-colors">No</button>
+                            </>
+                          ) : (
+                            <>
+                              <EditButton ariaLabel={`Edit ${target.name}`} onClick={() => {
+                                setEditingSavings(target);
+                                setIsAddSavingsOpen(true);
+                              }} />
+                              <RemoveButton onRemove={() => setConfirmDeleteSavingsId(target.id)} ariaLabel={`Remove ${target.name}`} />
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -464,7 +466,11 @@ export function FinancialSummaryCard() {
       />
       <AddFixedExpenseModal
         isOpen={isAddFixedOpen}
-        onClose={() => setIsAddFixedOpen(false)}
+        onClose={() => {
+          setIsAddFixedOpen(false);
+          setEditingFixed(null);
+        }}
+        initialData={editingFixed}
       />
       <AddSavingsTargetModal
         isOpen={isAddSavingsOpen}

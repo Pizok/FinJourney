@@ -11,7 +11,6 @@ async def get_loans_by_user(db: AsyncClient, user_id: str) -> list[dict[str, Any
         db.table("loans")
         .select("*")
         .eq("user_id", user_id)
-        .is_("deleted_at", "null")
         .order("created_at", desc=False)
         .execute()
     )
@@ -35,7 +34,6 @@ async def insert_loan(
         "next_due_date": next_due_date,
         "monthly_installment": monthly_installment,
         "created_at": _now_utc(),
-        "deleted_at": None,
     }
     response = await db.table("loans").insert(payload).execute()
     return response.data[0]
@@ -53,21 +51,19 @@ async def update_loan(
         .update(safe_updates)
         .eq("id", loan_id)
         .eq("user_id", user_id)
-        .is_("deleted_at", "null")
         .execute()
     )
     return response.data[0] if response.data else {}
 
-async def soft_delete_loan(
+async def hard_delete_loan(
     db: AsyncClient,
     loan_id: str,
     user_id: str,
 ) -> None:
     await (
         db.table("loans")
-        .update({"deleted_at": _now_utc()})
+        .delete()
         .eq("id", loan_id)
         .eq("user_id", user_id)
-        .is_("deleted_at", "null")
         .execute()
     )

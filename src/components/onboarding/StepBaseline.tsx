@@ -19,6 +19,7 @@ import { Info, Plus, Trash2 } from 'lucide-react';
 import { Input }     from '@/components/ui/input';
 import { FieldError } from '@/components/ui/label';
 import { sanitizeCurrencyInput } from '@/lib/utils/currency';
+import { calculateMinimumSavings } from '@/lib/savings-utils';
 import {
   OnboardingCard,
   LabelTag,
@@ -122,12 +123,13 @@ interface SavingsEntryListProps {
   entries: SavingsEntry[];
   errors:  Map<string, string>;
   onUpdate: (id: string, field: keyof SavingsEntry, value: string | number) => void;
+  onBlurContribution: (id: string) => void;
   onAdd:    () => void;
   onRemove: (id: string) => void;
   addLabel: string;
 }
 
-function SavingsEntryList({ entries, errors, onUpdate, onAdd, onRemove, addLabel }: SavingsEntryListProps) {
+function SavingsEntryList({ entries, errors, onUpdate, onBlurContribution, onAdd, onRemove, addLabel }: SavingsEntryListProps) {
   return (
     <div className="flex flex-col gap-4">
       {entries.map((entry) => {
@@ -135,6 +137,10 @@ function SavingsEntryList({ entries, errors, onUpdate, onAdd, onRemove, addLabel
         const targetErr = errors.get(`target_${entry.id}`);
         const monthlyErr = errors.get(`monthly_${entry.id}`);
         const deadlineErr = errors.get(`deadline_${entry.id}`);
+        
+        const minContribution = calculateMinimumSavings(entry.target_amount, (entry as any).current_amount || 0, entry.deadline);
+        const isSurplus = entry.monthly_contribution > minContribution && minContribution > 0;
+
         return (
           <div key={entry.id} className="flex flex-col gap-2.5 p-3.5 bg-abyssal-slate border border-tactical-border rounded-lg relative">
             <div className="flex justify-between items-center">
@@ -181,17 +187,19 @@ function SavingsEntryList({ entries, errors, onUpdate, onAdd, onRemove, addLabel
                   type="text"
                   value={entry.monthly_contribution === 0 ? '' : entry.monthly_contribution.toLocaleString('id-ID')}
                   onChange={(e) => onUpdate(entry.id, 'monthly_contribution', Number(e.target.value.replace(/\D/g, '')) || 0)}
+                  onBlur={() => onBlurContribution(entry.id)}
                   placeholder="0"
                   suffix="IDR"
                   inputMode="numeric"
                   error={!!monthlyErr}
                 />
+                {isSurplus && !monthlyErr && <p className="text-[10px] text-muted-emerald mt-0.5">Surplus active: You'll meet your target earlier! 🚀</p>}
                 {monthlyErr && <FieldError message={monthlyErr} />}
               </div>
               <div className="w-full md:w-36 flex flex-col gap-1.5">
                 <label className="text-xs text-muted-text font-medium" title="Target deadline for your savings goal">Target Deadline</label>
                 <Input
-                  type="month"
+                  type="date"
                   value={entry.deadline}
                   onChange={(e) => onUpdate(entry.id, 'deadline', e.target.value)}
                   error={!!deadlineErr}
@@ -301,13 +309,24 @@ export default function StepBaseline({
   const addSavingsEntry = () => {
     const today = new Date();
     today.setFullYear(today.getFullYear() + 1); // default 12-month horizon
-    const defaultDeadline = today.toISOString().slice(0, 7); // YYYY-MM
+    const defaultDeadline = today.toISOString().slice(0, 10); // YYYY-MM-DD
     const newEntry: SavingsEntry = { id: uid(), label: '', target_amount: 0, monthly_contribution: 0, deadline: defaultDeadline };
     onChange({ savingsEntries: [...state.savingsEntries, newEntry] });
   };
 
   const removeSavingsEntry = (id: string) => {
     onChange({ savingsEntries: state.savingsEntries.filter((e) => e.id !== id) });
+  };
+
+  const handleBlurContribution = (id: string) => {
+    const entry = state.savingsEntries.find((e) => e.id === id);
+    if (!entry) return;
+    if (entry.target_amount > 0 && entry.deadline) {
+      const min = calculateMinimumSavings(entry.target_amount, (entry as any).current_amount || 0, entry.deadline);
+      if (entry.monthly_contribution < min) {
+        updateSavingsEntry(id, 'monthly_contribution', min);
+      }
+    }
   };
 
   // ── Validation ──
@@ -430,6 +449,7 @@ export default function StepBaseline({
             entries={state.savingsEntries}
             errors={errors}
             onUpdate={updateSavingsEntry}
+            onBlurContribution={handleBlurContribution}
             onAdd={addSavingsEntry}
             onRemove={removeSavingsEntry}
             addLabel="Add savings target"

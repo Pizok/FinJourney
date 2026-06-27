@@ -716,11 +716,11 @@ export const selectVisibleCategories = (s: WalletStore) => {
 export const selectFilteredTransactions = (s: WalletStore): Transaction[] => {
   const {
     ui: { selectedWalletId },
-    filterState: { transaction_type, category_id, payment_method, search },
+    filterState: { transaction_type, category_id, payment_method, search, sort },
     transactions,
   } = s;
 
-  return transactions.filter((t) => {
+  const filtered = transactions.filter((t) => {
     if (selectedWalletId && t.wallet_id !== selectedWalletId) return false;
     if (transaction_type && t.type !== transaction_type) return false;
     if (category_id && t.category_id !== category_id) return false;
@@ -729,10 +729,24 @@ export const selectFilteredTransactions = (s: WalletStore): Transaction[] => {
       const q = search.trim().toLowerCase();
       const inNote = t.note?.toLowerCase().includes(q) ?? false;
       const inCategory = t.category_name?.toLowerCase().includes(q) ?? false;
-      const inWallet = t.wallet_name.toLowerCase().includes(q);
+      const inWallet = (t.wallet_name || '').toLowerCase().includes(q);
       if (!inNote && !inCategory && !inWallet) return false;
     }
     return true;
+  });
+
+  return filtered.sort((a, b) => {
+    switch (sort) {
+      case 'oldest':
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      case 'amount_desc':
+        return b.amount - a.amount;
+      case 'amount_asc':
+        return a.amount - b.amount;
+      case 'newest':
+      default:
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    }
   });
 };
 

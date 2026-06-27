@@ -40,10 +40,11 @@ from datetime import date, datetime, timezone
 from typing import Any, Optional
 
 from fastapi import HTTPException, status
-from supabase import Client
+from supabase import AsyncClient as Client
 
 import app.db.queries.wallet_queries as wal_q
 from app.db.queries.category_queries import get_category_by_id
+from app.db.queries.transaction_queries import insert_game_event
 from app.schemas.transaction import (
     TransactionCreate,
     TransactionListResponse,
@@ -70,7 +71,7 @@ def _now_utc() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _require_wallet(
+async def _require_wallet(
     client: Client,
     wallet_id: str,
     user_id: str,
@@ -80,7 +81,7 @@ def _require_wallet(
     Assert a wallet exists and belongs to user_id.
     Raises HTTP 403 (not 404) on failure to prevent wallet-existence enumeration.
     """
-    wallet = wal_q.get_wallet_by_id(client, wallet_id, user_id)
+    wallet = await wal_q.get_wallet_by_id(client, wallet_id, user_id)
     if wallet is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -95,13 +96,13 @@ def _require_wallet(
     return wallet
 
 
-def _require_category(
+async def _require_category(
     client: Client,
     category_id: str,
     user_id: str,
 ) -> dict[str, Any]:
     """Assert a category exists and belongs to user_id. Raises HTTP 403 on failure."""
-    category = get_category_by_id(client, category_id, user_id)
+    category = await get_category_by_id(client, category_id, user_id)
     if category is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -115,15 +116,15 @@ def _require_category(
         )
     return category
 
-def _require_savings_target(
+async def _require_savings_target(
     client: Client,
     target_id: str,
     user_id: str,
 ) -> dict[str, Any]:
     """Assert a savings target exists and belongs to user_id. Raises HTTP 403 on failure."""
-    response = (
+    response = await (
         client.table("savings_targets")
-        .select("*")
+        .select("*, wallets!transactions_primary_wallet_id_fkey(name), categories(name)")
         .eq("id", target_id)
         .eq("user_id", user_id)
         .is_("deleted_at", "null")
@@ -147,15 +148,15 @@ def _require_savings_target(
 #  kept inline here for the focused MVP scope of this file)
 # ---------------------------------------------------------------------------
 
-def _get_transaction_by_id(
+async def _get_transaction_by_id(
     client: Client,
     transaction_id: str,
     user_id: str,
 ) -> Optional[dict[str, Any]]:
     """Fetch a single active transaction owned by user_id. Returns None if absent."""
-    response = (
+    response = await (
         client.table("transactions")
-        .select("*")
+        .select("*, wallets!transactions_primary_wallet_id_fkey(name), categories(name)")
         .eq("id", transaction_id)
         .eq("user_id", user_id)
         .eq("status", "active")
@@ -166,13 +167,13 @@ def _get_transaction_by_id(
     return response.data
 
 
-def _require_transaction(
+async def _require_transaction(
     client: Client,
     transaction_id: str,
     user_id: str,
 ) -> dict[str, Any]:
     """Fetch and assert ownership of a transaction. Raises HTTP 404 if absent."""
-    txn = _get_transaction_by_id(client, transaction_id, user_id)
+    txn = await _get_transaction_by_id(client, transaction_id, user_id)
     if txn is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -184,7 +185,7 @@ def _require_transaction(
     return txn
 
 
-def _insert_transaction_row(
+async def _insert_transaction_row(
     client: Client,
     user_id: str,
     data: dict[str, Any],
@@ -194,22 +195,22 @@ def _insert_transaction_row(
         "id":                    str(uuid.uuid4()),
         "user_id":               user_id,
         "status":                "active",
-        "created_at":            _now_utc(),
+        "logged_at":             _now_utc(),
         "deleted_at":            None,
         **data,
     }
-    response = client.table("transactions").insert(payload).execute()
+    response = await client.table("transactions").insert(payload).execute()
     return response.data[0]
 
 
-def _update_transaction_row(
+async def _update_transaction_row(
     client: Client,
     transaction_id: str,
     user_id: str,
     updates: dict[str, Any],
 ) -> dict[str, Any]:
     """Apply a partial update to a transaction row. Returns the updated record."""
-    response = (
+    response = await (
         client.table("transactions")
         .update(updates)
         .eq("id", transaction_id)
@@ -220,13 +221,13 @@ def _update_transaction_row(
     return response.data[0]
 
 
-def _soft_delete_transaction_row(
+async def _soft_delete_transaction_row(
     client: Client,
     transaction_id: str,
     user_id: str,
 ) -> None:
     """Mark a transaction as soft-deleted."""
-    client.table("transactions").update(
+    await client.table("transactions").update(
         {
             "status":     "deleted",
             "deleted_at": _now_utc(),
@@ -238,7 +239,7 @@ def _soft_delete_transaction_row(
 # Balance mutation helpers
 # ---------------------------------------------------------------------------
 
-def _apply_balance_for_create(
+async def _apply_balance_for_create(
     client: Client,
     user_id: str,
     txn_type: str,
@@ -256,20 +257,20 @@ def _apply_balance_for_create(
                dest wallet    += amount
     """
     if txn_type == _INCOME.value:
-        wal_q.apply_balance_delta(client, wallet_id, user_id, +amount)
+        await wal_q.apply_balance_delta(client, wallet_id, user_id, +amount)
 
     elif txn_type == _EXPENSE.value:
-        wal_q.apply_balance_delta(client, wallet_id, user_id, -amount)
+        await wal_q.apply_balance_delta(client, wallet_id, user_id, -amount)
 
     elif txn_type == _TRANSFER.value:
         # Debit source first, then credit destination.
         # On partial failure the DB is inconsistent; at MVP scale this is
         # acceptable. Replace with a Supabase RPC transaction for atomicity.
-        wal_q.apply_balance_delta(client, source_wallet_id, user_id, -amount)
-        wal_q.apply_balance_delta(client, destination_wallet_id, user_id, +amount)
+        await wal_q.apply_balance_delta(client, source_wallet_id, user_id, -amount)
+        await wal_q.apply_balance_delta(client, destination_wallet_id, user_id, +amount)
 
 
-def _reverse_balance_for_delete(
+async def _reverse_balance_for_delete(
     client: Client,
     user_id: str,
     txn: dict[str, Any],
@@ -283,26 +284,44 @@ def _reverse_balance_for_delete(
       transfer → source wallet  += original_amount
                  dest wallet    -= original_amount
     """
-    t      = txn["type"]
-    amount = txn["amount"]
+    import logging
+    logger = logging.getLogger(__name__)
+
+    t      = txn.get("type")
+    amount = txn.get("amount")
 
     if t == _INCOME.value:
-        wal_q.apply_balance_delta(client, txn["wallet_id"], user_id, -amount)
+        wid = txn.get("primary_wallet_id")
+        if wid:
+            await wal_q.apply_balance_delta(client, wid, user_id, -amount)
+        else:
+            logger.warning("Delete income: missing primary_wallet_id for transaction %s", txn.get("id"))
 
     elif t == _EXPENSE.value:
-        wal_q.apply_balance_delta(client, txn["wallet_id"], user_id, +amount)
+        wid = txn.get("primary_wallet_id")
+        if wid:
+            await wal_q.apply_balance_delta(client, wid, user_id, +amount)
+        else:
+            logger.warning("Delete expense: missing primary_wallet_id for transaction %s", txn.get("id"))
 
     elif t == _TRANSFER.value:
-        wal_q.apply_balance_delta(client, txn["source_wallet_id"], user_id, +amount)
-        wal_q.apply_balance_delta(client, txn["destination_wallet_id"], user_id, -amount)
+        src = txn.get("source_wallet_id")
+        dst = txn.get("destination_wallet_id")
+        if src and dst:
+            await wal_q.apply_balance_delta(client, src, user_id, +amount)
+            await wal_q.apply_balance_delta(client, dst, user_id, -amount)
+        else:
+            logger.warning("Delete transfer: missing source/destination for transaction %s", txn.get("id"))
 
 
-def _adjust_balance_for_update(
+async def _adjust_balance_for_update(
     client: Client,
     user_id: str,
     old_txn: dict[str, Any],
     new_amount: Optional[int],
-    new_wallet_id: Optional[str],
+    new_wallet_id: Optional[str] = None,
+    new_source_wallet_id: Optional[str] = None,
+    new_dest_wallet_id: Optional[str] = None,
 ) -> None:
     """
     Reconcile wallet balances after editing a transaction.
@@ -314,50 +333,70 @@ def _adjust_balance_for_update(
       * If wallet_id unchanged → apply net delta (new_amount - old_amount) on same wallet.
 
     For transfer:
-      * wallet_id / source / destination cannot change via PATCH (locked at creation).
-      * Only amount can change → apply net delta on both wallets.
+      * If source/dest changed → full reversal on old wallets, full apply on new wallets.
+      * If unchanged → apply net delta on both wallets.
 
     Parameters
     ----------
     new_amount    : Updated amount in cents, or None if amount was not changed.
     new_wallet_id : Updated wallet UUID string, or None if wallet was not changed.
                     Only meaningful for income / expense.
+    new_source_wallet_id: Updated source wallet string.
+    new_dest_wallet_id: Updated dest wallet string.
     """
-    t          = old_txn["type"]
-    old_amount = old_txn["amount"]
+    t          = old_txn.get("type")
+    old_amount = old_txn.get("amount", 0)
     eff_amount = new_amount if new_amount is not None else old_amount
 
     if t in (_INCOME.value, _EXPENSE.value):
         sign = +1 if t == _INCOME.value else -1
-        old_wid = old_txn["wallet_id"]
+        old_wid = old_txn.get("primary_wallet_id")
         new_wid = new_wallet_id or old_wid
 
         if new_wid != old_wid:
             # Wallet changed: fully reverse on old, fully apply on new.
-            wal_q.apply_balance_delta(client, old_wid, user_id, -(sign * old_amount))
-            wal_q.apply_balance_delta(client, new_wid, user_id,  (sign * eff_amount))
+            if old_wid:
+                await wal_q.apply_balance_delta(client, old_wid, user_id, -(sign * old_amount))
+            if new_wid:
+                await wal_q.apply_balance_delta(client, new_wid, user_id,  (sign * eff_amount))
         else:
             # Same wallet: apply net delta.
             delta = sign * (eff_amount - old_amount)
-            if delta != 0:
-                wal_q.apply_balance_delta(client, old_wid, user_id, delta)
+            if delta != 0 and old_wid:
+                await wal_q.apply_balance_delta(client, old_wid, user_id, delta)
 
     elif t == _TRANSFER.value:
-        # Only amount can change for transfers; wallets are locked.
-        delta = eff_amount - old_amount
-        if delta != 0:
-            wal_q.apply_balance_delta(client, old_txn["source_wallet_id"], user_id, -delta)
-            wal_q.apply_balance_delta(client, old_txn["destination_wallet_id"], user_id, +delta)
+        old_src = old_txn.get("source_wallet_id")
+        old_dst = old_txn.get("destination_wallet_id")
+        new_src = new_source_wallet_id or old_src
+        new_dst = new_dest_wallet_id or old_dst
+
+        if new_src != old_src or new_dst != old_dst:
+            # Revert old transfer entirely
+            if old_src and old_dst:
+                await wal_q.apply_balance_delta(client, old_src, user_id, +old_amount)
+                await wal_q.apply_balance_delta(client, old_dst, user_id, -old_amount)
+            # Apply new transfer entirely
+            if new_src and new_dst:
+                await wal_q.apply_balance_delta(client, new_src, user_id, -eff_amount)
+                await wal_q.apply_balance_delta(client, new_dst, user_id, +eff_amount)
+        else:
+            # Only amount changed
+            delta = eff_amount - old_amount
+            if delta != 0 and old_src and old_dst:
+                await wal_q.apply_balance_delta(client, old_src, user_id, -delta)
+                await wal_q.apply_balance_delta(client, old_dst, user_id, +delta)
 
 
 # ---------------------------------------------------------------------------
 # Game logic hand-off
 # ---------------------------------------------------------------------------
 
-def _trigger_expense_pipeline(
+async def _trigger_expense_pipeline(
     client: Client,
     user_id: str,
     amount: int,
+    local_date_str: str,
 ) -> None:
     """
     Hand off to the downstream game logic pipeline after an expense is committed.
@@ -382,18 +421,59 @@ def _trigger_expense_pipeline(
         )
 
     try:
-        # ← downstream call 2: Progression event
-        # progression_service.handle_transaction_event(
-        #     client=client,
-        #     user_id=user_id,
-        #     event_type="EXPENSE_LOGGED",
-        #     amount=amount,
-        # )
-        pass  # Remove when progression_service is wired in.
+        from app.journey.engine.bus import EventBus
+        from app.journey.repos.event_repo import EventRepository
+        bus = EventBus(db=client)
+        idem_key = EventRepository.build_idempotency_key(
+            user_id, local_date_str, "EXPENSE_LOGGED"
+        )
+        await bus.publish(
+            user_id=user_id,
+            event_type="EXPENSE_LOGGED",
+            source="USER",
+            severity="SUCCESS",
+            idempotency_key=idem_key,
+            payload={
+                "amount": amount,
+                "local_date": local_date_str,
+            }
+        )
     except Exception:
         import logging
         logging.getLogger(__name__).exception(
-            "progression_service.handle_transaction_event failed for user %s", user_id
+            "Failed to publish EXPENSE_LOGGED event for user %s", user_id
+        )
+
+
+async def _trigger_income_pipeline(
+    client: Client,
+    user_id: str,
+    amount: int,
+    local_date_str: str,
+) -> None:
+    """Hand off to progression service for income."""
+    try:
+        from app.journey.engine.bus import EventBus
+        from app.journey.repos.event_repo import EventRepository
+        bus = EventBus(db=client)
+        idem_key = EventRepository.build_idempotency_key(
+            user_id, local_date_str, "INCOME_LOGGED"
+        )
+        await bus.publish(
+            user_id=user_id,
+            event_type="INCOME_LOGGED",
+            source="USER",
+            severity="SUCCESS",
+            idempotency_key=idem_key,
+            payload={
+                "amount": amount,
+                "local_date": local_date_str,
+            }
+        )
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception(
+            "Failed to publish INCOME_LOGGED event for user %s", user_id
         )
 
 
@@ -401,7 +481,7 @@ def _trigger_expense_pipeline(
 # Public service functions
 # ---------------------------------------------------------------------------
 
-def create_transaction(
+async def create_transaction(
     client: Client,
     user_id: str,
     payload: TransactionCreate,
@@ -426,15 +506,15 @@ def create_transaction(
     txn_type = payload.type.value
 
     if txn_type in (_INCOME.value, _EXPENSE.value):
-        _require_wallet(client, str(payload.wallet_id), user_id, "wallet_id")
+        await _require_wallet(client, str(payload.wallet_id), user_id, "wallet_id")
         if payload.category_id:
-            _require_category(client, str(payload.category_id), user_id)
+            await _require_category(client, str(payload.category_id), user_id)
         if payload.savings_target_id:
-            _require_savings_target(client, str(payload.savings_target_id), user_id)
+            await _require_savings_target(client, str(payload.savings_target_id), user_id)
 
     elif txn_type == _TRANSFER.value:
-        _require_wallet(client, str(payload.source_wallet_id), user_id, "source_wallet_id")
-        _require_wallet(client, str(payload.destination_wallet_id), user_id, "destination_wallet_id")
+        await _require_wallet(client, str(payload.source_wallet_id), user_id, "source_wallet_id")
+        await _require_wallet(client, str(payload.destination_wallet_id), user_id, "destination_wallet_id")
 
     # ── 2. Build DB row payload ──────────────────────────────────────────────
     transfer_group_id = str(uuid.uuid4()) if txn_type == _TRANSFER.value else None
@@ -444,7 +524,7 @@ def create_transaction(
         "amount":                 payload.amount,
         "transaction_date":       payload.transaction_date.isoformat(),
         "note":                   payload.note,
-        "wallet_id":              str(payload.wallet_id)              if payload.wallet_id              else None,
+        "primary_wallet_id":      str(payload.wallet_id)              if payload.wallet_id              else None,
         "category_id":            str(payload.category_id)            if payload.category_id            else None,
         "savings_target_id":      str(payload.savings_target_id)      if payload.savings_target_id      else None,
         "source_wallet_id":       str(payload.source_wallet_id)       if payload.source_wallet_id       else None,
@@ -454,10 +534,10 @@ def create_transaction(
     }
 
     # ── 3. Insert ─────────────────────────────────────────────────────────────
-    row = _insert_transaction_row(client, user_id, row_data)
+    row = await _insert_transaction_row(client, user_id, row_data)
 
     # ── 4. Balance mutations ──────────────────────────────────────────────────
-    _apply_balance_for_create(
+    await _apply_balance_for_create(
         client=client,
         user_id=user_id,
         txn_type=txn_type,
@@ -467,14 +547,26 @@ def create_transaction(
         destination_wallet_id=str(payload.destination_wallet_id) if payload.destination_wallet_id else None,
     )
 
-    # ── 5. Downstream game logic (expenses only) ──────────────────────────────
+    # ── 5. Downstream game logic (expenses and income) ──────────────────────────────
     if txn_type == _EXPENSE.value:
-        _trigger_expense_pipeline(client, user_id, payload.amount)
+        await _trigger_expense_pipeline(client, user_id, payload.amount, payload.transaction_date.isoformat())
+    elif txn_type == _INCOME.value:
+        await _trigger_income_pipeline(client, user_id, payload.amount, payload.transaction_date.isoformat())
 
+    row["wallet_id"] = row.pop("primary_wallet_id", None)
+    row["created_at"] = row.pop("logged_at", None)
+    w = row.pop("wallets", None)
+    row["wallet_name"] = w.get("name") if isinstance(w, dict) else None
+    c = row.pop("categories", None)
+    row["category_name"] = c.get("name") if isinstance(c, dict) else None
+    w = row.pop("wallets", None)
+    row["wallet_name"] = w.get("name") if isinstance(w, dict) else None
+    c = row.pop("categories", None)
+    row["category_name"] = c.get("name") if isinstance(c, dict) else None
     return TransactionOut.model_validate(row)
 
 
-def update_transaction(
+async def update_transaction(
     client: Client,
     transaction_id: str,
     user_id: str,
@@ -492,7 +584,7 @@ def update_transaction(
     Balance reconciliation
     ----------------------
     The old balance effect is reversed and the new effect is applied in a
-    single logical operation via _adjust_balance_for_update(). The net change
+    single logical operation via await _adjust_balance_for_update(). The net change
     is minimal to avoid unnecessary balance oscillation.
 
     Anti-cheat
@@ -503,7 +595,7 @@ def update_transaction(
     The endpoint layer is responsible for enforcing the edit window.
     """
     # ── 1. Fetch & validate ownership ────────────────────────────────────────
-    old_txn = _require_transaction(client, transaction_id, user_id)
+    old_txn = await _require_transaction(client, transaction_id, user_id)
     txn_type = old_txn["type"]
 
     # ── 2. Validate ownership of any new wallet/category references ───────────
@@ -512,14 +604,13 @@ def update_transaction(
     if txn_type in (_INCOME.value, _EXPENSE.value):
         if payload.wallet_id is not None:
             new_wallet_id_str = str(payload.wallet_id)
-            _require_wallet(client, new_wallet_id_str, user_id, "wallet_id")
+            await _require_wallet(client, new_wallet_id_str, user_id, "wallet_id")
         if getattr(payload, "category_id", None) is not None:
-            _require_category(client, str(payload.category_id), user_id)
+            await _require_category(client, str(payload.category_id), user_id)
         if getattr(payload, "savings_target_id", None) is not None:
-            _require_savings_target(client, str(payload.savings_target_id), user_id)
+            await _require_savings_target(client, str(payload.savings_target_id), user_id)
 
     elif txn_type == _TRANSFER.value:
-        # wallet_id, source_wallet_id, destination_wallet_id are all locked.
         # If the caller sent wallet_id for a transfer, reject it cleanly.
         if payload.wallet_id is not None:
             raise HTTPException(
@@ -527,19 +618,24 @@ def update_transaction(
                 detail={
                     "code":    "TRANSFER_WALLET_IMMUTABLE",
                     "message": (
-                        "Source and destination wallets cannot be changed "
-                        "on an existing transfer."
+                        "primary_wallet_id cannot be set on an existing transfer."
                     ),
                 },
             )
+        if getattr(payload, "source_wallet_id", None) is not None:
+            await _require_wallet(client, str(payload.source_wallet_id), user_id, "source_wallet_id")
+        if getattr(payload, "destination_wallet_id", None) is not None:
+            await _require_wallet(client, str(payload.destination_wallet_id), user_id, "destination_wallet_id")
 
     # ── 3. Reconcile wallet balances ──────────────────────────────────────────
-    _adjust_balance_for_update(
+    await _adjust_balance_for_update(
         client=client,
         user_id=user_id,
         old_txn=old_txn,
         new_amount=payload.amount,
         new_wallet_id=new_wallet_id_str,
+        new_source_wallet_id=str(payload.source_wallet_id) if getattr(payload, "source_wallet_id", None) else None,
+        new_dest_wallet_id=str(payload.destination_wallet_id) if getattr(payload, "destination_wallet_id", None) else None,
     )
 
     # ── 4. Build update dict (only changed fields) ────────────────────────────
@@ -551,7 +647,11 @@ def update_transaction(
     if getattr(payload, "savings_target_id", None) is not None:
         updates["savings_target_id"] = str(payload.savings_target_id)
     if payload.wallet_id is not None and txn_type != _TRANSFER.value:
-        updates["wallet_id"] = new_wallet_id_str
+        updates["primary_wallet_id"] = new_wallet_id_str
+    if getattr(payload, "source_wallet_id", None) is not None and txn_type == _TRANSFER.value:
+        updates["source_wallet_id"] = str(payload.source_wallet_id)
+    if getattr(payload, "destination_wallet_id", None) is not None and txn_type == _TRANSFER.value:
+        updates["destination_wallet_id"] = str(payload.destination_wallet_id)
     if payload.payment_method is not None:
         updates["payment_method"] = payload.payment_method.value
     if payload.transaction_date is not None:
@@ -560,7 +660,7 @@ def update_transaction(
         updates["note"] = payload.note
 
     # ── 5. Write ───────────────────────────────────────────────────────────────
-    row = _update_transaction_row(client, transaction_id, user_id, updates)
+    row = await _update_transaction_row(client, transaction_id, user_id, updates)
 
     # ── 6. Log adjustment event ────────────────────────────────────────────────
     # Record the adjustment in the immutable ledger
@@ -569,29 +669,34 @@ def update_transaction(
     old_amount = old_txn.get("amount", 0)
     new_amount = row.get("amount", old_amount)
     
-    client.table("journey_events").insert(
-        {
-            "user_id": user_id,
-            "event_type": "TRANSACTION_ADJUSTMENT",
-            "xp_delta": 0.0,
-            "hp_delta": 0.0,
-            "gold_delta": 0.0,
-            "shield_delta": 0.0,
-            "source_id": transaction_id,
-            "metadata": {
-                "old_amount": old_amount,
-                "new_amount": new_amount,
-                "amount_delta": new_amount - old_amount,
-                "old_wallet": old_txn.get("wallet_id"),
-                "new_wallet": row.get("wallet_id"),
-            },
-        }
-    ).execute()
+    await insert_game_event(
+        db=client,
+        user_id=user_id,
+        event_type="TRANSACTION_ADJUSTMENT",
+        metadata={
+            "transaction_id": transaction_id,
+            "old_amount": old_amount,
+            "new_amount": new_amount,
+            "amount_delta": new_amount - old_amount,
+            "old_wallet": old_txn.get("wallet_id"),
+            "new_wallet": row.get("wallet_id"),
+        },
+    )
 
+    row["wallet_id"] = row.pop("primary_wallet_id", None)
+    row["created_at"] = row.pop("logged_at", None)
+    w = row.pop("wallets", None)
+    row["wallet_name"] = w.get("name") if isinstance(w, dict) else None
+    c = row.pop("categories", None)
+    row["category_name"] = c.get("name") if isinstance(c, dict) else None
+    w = row.pop("wallets", None)
+    row["wallet_name"] = w.get("name") if isinstance(w, dict) else None
+    c = row.pop("categories", None)
+    row["category_name"] = c.get("name") if isinstance(c, dict) else None
     return TransactionOut.model_validate(row)
 
 
-def delete_transaction(
+async def delete_transaction(
     client: Client,
     transaction_id: str,
     user_id: str,
@@ -614,16 +719,16 @@ def delete_transaction(
     The journey_events ledger retains all penalty records.
     """
     # ── 1. Fetch & validate ──────────────────────────────────────────────────
-    old_txn = _require_transaction(client, transaction_id, user_id)
+    old_txn = await _require_transaction(client, transaction_id, user_id)
 
     # ── 2. Reverse balance ────────────────────────────────────────────────────
-    _reverse_balance_for_delete(client, user_id, old_txn)
+    await _reverse_balance_for_delete(client, user_id, old_txn)
 
     # ── 3. Soft delete ────────────────────────────────────────────────────────
-    _soft_delete_transaction_row(client, transaction_id, user_id)
+    await _soft_delete_transaction_row(client, transaction_id, user_id)
 
 
-def list_transactions(
+async def list_transactions(
     client: Client,
     user_id: str,
     page: int = 1,
@@ -654,7 +759,7 @@ def list_transactions(
     # ── Base query (active only, user-scoped) ─────────────────────────────────
     query = (
         client.table("transactions")
-        .select("*", count="exact")
+        .select("*, wallets!transactions_primary_wallet_id_fkey(name), categories(name)", count="exact")
         .eq("user_id", user_id)
         .eq("status", "active")
         .is_("deleted_at", "null")
@@ -678,10 +783,10 @@ def list_transactions(
         )
 
     # ── Sort & paginate ────────────────────────────────────────────────────────
-    response = (
+    response = await (
         query
         .order("transaction_date", desc=True)
-        .order("created_at", desc=True)
+        .order("logged_at", desc=True)
         .range(offset, offset + limit - 1)
         .execute()
     )
@@ -690,7 +795,15 @@ def list_transactions(
     total: int = response.count or 0
     total_pages = max(1, -(-total // limit))  # ceiling division
 
-    items = [TransactionOut.model_validate(r) for r in rows]
+    items = []
+    for r in rows:
+        r["wallet_id"] = r.pop("primary_wallet_id", None)
+        r["created_at"] = r.pop("logged_at", None)
+        w = r.pop("wallets", None)
+        r["wallet_name"] = w.get("name") if isinstance(w, dict) else None
+        c = r.pop("categories", None)
+        r["category_name"] = c.get("name") if isinstance(c, dict) else None
+        items.append(TransactionOut.model_validate(r))
 
     return TransactionListResponse(
         items=items,
@@ -701,11 +814,17 @@ def list_transactions(
     )
 
 
-def get_transaction(
+async def get_transaction(
     client: Client,
     transaction_id: str,
     user_id: str,
 ) -> TransactionOut:
     """Fetch a single transaction with ownership validation."""
-    txn = _require_transaction(client, transaction_id, user_id)
+    txn = await _require_transaction(client, transaction_id, user_id)
+    txn["wallet_id"] = txn.pop("primary_wallet_id", None)
+    txn["created_at"] = txn.pop("logged_at", None)
+    w = txn.pop("wallets", None)
+    txn["wallet_name"] = w.get("name") if isinstance(w, dict) else None
+    c = txn.pop("categories", None)
+    txn["category_name"] = c.get("name") if isinstance(c, dict) else None
     return TransactionOut.model_validate(txn)

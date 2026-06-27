@@ -54,7 +54,7 @@ function TransactionRow({ tx }: { tx: Transaction }) {
       <div className="flex-1 min-w-0">
         <p className="font-sans text-sm text-pearl-text truncate">{label}</p>
         <p className="font-sans text-xs text-muted-text truncate">
-          {tx.category_name} · {formatRelativeTime(tx.logged_at)}
+          {tx.category_name} · {formatRelativeTime(tx.created_at)}
         </p>
       </div>
 
@@ -82,7 +82,7 @@ function EmptyState() {
 
 export function RecentLogCard() {
   const { data } = useDashboardData();
-  const transactions = data.recent_transactions.slice(0, 5);
+  const transactions = data.recent_transactions.slice(0, 10);
   const isEmpty = transactions.length === 0;
 
   return (

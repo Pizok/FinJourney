@@ -11,15 +11,15 @@ import { Zap, ShieldCheck, TrendingUp, ShieldAlert, ShoppingBag, Trophy, Swords 
 
 // Pre-calculated positions to maintain a balanced layout without client-side hydration mismatch
 const FLOATING_CARDS = [
-  { id: '1', content: 'Rp', type: 'text', size: 'w-16 h-16', top: '15%', left: '10%', delay: '0s', duration: '7s' },
-  { id: '2', content: 'XP', type: 'text', size: 'w-12 h-12', top: '25%', left: '80%', delay: '1s', duration: '9s', color: 'text-dawn-gold/60' },
-  { id: '3', type: 'empty', size: 'w-24 h-24', top: '55%', left: '8%', delay: '2s', duration: '10s' },
-  { id: '4', content: '+1.5k', type: 'text', size: 'w-20 h-20', top: '70%', left: '85%', delay: '0.5s', duration: '8s', color: 'text-muted-emerald/60' },
-  { id: '5', icon: ShieldAlert, type: 'icon', size: 'w-14 h-14', top: '10%', left: '65%', delay: '1.5s', duration: '8.5s', color: 'text-terracotta/50' },
-  { id: '6', content: 'HP', type: 'text', size: 'w-14 h-14', top: '80%', left: '15%', delay: '2.5s', duration: '11s', color: 'text-muted-emerald/60' },
-  { id: '7', type: 'empty', size: 'w-16 h-16', top: '45%', left: '90%', delay: '0s', duration: '7.5s' },
-  { id: '8', icon: Trophy, type: 'icon', size: 'w-12 h-12', top: '35%', left: '20%', delay: '1.2s', duration: '9s', color: 'text-muted-text/40' },
-  { id: '9', content: '%', type: 'text', size: 'w-10 h-10', top: '65%', left: '75%', delay: '0.8s', duration: '6s' },
+  { id: '1', content: 'Rp', type: 'text', size: 'w-10 h-10 md:w-16 md:h-16', top: '15%', left: '10%', delay: '0s', duration: '7s' },
+  { id: '2', content: 'XP', type: 'text', size: 'w-8 h-8 md:w-12 md:h-12', top: '25%', left: '80%', delay: '1s', duration: '9s', color: 'text-dawn-gold/60' },
+  { id: '3', type: 'empty', size: 'w-16 h-16 md:w-24 md:h-24', top: '55%', left: '8%', delay: '2s', duration: '10s' },
+  { id: '4', content: '+1.5k', type: 'text', size: 'w-14 h-14 md:w-20 md:h-20', top: '70%', left: '85%', delay: '0.5s', duration: '8s', color: 'text-muted-emerald/60' },
+  { id: '5', icon: ShieldAlert, type: 'icon', size: 'w-10 h-10 md:w-14 md:h-14', top: '10%', left: '65%', delay: '1.5s', duration: '8.5s', color: 'text-terracotta/50' },
+  { id: '6', content: 'HP', type: 'text', size: 'w-10 h-10 md:w-14 md:h-14', top: '80%', left: '15%', delay: '2.5s', duration: '11s', color: 'text-muted-emerald/60' },
+  { id: '7', type: 'empty', size: 'w-10 h-10 md:w-16 md:h-16', top: '45%', left: '90%', delay: '0s', duration: '7.5s' },
+  { id: '8', icon: Trophy, type: 'icon', size: 'w-8 h-8 md:w-12 md:h-12', top: '35%', left: '20%', delay: '1.2s', duration: '9s', color: 'text-muted-text/40' },
+  { id: '9', content: '%', type: 'text', size: 'w-8 h-8 md:w-10 md:h-10', top: '65%', left: '75%', delay: '0.8s', duration: '6s' },
 ];
 
 function HeroSection() {
@@ -42,7 +42,7 @@ function HeroSection() {
             }}
           >
             {card.type === 'text' && (
-              <span className={`font-display font-bold text-lg ${card.color || 'text-muted-text/40'}`}>
+              <span className={`font-display font-bold text-xs md:text-lg ${card.color || 'text-muted-text/40'}`}>
                 {card.content}
               </span>
             )}
@@ -147,10 +147,7 @@ function UserFlowSection() {
   ];
 
   return (
-    <section className="relative py-28 lg:py-36 bg-[url('/background/landing/hero.png')] bg-cover bg-center">
-      {/* The black overlay */}
-      <div className="absolute inset-0 bg-black/70 pointer-events-none" aria-hidden="true" />
-
+    <section className="relative py-16 lg:py-24 bg-transparent">
       {/* Content wrapper — needs relative and z-10 to stay visible above the overlay */}
       <div className="relative z-10 max-w-7xl mx-auto px-6">
         <div className="text-center max-w-xl mx-auto mb-20">
@@ -374,32 +371,27 @@ const FAQ_ITEMS = [
   {
     question: 'Is FinJourney difficult for beginners?',
     answer:
-      'No. FinJourney is designed to be simple to start. You only need your monthly income, regular expenses, and savings target to begin.',
+      'Not at all. FinJourney is designed to be simple to start. You only need to set up your primary wallet, regular expenses, and savings targets to begin your journey.',
   },
   {
     question: 'Is this a budgeting app or a game?',
     answer:
-      'FinJourney is a budgeting and financial habit app first. The progression system exists to make consistency more engaging and easier to maintain.',
+      'FinJourney is a budgeting and financial habit app first. The progression systems—like earning XP and completing challenges—exist purely to make consistency more engaging and easier to maintain.',
   },
   {
-    question: 'How does the Daily Budget work?',
+    question: 'How do the Challenges work?',
     answer:
-      'Your Daily Budget is calculated using this formula: (Monthly Income − Fixed Costs − Savings Target) ÷ 30. This gives you a realistic daily spending guide based on your actual finances.',
+      'Instead of generic goals, FinJourney analyzes your actual financial situation (like missed payments or lagging savings) and assigns you smart, context-aware challenges designed to strengthen your discipline exactly where you need it most.',
   },
   {
-    question: 'How do the recommendations work?',
+    question: 'What happens if I forget to log my transactions?',
     answer:
-      'FinJourney analyzes your spending patterns, budget consistency, savings progress, and financial behavior over time. The system then provides suggestions and insights to help you improve your habits gradually.',
-  },
-  {
-    question: 'What happens if my HP reaches 0?',
-    answer:
-      'Your account enters Critical Failure mode. Some progression features pause temporarily until you complete a quick financial review and log a new transaction to recover.',
+      'If you miss a day, you will lose HP. If your HP drops too low, your account enters Critical Failure mode and progression pauses. However, you can use a Standby Token or a Defense Shield from your inventory to protect your streak on busy days.',
   },
   {
     question: "What if I don't spend anything today?",
     answer:
-      'You can log a "Zero Spend Today" activity to maintain your streak and confirm your daily status without recording an expense.',
+      'You can easily use a Standby Token to maintain your daily streak without having to record an expense. It protects your progress when you have a zero-spend day or just need a break.',
   },
 ];
 

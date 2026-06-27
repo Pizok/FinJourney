@@ -38,6 +38,7 @@ from app.core.constants import ErrorCode
 from app.api.v1.dependencies import AuthUser, DbClient
 from app.schemas.wallet import RebalanceBudgetRequest, WalletCreate, WalletOut, WalletBootstrapResponse
 from app.services import wallet_service
+from app.db.queries import category_queries
 
 router = APIRouter(prefix="/wallets", tags=["wallets"])
 
@@ -132,13 +133,13 @@ async def get_wallet_bootstrap(
 
     # Execute all queries concurrently
     wallets_task = db.table("wallets").select("*").eq("user_id", str(user.user_id)).is_("deleted_at", "null").execute()
-    categories_task = db.table("categories").select("*").eq("user_id", str(user.user_id)).is_("deleted_at", "null").execute()
-    transactions_task = db.table("transactions").select("*").eq("user_id", str(user.user_id)).eq("status", "active").order("transaction_date", desc=True).limit(20).execute()
+    categories_task = category_queries.get_category_usage(db, str(user.user_id))
+    transactions_task = db.table("transactions").select("*, wallets!transactions_primary_wallet_id_fkey(name), categories(name)").eq("user_id", str(user.user_id)).eq("status", "active").order("transaction_date", desc=True).limit(20).execute()
     fixed_expenses_task = db.table("fixed_expenses").select("*").eq("user_id", str(user.user_id)).execute()
     loans_task = db.table("loans").select("*").eq("user_id", str(user.user_id)).eq("status", "ACTIVE").execute()
     profile_task = db.table("journey_profiles").select("expected_monthly_income, monthly_savings_target, total_xp").eq("id", str(user.user_id)).execute()
 
-    wallets, categories, transactions, fixed_expenses, loans, profile = await asyncio.gather(
+    wallets, categories_usage, transactions, fixed_expenses, loans, profile = await asyncio.gather(
         wallets_task,
         categories_task,
         transactions_task,
@@ -157,10 +158,34 @@ async def get_wallet_bootstrap(
     from app.services.progression_service import calculate_level, get_feature_unlocks
     level = calculate_level(profile_data["total_xp"] if profile_data and profile_data.get("total_xp") else 0)
 
+    # Map category usage to frontend Category schema
+    category_limits = [
+        {
+            "id": cat["category_id"],
+            "name": cat["name"],
+            "monthly_limit": cat["limit"],
+            "spent_amount": cat["spent"],
+            "remaining_amount": cat["remaining"],
+            "progress_percentage": cat["percentage"],
+        }
+        for cat in categories_usage
+    ] if categories_usage else []
+    # Map transactions to frontend schema
+    recent_transactions = []
+    for tx in (transactions.data if transactions.data else []):
+        tx_mapped = dict(tx)
+        tx_mapped["wallet_id"] = tx_mapped.pop("primary_wallet_id", None)
+        tx_mapped["created_at"] = tx_mapped.pop("logged_at", None)
+        w = tx_mapped.pop("wallets", None)
+        tx_mapped["wallet_name"] = w.get("name") if isinstance(w, dict) else None
+        c = tx_mapped.pop("categories", None)
+        tx_mapped["category_name"] = c.get("name") if isinstance(c, dict) else None
+        recent_transactions.append(tx_mapped)
+
     data = WalletBootstrapResponse(
         wallets=wallets.data if wallets.data else [],
-        category_limits=categories.data if categories.data else [],
-        recent_transactions=transactions.data if transactions.data else [],
+        category_limits=category_limits,
+        recent_transactions=recent_transactions,
         fixed_expenses=fixed_expenses.data if fixed_expenses.data else [],
         active_loans=loans.data if loans.data else [],
         financial_assumptions=financial_assumptions,

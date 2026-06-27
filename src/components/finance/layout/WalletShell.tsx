@@ -385,17 +385,12 @@ export function WalletShell({ initialData }: { initialData?: WalletBootstrapResp
   const { data: clientData, error: clientError, isLoading: isClientLoading } = useQuery({
     queryKey: ['wallet', 'bootstrap'],
     queryFn: () => apiFetchClient<WalletBootstrapResponse>('wallets/bootstrap'),
-    enabled: !initialData && !isBootstrapped,
+    initialData: initialData || undefined,
   });
 
-  // ── Bootstrap on mount ──────────────────────────────────────────────────
+  // ── Bootstrap on mount and updates ──────────────────────────────────────
   useEffect(() => {
-    if (isBootstrapped) return;
-
-    if (initialData) {
-      hydrate(initialData);
-      setLoading('bootstrap', false);
-    } else if (clientData) {
+    if (clientData) {
       hydrate(clientData);
       setLoading('bootstrap', false);
     } else if (clientError) {
@@ -404,9 +399,9 @@ export function WalletShell({ initialData }: { initialData?: WalletBootstrapResp
     } else {
       setLoading('bootstrap', true);
     }
-  }, [initialData, clientData, clientError, isBootstrapped, hydrate, setLoading, setGlobalError]);
+  }, [clientData, clientError, hydrate, setLoading, setGlobalError]);
 
-  const isLoading = loading.bootstrap || (!isBootstrapped && isClientLoading);
+  const isLoading = loading.bootstrap || (!clientData && isClientLoading);
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (

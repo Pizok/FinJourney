@@ -84,7 +84,7 @@ class ChallengeTemplate:
         return {
             "user_id": user_id,
             "template_id": self.template_id,
-            "status": "PREPARING",
+            "status": "ACTIVE",
             "started_at": now.isoformat(),
             "ends_at": (now + timedelta(days=self.duration_days)).isoformat(),
             "progress_data": progress,

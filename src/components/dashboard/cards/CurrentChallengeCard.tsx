@@ -92,7 +92,7 @@ function IdleState() {
 export function CurrentChallengeCard() {
   const { data } = useDashboardData();
   const challenge = data.active_challenge;
-  const isActive = challenge?.status === 'active';
+  const isActive = challenge?.status === 'ACTIVE';
 
   return (
     <article

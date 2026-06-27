@@ -23,6 +23,8 @@
 // =============================================================================
 
 import { useState, useCallback } from 'react';
+import { CheckCircle2, ChevronDown, Save } from 'lucide-react';
+import { apiFetchClient } from '@/lib/apiClient.client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   BaseModal, FormField, FormInput, FormCurrencyInput, FormTextarea, FormSelect,
@@ -39,6 +41,8 @@ interface FormValues {
   type: TransactionType;
   amount: string;
   wallet_id: string;
+  source_wallet_id: string;
+  destination_wallet_id: string;
   category_id: string;
   payment_method: PaymentMethod;
   note: string;
@@ -48,6 +52,8 @@ interface FormValues {
 interface FormErrors {
   amount?: string;
   wallet_id?: string;
+  source_wallet_id?: string;
+  destination_wallet_id?: string;
   category_id?: string;
   payment_method?: string;
   transaction_date?: string;
@@ -67,6 +73,8 @@ function defaultValues(): FormValues {
     type: 'expense',
     amount: '',
     wallet_id: '',
+    source_wallet_id: '',
+    destination_wallet_id: '',
     category_id: '',
     payment_method: 'cash',
     note: '',
@@ -82,14 +90,22 @@ function validate(v: FormValues): FormErrors {
   } else if (n <= 0) {
     e.amount = 'Amount must be greater than 0.';
   }
-  if (!v.wallet_id) {
-    e.wallet_id = 'Please select a wallet.';
-  }
-  if (v.type === 'expense' && !v.category_id) {
-    e.category_id = 'Category is required for expenses.';
-  }
-  if (!v.payment_method) {
-    e.payment_method = 'Payment method is required.';
+  if (v.type === 'transfer') {
+    if (!v.source_wallet_id) e.source_wallet_id = 'Please select a source wallet.';
+    if (!v.destination_wallet_id) e.destination_wallet_id = 'Please select a destination wallet.';
+    if (v.source_wallet_id && v.destination_wallet_id && v.source_wallet_id === v.destination_wallet_id) {
+      e.destination_wallet_id = 'Source and destination must be different.';
+    }
+  } else {
+    if (!v.wallet_id) {
+      e.wallet_id = 'Please select a wallet.';
+    }
+    if (v.type === 'expense' && !v.category_id) {
+      e.category_id = 'Category is required for expenses.';
+    }
+    if (!v.payment_method) {
+      e.payment_method = 'Payment method is required.';
+    }
   }
   if (!v.transaction_date) {
     e.transaction_date = 'Date is required.';
@@ -103,7 +119,8 @@ const PAYMENT_OPTIONS: { value: PaymentMethod; label: string }[] = [
   { value: 'cash',        label: 'Cash' },
   { value: 'debit_card',  label: 'Debit Card' },
   { value: 'credit_card', label: 'Credit Card' },
-  { value: 'transfer',    label: 'Transfer' },
+  { value: 'transfer',    label: 'Bank/E-wallet Transfer' },
+  { value: 'qr_code',     label: 'QR Code' },
 ];
 
 const TYPE_OPTIONS: { value: TransactionType; label: string }[] = [
@@ -154,16 +171,10 @@ export function AddTransactionModal() {
 
   const addTransactionMutation = useMutation({
     mutationFn: async (payload: any) => {
-      const response = await fetch('/api/v1/transactions', {
+      return apiFetchClient('transactions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const json = await response.json();
-      if (!response.ok || !json.success) {
-        throw new Error(json.error?.message || 'Failed to add transaction');
-      }
-      return json.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wallet', 'bootstrap'] });
@@ -185,9 +196,11 @@ export function AddTransactionModal() {
     const payload = {
       type: values.type,
       amount: parseFloat(values.amount),
-      wallet_id: values.wallet_id,
-      category_id: values.category_id || undefined,
-      payment_method: values.payment_method,
+      wallet_id: values.type === 'transfer' ? undefined : values.wallet_id,
+      source_wallet_id: values.type === 'transfer' ? values.source_wallet_id : undefined,
+      destination_wallet_id: values.type === 'transfer' ? values.destination_wallet_id : undefined,
+      category_id: values.type === 'expense' ? (values.category_id || undefined) : undefined,
+      payment_method: values.type === 'transfer' ? undefined : values.payment_method,
       note: values.note.trim() || undefined,
       transaction_date: values.transaction_date,
     };
@@ -273,22 +286,53 @@ export function AddTransactionModal() {
           </div>
         </FormField>
 
-        {/* Wallet */}
-        <FormField label="Wallet" htmlFor="tx-wallet" error={errors.wallet_id} required>
-          <FormSelect
-            id="tx-wallet"
-            value={values.wallet_id}
-            onChange={(e) => setField('wallet_id', e.target.value)}
-            hasError={Boolean(errors.wallet_id)}
-          >
-            <option value="">Select a wallet…</option>
-            {wallets.map((w) => (
-              <option key={w.id} value={w.id}>
-                {w.name}
-              </option>
-            ))}
-          </FormSelect>
-        </FormField>
+        {/* Wallets */}
+        {values.type === 'transfer' ? (
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Source Wallet" htmlFor="tx-source-wallet" error={errors.source_wallet_id} required>
+              <FormSelect
+                id="tx-source-wallet"
+                value={values.source_wallet_id}
+                onChange={(e) => setField('source_wallet_id', e.target.value)}
+                hasError={Boolean(errors.source_wallet_id)}
+              >
+                <option value="">Select source…</option>
+                {wallets.map((w) => (
+                  <option key={w.id} value={w.id}>{w.name}</option>
+                ))}
+              </FormSelect>
+            </FormField>
+            <FormField label="Destination Wallet" htmlFor="tx-dest-wallet" error={errors.destination_wallet_id} required>
+              <FormSelect
+                id="tx-dest-wallet"
+                value={values.destination_wallet_id}
+                onChange={(e) => setField('destination_wallet_id', e.target.value)}
+                hasError={Boolean(errors.destination_wallet_id)}
+              >
+                <option value="">Select destination…</option>
+                {wallets.map((w) => (
+                  <option key={w.id} value={w.id}>{w.name}</option>
+                ))}
+              </FormSelect>
+            </FormField>
+          </div>
+        ) : (
+          <FormField label="Wallet" htmlFor="tx-wallet" error={errors.wallet_id} required>
+            <FormSelect
+              id="tx-wallet"
+              value={values.wallet_id}
+              onChange={(e) => setField('wallet_id', e.target.value)}
+              hasError={Boolean(errors.wallet_id)}
+            >
+              <option value="">Select a wallet…</option>
+              {wallets.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.name}
+                </option>
+              ))}
+            </FormSelect>
+          </FormField>
+        )}
 
         {/* Category — only for expenses */}
         {values.type === 'expense' && (
@@ -310,18 +354,20 @@ export function AddTransactionModal() {
         )}
 
         {/* Payment Method */}
-        <FormField label="Payment Method" htmlFor="tx-method" error={errors.payment_method} required>
-          <FormSelect
-            id="tx-method"
-            value={values.payment_method}
-            onChange={(e) => setField('payment_method', e.target.value as PaymentMethod)}
-            hasError={Boolean(errors.payment_method)}
-          >
-            {PAYMENT_OPTIONS.map(({ value, label }) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </FormSelect>
-        </FormField>
+        {values.type !== 'transfer' && (
+          <FormField label="Payment Method" htmlFor="tx-method" error={errors.payment_method} required>
+            <FormSelect
+              id="tx-method"
+              value={values.payment_method}
+              onChange={(e) => setField('payment_method', e.target.value as PaymentMethod)}
+              hasError={Boolean(errors.payment_method)}
+            >
+              {PAYMENT_OPTIONS.map(({ value, label }) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </FormSelect>
+          </FormField>
+        )}
 
         {/* Date */}
         <FormField label="Date" htmlFor="tx-date" error={errors.transaction_date} required>

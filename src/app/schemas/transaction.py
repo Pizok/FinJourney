@@ -52,8 +52,10 @@ class PaymentMethod(str, Enum):
     cash        = "cash"
     debit_card  = "debit_card"
     credit_card = "credit_card"
-    e_wallet    = "e_wallet"
-    other       = "other"
+    transfer    = "transfer"
+    qr_code     = "qr_code"
+    e_wallet    = "e_wallet"  # Kept for backward compatibility
+    other       = "other"     # Kept for backward compatibility
 
 
 # ---------------------------------------------------------------------------
@@ -101,7 +103,7 @@ class TransactionCreate(BaseModel):
     # Field-level validators
     # ------------------------------------------------------------------
 
-    @field_validator("transaction_date", mode="before")
+    @field_validator("transaction_date")
     @classmethod
     def date_not_in_future(cls, v: date) -> date:
         if v > date.today():
@@ -130,7 +132,7 @@ class TransactionCreate(BaseModel):
                 raise ValueError(
                     f"wallet_id is required for type '{t.value}'."
                 )
-            if self.category_id is None and self.savings_target_id is None:
+            if t == TransactionType.expense and self.category_id is None and self.savings_target_id is None:
                 raise ValueError(
                     f"Either category_id or savings_target_id is required for type '{t.value}'."
                 )
@@ -173,11 +175,11 @@ class TransactionCreate(BaseModel):
                 raise ValueError(
                     "category_id must be null for type 'transfer'."
                 )
-            # Transfers have no payment method
-            if self.payment_method is not None:
-                raise ValueError(
-                    "payment_method must be null for type 'transfer'."
-                )
+            # Transfers have no user-facing payment method, but DB requires one.
+            if self.payment_method is None:
+                self.payment_method = PaymentMethod.transfer
+            elif self.payment_method != PaymentMethod.transfer:
+                raise ValueError("payment_method must be null or 'transfer' for type 'transfer'.")
 
         return self
 
@@ -204,6 +206,8 @@ class TransactionUpdate(BaseModel):
     amount:           Optional[int]           = Field(default=None, gt=0)
     category_id:      Optional[UUID]          = Field(default=None)
     wallet_id:        Optional[UUID]          = Field(default=None)
+    source_wallet_id: Optional[UUID]          = Field(default=None)
+    destination_wallet_id: Optional[UUID]     = Field(default=None)
     payment_method:   Optional[PaymentMethod] = Field(default=None)
     transaction_date: Optional[date]          = Field(default=None)
     note:             Optional[str]           = Field(default=None, max_length=256)
@@ -230,6 +234,8 @@ class TransactionUpdate(BaseModel):
             self.amount,
             self.category_id,
             self.wallet_id,
+            self.source_wallet_id,
+            self.destination_wallet_id,
             self.payment_method,
             self.transaction_date,
             self.note,
@@ -259,7 +265,9 @@ class TransactionOut(BaseModel):
 
     # income / expense
     wallet_id:   Optional[UUID]
+    wallet_name: Optional[str] = None
     category_id: Optional[UUID]
+    category_name: Optional[str] = None
     savings_target_id: Optional[UUID] = None
 
     # transfer

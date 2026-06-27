@@ -44,6 +44,8 @@ async def get_daily_status(user: AuthUser, db: DbClient):
             "remaining_budget": round(daily_budget - spent_today, 2),
             "streak_count": streak,
             "zero_spend_marked": daily_raw.get("zero_spend_marked", False),
+            "expense_logged_today": daily_raw.get("expense_logged_today", False),
+            "income_logged_today": daily_raw.get("income_logged_today", False),
             "baseline_set": bool(baselines),
         },
     }

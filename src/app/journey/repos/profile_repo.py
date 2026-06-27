@@ -168,7 +168,7 @@ class ProfileRepository:
             .maybe_single()
             .execute()
         )
-        return result.data
+        return result.data if result is not None else None
 
     async def advance_daily_survival_to_date(
         self,
@@ -184,8 +184,11 @@ class ProfileRepository:
         """
         payload = {
             "user_id": user_id,
-            "current_date": new_date.isoformat(),
+            "tracking_date": new_date.isoformat(),
             "status": "PENDING",
+            "expense_xp_claimed": False,
+            "income_xp_claimed": False,
+            "zero_spend_xp_claimed": False,
             "updated_at": _NOW(),
         }
         result = await (
@@ -222,7 +225,7 @@ class ProfileRepository:
             .table("journey_daily_survival")
             .update(payload)
             .eq("user_id", user_id)
-            .eq("current_date", current_date.isoformat())
+            .eq("tracking_date", current_date.isoformat())
             .execute()
         )
         if not result.data:
@@ -247,7 +250,7 @@ class ProfileRepository:
                 "updated_at": _NOW(),
             })
             .eq("user_id", user_id)
-            .eq("current_date", current_date.isoformat())
+            .eq("tracking_date", current_date.isoformat())
             .execute()
         )
 
@@ -319,7 +322,7 @@ class ProfileRepository:
         """
         result = await (
             self._db
-            .table("journey_daily_xp")
+            .table("journey_daily_survival")
             .select("*")
             .eq("user_id", user_id)
             .eq("tracking_date", current_date.isoformat())
@@ -339,14 +342,15 @@ class ProfileRepository:
         payload = {
             "user_id": user_id,
             "tracking_date": current_date.isoformat(),
+            "status": "PENDING",
             "expense_xp_claimed": False,
             "income_xp_claimed": False,
             "zero_spend_xp_claimed": False,
         }
         await (
             self._db
-            .table("journey_daily_xp")
-            .upsert(payload, on_conflict="user_id,tracking_date", ignore_duplicates=True)
+            .table("journey_daily_survival")
+            .upsert(payload, on_conflict="user_id", ignore_duplicates=True)
             .execute()
         )
         return await self.get_daily_xp_record(user_id, current_date)
@@ -360,7 +364,7 @@ class ProfileRepository:
         """
         result = await (
             self._db
-            .table("journey_daily_xp")
+            .table("journey_daily_survival")
             .update({
                 "expense_xp_claimed": True,
                 "updated_at": _NOW(),
@@ -380,7 +384,7 @@ class ProfileRepository:
         """
         result = await (
             self._db
-            .table("journey_daily_xp")
+            .table("journey_daily_survival")
             .update({
                 "income_xp_claimed": True,
                 "updated_at": _NOW(),
@@ -397,7 +401,7 @@ class ProfileRepository:
         """Flags zero-spend XP as claimed for today."""
         result = await (
             self._db
-            .table("journey_daily_xp")
+            .table("journey_daily_survival")
             .update({
                 "zero_spend_xp_claimed": True,
                 "updated_at": _NOW(),
@@ -418,7 +422,7 @@ class ProfileRepository:
         """
         result = await (
             self._db
-            .table("journey_daily_xp")
+            .table("journey_daily_survival")
             .update({
                 "zero_spend_xp_claimed": False,
                 "updated_at": _NOW(),
@@ -454,7 +458,7 @@ class ProfileRepository:
             .maybe_single()
             .execute()
         )
-        return result.data
+        return result.data if result is not None else None
 
     async def get_challenge_by_id(
         self, user_id: str, challenge_id: str

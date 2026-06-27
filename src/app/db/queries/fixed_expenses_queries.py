@@ -48,3 +48,20 @@ async def hard_delete_fixed_expense(
         .eq("user_id", user_id)
         .execute()
     )
+
+async def update_fixed_expense(
+    db: AsyncClient,
+    expense_id: str,
+    user_id: str,
+    updates: dict[str, Any],
+) -> dict[str, Any]:
+    if "recurrence_value" in updates and updates["recurrence_value"] is not None:
+        updates["recurrence_value"] = str(updates["recurrence_value"])
+    response = await (
+        db.table("fixed_expenses")
+        .update(updates)
+        .eq("id", expense_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+    return response.data[0] if response.data else None

@@ -24,6 +24,7 @@
 //   visible list immediately.
 // =============================================================================
 
+import { apiFetchClient } from '@/lib/apiClient.client';
 import { useWalletStore } from '@/components/finance/stores/walletStore';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -97,17 +98,9 @@ export function DeleteTransactionModal() {
 
   const deleteTransactionMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetch(`/api/v1/transactions/${id}`, {
+      return apiFetchClient(`transactions/${id}`, {
         method: 'DELETE',
       });
-      if (!response.ok) {
-        let errorMsg = 'Failed to delete transaction';
-        try {
-          const json = await response.json();
-          errorMsg = json.error?.message || errorMsg;
-        } catch {}
-        throw new Error(errorMsg);
-      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wallet', 'bootstrap'] });

@@ -21,17 +21,24 @@ async def fetch_daily_status(db: AsyncClient, user_id: str, tz_name: str) -> dic
     """Sum today's expenses in the user's local timezone."""
     start_utc, end_utc = _today_utc_bounds(tz_name)
 
-    expenses = await (
+    transactions = await (
         db.table("transactions")
-        .select("amount")
+        .select("amount, type")
         .eq("user_id", user_id)
-        .eq("type", "expense")
+        .in_("type", ["expense", "income"])
         .is_("deleted_at", "null")
         .gte("logged_at", start_utc)
         .lte("logged_at", end_utc)
         .execute()
     )
-    spent_today = sum(r["amount"] for r in (expenses.data or []))
+    
+    tx_data = transactions.data or []
+    expenses = [r for r in tx_data if r["type"] == "expense"]
+    incomes = [r for r in tx_data if r["type"] == "income"]
+    
+    spent_today = sum(r["amount"] for r in expenses)
+    expense_logged_today = len(expenses) > 0
+    income_logged_today = len(incomes) > 0
 
     tz = pytz.timezone(tz_name)
     today_str = datetime.now(tz).date().isoformat()
@@ -47,6 +54,8 @@ async def fetch_daily_status(db: AsyncClient, user_id: str, tz_name: str) -> dic
 
     return {
         "spent_today": spent_today,
+        "expense_logged_today": expense_logged_today,
+        "income_logged_today": income_logged_today,
         "zero_spend_marked": zero_spend_marked,
         "date_local": today_str,
     }
@@ -108,6 +117,54 @@ async def fetch_active_region(db: AsyncClient, user_id: str) -> dict | None:
         .eq("status", "CURRENT")
         .maybe_single()
     )
+
+async def fetch_active_challenge(db: AsyncClient, user_id: str) -> dict | None:
+    result = await maybe_one(
+        db.table("journey_challenges")
+        .select("*")
+        .eq("user_id", user_id)
+        .in_("status", ["ACTIVE", "COMPLETED"])
+        .eq("rewards_claimed", False)
+        .order("started_at", desc=True)
+        .limit(1)
+        .maybe_single()
+    )
+    if not result:
+        return None
+        
+    # Map to frontend expected shape
+    from app.journey.challenge_templates import get_template
+    template_id = result.get("template_id", "unknown")
+    try:
+        template = get_template(template_id)
+        title = template.title
+        desc = template.description
+        icon = template.icon
+        color = template.color
+    except KeyError:
+        title = "Unknown Challenge"
+        desc = "A challenge from an unknown template."
+        icon = "ti-sword"
+        color = "gray"
+        
+    from datetime import datetime, timezone
+    try:
+        ends_at = datetime.fromisoformat(result["ends_at"].replace("Z", "+00:00"))
+        days_remaining = max(0, (ends_at.date() - datetime.now(timezone.utc).date()).days)
+    except Exception:
+        days_remaining = 0
+
+    return {
+        "id": result["id"],
+        "type": template_id,
+        "status": result.get("status", "ACTIVE"),
+        "title": title,
+        "description": desc,
+        "icon": icon,
+        "color": color,
+        "days_remaining": days_remaining,
+        "asset_key": None
+    }
 
 
 async def upsert_daily_snapshot(

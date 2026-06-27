@@ -216,7 +216,11 @@ class BootstrapService:
         return {"items": items, "unread_count": unread_count}
 
     async def _fetch_pending_unlocks(self, user_id: str) -> list[dict]:
-        return await self._profile_repo.get_pending_unlocks(user_id)
+        try:
+            return await self._profile_repo.get_pending_unlocks(user_id)
+        except Exception as e:
+            print(f"Skipping get_pending_unlocks: {e}")
+            return []
 
     # ------------------------------------------------------------------
     # Wave 2 — Sub-model Builders (pure Python, no I/O)

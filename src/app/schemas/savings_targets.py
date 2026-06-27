@@ -174,7 +174,7 @@ class SavingsTargetOut(BaseModel):
     current_amount: int = Field(..., ge=0)
     deadline: date
     status: SavingsTargetStatus
-    monthly_contribution: int = Field(default=0, ge=0)
+    monthly_contribution: int = Field(default=0, ge=0, validation_alias="monthly_contribution_target")
     created_at: datetime
     deleted_at: Optional[datetime] = None
 

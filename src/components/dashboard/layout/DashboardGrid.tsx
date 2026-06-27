@@ -1,16 +1,14 @@
 import { CurrentChallengeCard } from '../cards/CurrentChallengeCard';
 import { ProfileVitalsCard } from '../cards/ProfileVitalsCard';
-import { FinancialSituationCard } from '../cards/FinancialSituationCard';
 import { DailyBudgetCard } from '../cards/DailyBudgetCard';
 import { RecentLogCard } from '../cards/RecentLogCard';
 import { QuickActionCard } from '../cards/QuickActionCard';
 
 /**
- * Three-row asymmetric grid — 12 columns, gap-6.
+ * Asymmetric grid layout.
  *
  * Row 1 (Progression):  CurrentChallenge 8 | ProfileVitals 4
- * Row 2 (Financial):    FinancialSituation 5 | DailyBudget 7
- * Row 3 (Actions):      RecentLog 7 | QuickAction 5
+ * Below Row 1:          RecentLog 7 | (DailyBudget + QuickAction) 5
  */
 export function DashboardGrid() {
   return (
@@ -23,19 +21,16 @@ export function DashboardGrid() {
         <ProfileVitalsCard />
       </div>
 
-      {/* Row 2 — Financial State */}
-      <div className="col-span-12 lg:col-span-5">
-        <FinancialSituationCard />
-      </div>
-      <div className="col-span-12 lg:col-span-7">
-        <DailyBudgetCard />
-      </div>
-
-      {/* Row 3 — Actions */}
+      {/* Main Content Area */}
+      
+      {/* Left Column — Transactions */}
       <div className="col-span-12 lg:col-span-7">
         <RecentLogCard />
       </div>
-      <div className="col-span-12 lg:col-span-5">
+
+      {/* Right Column — Budget & Actions */}
+      <div className="col-span-12 lg:col-span-5 flex flex-col gap-6">
+        <DailyBudgetCard />
         <QuickActionCard />
       </div>
     </div>

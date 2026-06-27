@@ -104,6 +104,8 @@ async def evaluate_node_advancement(client: Client, user_id: str) -> None:
                 "idempotency_key": str(uuid.uuid4()),
                 "user_id": user_id,
                 "event_type": GameEvent.NODE_UNLOCKED.value,
+                "source": "SYSTEM",
+                "severity": "SUCCESS",
                 "payload": {"node_id": current_node_id, "action": "SEED"}
             }).execute()
         else:
@@ -125,6 +127,8 @@ async def evaluate_node_advancement(client: Client, user_id: str) -> None:
             "idempotency_key": str(uuid.uuid4()),
             "user_id": user_id,
             "event_type": GameEvent.NODE_SHIFTED.value,
+            "source": "SYSTEM",
+            "severity": "SUCCESS",
             "payload": {"node_id": current_node_id, "xp_at_shift": total_xp}
         }).execute()
 
@@ -149,6 +153,8 @@ async def evaluate_node_advancement(client: Client, user_id: str) -> None:
                     "idempotency_key": str(uuid.uuid4()),
                     "user_id": user_id,
                     "event_type": GameEvent.NODE_UNLOCKED.value,
+                    "source": "SYSTEM",
+                    "severity": "SUCCESS",
                     "payload": {"node_id": next_node_id}
                 }).execute()
 
@@ -180,6 +186,8 @@ async def evaluate_node_advancement(client: Client, user_id: str) -> None:
                         "idempotency_key": str(uuid.uuid4()),
                         "user_id": user_id,
                         "event_type": GameEvent.REGION_COMPLETED.value,
+                        "source": "SYSTEM",
+                        "severity": "SUCCESS",
                         "payload": {"region_id": curr_region_id}
                     }).execute()
             else:

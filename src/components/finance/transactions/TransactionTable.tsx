@@ -196,9 +196,20 @@ interface RowProps {
   onDelete: (id: string) => void;
 }
 
+function getWalletDisplayName(tx: Transaction, wallets: any[]): string {
+  if (tx.type === 'transfer') {
+    const src = wallets.find((w) => w.id === tx.source_wallet_id)?.name || 'Unknown';
+    const dst = wallets.find((w) => w.id === tx.destination_wallet_id)?.name || 'Unknown';
+    return `${src} → ${dst}`;
+  }
+  return tx.wallet_name || '—';
+}
+
 function DesktopRow({ tx, onEdit, onDelete }: RowProps) {
   const cfg = TYPE_CONFIG[tx.type];
   const isAdj = tx.is_adjustment_event;
+  const wallets = useWalletStore((s) => s.wallets);
+  const walletDisplayName = getWalletDisplayName(tx, wallets);
 
   return (
     <tr
@@ -250,9 +261,9 @@ function DesktopRow({ tx, onEdit, onDelete }: RowProps) {
         <span
           className="inline-block max-w-[120px] truncate rounded-md bg-[var(--color-abyssal-slate)] px-2 py-0.5 text-xs text-[var(--color-muted-text)]"
           style={{ fontFamily: 'var(--font-sans)' }}
-          title={tx.wallet_name}
+          title={walletDisplayName}
         >
-          {tx.wallet_name}
+          {walletDisplayName}
         </span>
       </td>
 
@@ -304,12 +315,12 @@ function DesktopRow({ tx, onEdit, onDelete }: RowProps) {
         <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
           <ActionButton
             icon={<PencilIcon />}
-            label={`Edit transaction from ${tx.wallet_name}`}
+            label={`Edit transaction from ${walletDisplayName}`}
             onClick={() => onEdit(tx.id)}
           />
           <ActionButton
             icon={<TrashIcon />}
-            label={`Delete transaction from ${tx.wallet_name}`}
+            label={`Delete transaction from ${walletDisplayName}`}
             onClick={() => onDelete(tx.id)}
             danger
           />
@@ -326,6 +337,8 @@ function DesktopRow({ tx, onEdit, onDelete }: RowProps) {
 function MobileCard({ tx, onEdit, onDelete }: RowProps) {
   const cfg = TYPE_CONFIG[tx.type];
   const isAdj = tx.is_adjustment_event;
+  const wallets = useWalletStore((s) => s.wallets);
+  const walletDisplayName = getWalletDisplayName(tx, wallets);
 
   return (
     <div
@@ -361,7 +374,7 @@ function MobileCard({ tx, onEdit, onDelete }: RowProps) {
             className="rounded bg-[var(--color-abyssal-slate)] px-1.5 py-0.5 text-xs text-[var(--color-muted-text)]"
             style={{ fontFamily: 'var(--font-sans)' }}
           >
-            {tx.wallet_name}
+            {walletDisplayName}
           </span>
           <span
             className="text-xs text-[var(--color-muted-text)]"

@@ -27,7 +27,7 @@ import {
   ModalFooter, PrimaryButton, GhostButton, DangerZone,
 } from './BaseModal';
 import { useWalletStore, selectSettingsWallet } from '@/components/finance/stores/walletStore';
-import type { PaymentMethod } from '@/types/wallet.types';
+import type { PaymentMethod, WalletType } from '@/types/wallet.types';
 import { apiFetchClient } from '@/lib/apiClient.client';
 
 // ---------------------------------------------------------------------------
@@ -52,19 +52,25 @@ export function WalletSettingsModal() {
   // Form state — seeded from the active wallet whenever modal opens
   // -------------------------------------------------------------------------
   const [name, setName]               = useState('');
+  const [type, setType]               = useState<WalletType>('bank');
+  const [balance, setBalance]         = useState('');
   const [description, setDescription] = useState('');
   const [defaultPayment, setDefaultPayment] = useState<PaymentMethod>('transfer');
   const [visibleCategoryIds, setVisibleCategoryIds] = useState<string[]>([]);
   const [nameError, setNameError]     = useState('');
+  const [balanceError, setBalanceError] = useState('');
 
   // Seed form from wallet when it changes (modal opens for a different wallet)
   useEffect(() => {
     if (!wallet) return;
     setName(wallet.name);
+    setType(wallet.type);
+    setBalance(wallet.balance.toString());
     setDescription(wallet.description ?? '');
     setDefaultPayment(wallet.default_payment_method);
     setVisibleCategoryIds(wallet.visible_category_ids);
     setNameError('');
+    setBalanceError('');
   }, [wallet]);
 
   const handleClose = () => {
@@ -115,8 +121,17 @@ export function WalletSettingsModal() {
     }
     setNameError('');
 
+    const parsedBalance = parseInt(balance.replace(/[^\d]/g, ''), 10);
+    if (isNaN(parsedBalance) || parsedBalance < 0) {
+      setBalanceError('Balance must be a valid number ≥ 0.');
+      return;
+    }
+    setBalanceError('');
+
     const payload = {
       name:                    name.trim(),
+      type:                    type,
+      balance:                 parsedBalance,
       description:             description.trim() || undefined,
       default_payment_method:  defaultPayment,
       visible_category_ids:    visibleCategoryIds,
@@ -147,20 +162,55 @@ export function WalletSettingsModal() {
     >
       <div className="flex flex-col gap-5">
 
-        {/* Wallet Name */}
-        <FormField label="Wallet Name" htmlFor="settings-name" error={nameError} required>
-          <FormInput
-            id="settings-name"
-            type="text"
-            value={name}
-            onChange={(e) => {
-              setName(e.target.value);
-              if (nameError) setNameError('');
-            }}
-            hasError={Boolean(nameError)}
-            maxLength={50}
-            autoComplete="off"
-          />
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <FormField label="Wallet Name" htmlFor="settings-name" error={nameError} required>
+            <FormInput
+              id="settings-name"
+              type="text"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (nameError) setNameError('');
+              }}
+              hasError={Boolean(nameError)}
+              maxLength={50}
+              autoComplete="off"
+            />
+          </FormField>
+
+          <FormField label="Wallet Type" htmlFor="settings-type" required>
+            <FormSelect
+              id="settings-type"
+              value={type}
+              onChange={(e) => setType(e.target.value as WalletType)}
+            >
+              <option value="cash" style={{ background: 'var(--color-canvas-surface)' }}>Cash</option>
+              <option value="bank" style={{ background: 'var(--color-canvas-surface)' }}>Bank Account</option>
+              <option value="e_wallet" style={{ background: 'var(--color-canvas-surface)' }}>E-Wallet</option>
+              <option value="savings" style={{ background: 'var(--color-canvas-surface)' }}>Savings</option>
+              <option value="investment" style={{ background: 'var(--color-canvas-surface)' }}>Investment</option>
+              <option value="credit" style={{ background: 'var(--color-canvas-surface)' }}>Credit Line</option>
+            </FormSelect>
+          </FormField>
+        </div>
+
+        <FormField label="Current Balance" htmlFor="settings-balance" error={balanceError} required>
+          <div className="relative">
+            <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-[var(--color-muted-text)]" aria-hidden="true">Rp</span>
+            <FormInput
+              id="settings-balance"
+              type="text"
+              inputMode="numeric"
+              value={balance === '' || isNaN(Number(balance)) ? '' : Number(balance.replace(/[^\d]/g, '')).toLocaleString('id-ID')}
+              onChange={(e) => {
+                setBalance(e.target.value.replace(/[^\d]/g, ''));
+                if (balanceError) setBalanceError('');
+              }}
+              hasError={Boolean(balanceError)}
+              className="pl-9 tabular-nums"
+              placeholder="0"
+            />
+          </div>
         </FormField>
 
         {/* Description */}
@@ -188,31 +238,22 @@ export function WalletSettingsModal() {
             <option value="cash"        style={{ background: 'var(--color-canvas-surface)' }}>Cash</option>
             <option value="debit_card"  style={{ background: 'var(--color-canvas-surface)' }}>Debit Card</option>
             <option value="credit_card" style={{ background: 'var(--color-canvas-surface)' }}>Credit Card</option>
-            <option value="transfer"    style={{ background: 'var(--color-canvas-surface)' }}>Bank Transfer</option>
+            <option value="transfer"    style={{ background: 'var(--color-canvas-surface)' }}>Bank/E-wallet Transfer</option>
+            <option value="qr_code"     style={{ background: 'var(--color-canvas-surface)' }}>QR Code</option>
           </FormSelect>
         </FormField>
 
         {/* Visible Categories checklist */}
-        <div className="flex flex-col gap-2">
-          {/* Checklist header — exact copy per spec: "Visible Categories" */}
-          <span
-            className="text-sm font-medium text-[var(--color-pearl-text)]"
-            style={{ fontFamily: 'var(--font-sans)' }}
-            id="visible-cats-label"
-          >
-            Visible Categories
-          </span>
-          <p
-            className="text-xs text-[var(--color-muted-text)]"
-            style={{ fontFamily: 'var(--font-sans)' }}
-          >
-            Select which categories appear in the progress bar list when this wallet is active.
-          </p>
-
+        <FormField 
+          label="Visible Categories"
+          htmlFor="visible-categories-list"
+          hint="Select which categories appear in the progress bar list when this wallet is active."
+        >
           {/* Scrollable checklist — max-height prevents modal overflow */}
           <div
+            id="visible-categories-list"
             role="group"
-            aria-labelledby="visible-cats-label"
+            aria-label="Visible Categories"
             className={[
               'max-h-[200px] overflow-y-auto rounded-lg',
               'border border-[var(--color-tactical-border)]',
@@ -278,7 +319,7 @@ export function WalletSettingsModal() {
               })
             )}
           </div>
-        </div>
+        </FormField>
 
         {/* ---------------------------------------------------------------- */}
         {/* Danger Zone — Delete Wallet                                      */}

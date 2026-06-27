@@ -36,12 +36,12 @@ async def recalculate_scalars(client: AsyncClient, user_id: str) -> None:
     # 2. Sum active savings contributions
     savings_res = await (
         client.table("savings_targets")
-        .select("monthly_contribution")
+        .select("monthly_contribution_target")
         .eq("user_id", user_id)
         .is_("deleted_at", "null")
         .execute()
     )
-    total_savings = sum(item["monthly_contribution"] for item in savings_res.data) if savings_res.data else 0
+    total_savings = sum(item["monthly_contribution_target"] for item in savings_res.data) if savings_res.data else 0
 
     # 3. Update journey_profiles
     await client.table("journey_profiles").update({

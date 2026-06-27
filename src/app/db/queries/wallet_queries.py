@@ -196,9 +196,11 @@ async def update_wallet(
     Balance is explicitly EXCLUDED from general updates to prevent race conditions;
     balance mutations must route through `increment_balance` or `decrement_balance`.
     """
-    # Defensive programming: strip balance from generic updates
-    safe_updates = {k: v for k, v in updates.items() if k != "balance"}
-    safe_updates["updated_at"] = _now_utc()
+    # Defensive programming: strip description and default_payment_method (not in DB)
+    safe_updates = {
+        k: v for k, v in updates.items() 
+        if k not in ["description", "default_payment_method"]
+    }
 
     response = await (
         client.table("wallets")

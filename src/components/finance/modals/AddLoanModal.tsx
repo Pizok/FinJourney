@@ -21,7 +21,7 @@
 // Real API mutation is drafted and commented out.
 // =============================================================================
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   BaseModal,
@@ -34,6 +34,8 @@ import {
 import { useWalletStore } from '@/components/finance/stores/walletStore';
 import { Progress } from '@/components/ui/Progress';
 import type { Loan } from '@/types/wallet.types';
+import { apiFetchClient } from '@/lib/apiClient.client';
+import { toast } from 'sonner';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -153,16 +155,37 @@ function RpInput({
 interface AddLoanModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialData?: Loan | null;
 }
 
 // ─── AddLoanModal ─────────────────────────────────────────────────────────────
 
-export function AddLoanModal({ isOpen, onClose }: AddLoanModalProps) {
+export function AddLoanModal({ isOpen, onClose, initialData }: AddLoanModalProps) {
   const { setGlobalError } = useWalletStore();
 
   const [values, setValues] = useState<FormValues>(DEFAULTS);
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitted, setSubmitted] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      if (initialData) {
+        // Only use YYYY-MM-DD from ISO string
+        const initialDate = initialData.next_due_date ? initialData.next_due_date.split('T')[0] : '';
+        setValues({
+          name: initialData.name,
+          total_amount: initialData.total_amount.toString(),
+          paid_amount: initialData.paid_amount.toString(),
+          monthly_installment: initialData.monthly_installment.toString(),
+          next_due_date: initialDate,
+        });
+      } else {
+        setValues(DEFAULTS);
+      }
+      setErrors({});
+      setSubmitted(false);
+    }
+  }, [isOpen, initialData]);
 
   const handleClose = () => {
     setValues(DEFAULTS);
@@ -190,24 +213,20 @@ export function AddLoanModal({ isOpen, onClose }: AddLoanModalProps) {
 
   const addLoanMutation = useMutation({
     mutationFn: async (payload: any) => {
-      const response = await fetch('/api/v1/loans', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const endpoint = initialData ? `loans/${initialData.id}` : 'loans';
+      const method = initialData ? 'PATCH' : 'POST';
+      return apiFetchClient(endpoint, {
+        method,
         body: JSON.stringify(payload),
       });
-      const json = await response.json();
-      if (!response.ok || !json.success) {
-        throw new Error(json.error?.message || 'Failed to add loan');
-      }
-      return json.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wallet', 'bootstrap'] });
+      toast.success(initialData ? 'Loan updated.' : 'Loan added.');
       handleClose();
     },
     onError: (err: any) => {
-      // The old optimistic code rolled back here, but we'll use standard invalidation
-      setGlobalError(err.message);
+      toast.error(err.message || 'Failed to add loan');
     }
   });
 
@@ -235,7 +254,7 @@ export function AddLoanModal({ isOpen, onClose }: AddLoanModalProps) {
     <BaseModal
       isOpen={isOpen}
       onClose={handleClose}
-      title="Add Loan"
+      title={initialData ? "Edit Loan" : "Add Loan"}
       maxWidth="lg"
     >
       <div className="flex flex-col gap-5">
@@ -364,7 +383,7 @@ export function AddLoanModal({ isOpen, onClose }: AddLoanModalProps) {
           disabled={isMutating}
           aria-busy={isMutating}
         >
-          {isMutating ? 'Adding…' : 'Add Loan'}
+          {isMutating ? (initialData ? 'Updating…' : 'Adding…') : (initialData ? 'Update Loan' : 'Add Loan')}
         </PrimaryButton>
       </ModalFooter>
     </BaseModal>

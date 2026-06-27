@@ -44,7 +44,12 @@ export async function GET(request: Request) {
         session.access_token
       )
       
-      const hasCompletedSetup = syncRes?.data?.has_completed_setup ?? false
+      if (!syncRes) {
+        // Backend couldn't be reached or threw a 500
+        return NextResponse.redirect(`${origin}/auth?error=Backend connection failed. Please try again.`)
+      }
+      
+      const hasCompletedSetup = syncRes.data?.has_completed_setup ?? false
       
       let redirectUrl = hasCompletedSetup ? '/dashboard' : '/onboarding'
       if (next && next !== '/') {

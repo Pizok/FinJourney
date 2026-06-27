@@ -250,3 +250,13 @@ CREATE TABLE public.journey_journal (
   CONSTRAINT journey_journal_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.journey_profiles(id),
   CONSTRAINT journey_journal_source_event_id_fkey FOREIGN KEY (source_event_id) REFERENCES public.journey_events(id)
 );
+CREATE TABLE public.journey_unlock_events (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  level_reached integer NOT NULL,
+  feature_key text NOT NULL,
+  shown boolean NOT NULL DEFAULT false,
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()),
+  CONSTRAINT journey_unlock_events_pkey PRIMARY KEY (id),
+  CONSTRAINT journey_unlock_events_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.journey_profiles(id)
+);

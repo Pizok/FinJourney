@@ -24,16 +24,25 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  BaseModal, FormField, FormInput, FormCurrencyInput, FormTextarea,
+  BaseModal, FormField, FormInput, FormCurrencyInput, FormTextarea, FormSelect,
   ModalFooter, PrimaryButton, GhostButton,
 } from './BaseModal';
 import { useWalletStore } from '@/components/finance/stores/walletStore';
-import type { ColorToken, Wallet } from '@/types/wallet.types';
+import type { ColorToken, Wallet, WalletType } from '@/types/wallet.types';
 import { apiFetchClient } from '@/lib/apiClient.client';
 
 // ---------------------------------------------------------------------------
 // Color accent options
 // ---------------------------------------------------------------------------
+
+const WALLET_TYPE_OPTIONS: { value: WalletType; label: string }[] = [
+  { value: 'cash',       label: 'Cash' },
+  { value: 'bank',       label: 'Bank Account' },
+  { value: 'e_wallet',   label: 'E-Wallet' },
+  { value: 'savings',    label: 'Savings' },
+  { value: 'investment', label: 'Investment' },
+  { value: 'credit',     label: 'Credit Card / Loan' },
+];
 
 const COLOR_OPTIONS: { token: ColorToken; label: string; cssVar: string }[] = [
   { token: 'emerald',    label: 'Emerald',    cssVar: 'var(--color-muted-emerald)' },
@@ -49,6 +58,7 @@ const COLOR_OPTIONS: { token: ColorToken; label: string; cssVar: string }[] = [
 
 interface FormValues {
   name: string;
+  type: WalletType;
   starting_balance: string;
   description: string;
   color_token: ColorToken;
@@ -62,6 +72,7 @@ interface FormErrors {
 
 const DEFAULTS: FormValues = {
   name: '',
+  type: 'bank',
   starting_balance: '',
   description: '',
   color_token: 'emerald',
@@ -161,7 +172,7 @@ export function CreateWalletModal() {
 
     const payload = {
       name:                 values.name.trim(),
-      wallet_type:          'bank', // default
+      wallet_type:          values.type,
       icon:                 values.color_token as ColorToken,
       balance:              Number(values.starting_balance),
       visible_category_ids: values.visible_category_ids,
@@ -191,20 +202,37 @@ export function CreateWalletModal() {
           </div>
         )}
 
-        {/* Wallet Name */}
-        <FormField label="Wallet Name" htmlFor="wallet-name" error={errors.name} required>
-          <FormInput
-            id="wallet-name"
-            type="text"
-            value={values.name}
-            onChange={(e) => set('name', e.target.value)}
-            placeholder="e.g. BCA Savings, Cash, GoPay"
-            hasError={Boolean(errors.name)}
-            maxLength={50}
-            autoComplete="off"
-            disabled={isAtLimit}
-          />
-        </FormField>
+        {/* Wallet Name & Type */}
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <FormField label="Wallet Name" htmlFor="wallet-name" error={errors.name} required>
+            <FormInput
+              id="wallet-name"
+              type="text"
+              value={values.name}
+              onChange={(e) => set('name', e.target.value)}
+              placeholder="e.g. BCA Savings, Cash, GoPay"
+              hasError={Boolean(errors.name)}
+              maxLength={50}
+              autoComplete="off"
+              disabled={isAtLimit}
+            />
+          </FormField>
+
+          <FormField label="Wallet Type" htmlFor="wallet-type" required>
+            <FormSelect
+              id="wallet-type"
+              value={values.type}
+              onChange={(e) => set('type', e.target.value as WalletType)}
+              disabled={isAtLimit}
+            >
+              <option value="cash" style={{ background: 'var(--color-canvas-surface)' }}>Cash</option>
+              <option value="bank" style={{ background: 'var(--color-canvas-surface)' }}>Bank Account</option>
+              <option value="savings" style={{ background: 'var(--color-canvas-surface)' }}>Savings</option>
+              <option value="investment" style={{ background: 'var(--color-canvas-surface)' }}>Investment</option>
+              <option value="credit" style={{ background: 'var(--color-canvas-surface)' }}>Credit Line</option>
+            </FormSelect>
+          </FormField>
+        </div>
 
         {/* Starting Balance */}
         <FormField
@@ -298,17 +326,12 @@ export function CreateWalletModal() {
 
         {/* Categories Selection */}
         {categories.length > 0 && (
-          <div className="flex flex-col gap-2">
-            <span
-              className="text-sm font-medium text-[var(--color-pearl-text)]"
-              style={{ fontFamily: 'var(--font-sans)' }}
-            >
-              Tracked Categories
-            </span>
-            <p className="text-xs text-[var(--color-muted-text)] mb-1" style={{ fontFamily: 'var(--font-sans)' }}>
-              Select which categories this wallet should track. You can change this later.
-            </p>
-            <div className="max-h-40 overflow-y-auto rounded-lg border border-[var(--color-tactical-border)] bg-[var(--color-canvas-surface)] p-2">
+          <FormField 
+            label="Tracked Categories" 
+            htmlFor="wallet-categories"
+            hint="Select which categories this wallet should track. You can change this later."
+          >
+            <div id="wallet-categories" className="max-h-40 overflow-y-auto rounded-lg border border-[var(--color-tactical-border)] bg-[var(--color-canvas-surface)] p-2">
               <div className="flex flex-col gap-1">
                 {categories.map((cat) => (
                   <label
@@ -327,7 +350,7 @@ export function CreateWalletModal() {
                 ))}
               </div>
             </div>
-          </div>
+          </FormField>
         )}
       </div>
 

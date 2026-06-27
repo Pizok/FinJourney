@@ -24,6 +24,7 @@ export async function apiFetchClient<T = unknown>(endpoint: string, options: Req
 
   // Uses relative URL, relying on next.config.ts proxy
   const response = await fetch(`/api/v1/${cleanEndpoint}`, {
+    cache: 'no-store',
     ...options,
     headers: {
       'Content-Type': 'application/json',

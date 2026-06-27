@@ -4,7 +4,7 @@ export type AvatarClass = 'Sentinel' | 'Vanguard' | 'Phantom' | 'Oracle';
 export type SetupStatus = 'onboarding' | 'setup' | 'complete';
 export type TransactionType = 'income' | 'expense' | 'transfer';
 export type TaskRepeatType = 'daily' | 'weekly' | 'monthly' | 'once';
-export type ChallengeStatus = 'active' | 'idle';
+export type ChallengeStatus = 'ACTIVE' | 'IDLE' | 'COMPLETED' | 'ARCHIVED';
 export type ChallengeType =
   | 'quarterly_review'
   | 'adventure'
@@ -60,6 +60,8 @@ export interface DailyStatus {
   budget_percent_used: number;
   streak_count: number;
   zero_spend_marked: boolean;
+  expense_logged_today: boolean;
+  income_logged_today: boolean;
   standby_active: boolean;
   last_transaction_at: string | null;
   ghost_warning: boolean;
@@ -124,7 +126,7 @@ export interface Transaction {
   type: TransactionType;
   amount: number;
   note: string;
-  logged_at: string;
+  created_at: string;
 }
 
 export interface FeatureUnlocks {

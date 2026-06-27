@@ -21,7 +21,7 @@
 // CTAs: "Add Expense" | "Cancel"
 // =============================================================================
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   BaseModal,
@@ -34,6 +34,8 @@ import {
 } from './BaseModal';
 import { useWalletStore } from '@/components/finance/stores/walletStore';
 import type { FixedExpense } from '@/types/wallet.types';
+import { apiFetchClient } from '@/lib/apiClient.client';
+import { toast } from 'sonner';
 
 // ─── Static option lists ──────────────────────────────────────────────────────
 
@@ -146,6 +148,7 @@ function validate(v: FormValues): FormErrors {
 interface AddFixedExpenseModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialData?: FixedExpense | null;
 }
 
 // ─── Dynamic "Target" field ───────────────────────────────────────────────────
@@ -252,12 +255,40 @@ function RecurrenceValueField({
 
 // ─── AddFixedExpenseModal ─────────────────────────────────────────────────────
 
-export function AddFixedExpenseModal({ isOpen, onClose }: AddFixedExpenseModalProps) {
+export function AddFixedExpenseModal({ isOpen, onClose, initialData }: AddFixedExpenseModalProps) {
   const { setGlobalError } = useWalletStore();
 
   const [values, setValues] = useState<FormValues>(DEFAULTS);
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitted, setSubmitted] = useState(false);
+
+
+  useEffect(() => {
+    if (isOpen) {
+      if (initialData) {
+        let yMonth = '01';
+        let yDay = '1';
+        if (initialData.recurrence_type === 'yearly' && typeof initialData.recurrence_value === 'string' && initialData.recurrence_value.includes('-')) {
+          const parts = initialData.recurrence_value.split('-');
+          yMonth = parts[0];
+          yDay = parseInt(parts[1], 10).toString();
+        }
+
+        setValues({
+          name: initialData.name,
+          amount: initialData.amount.toString(),
+          recurrence_type: initialData.recurrence_type,
+          recurrence_value: initialData.recurrence_value ? initialData.recurrence_value.toString() : '',
+          yearly_month: yMonth,
+          yearly_day: yDay,
+        });
+      } else {
+        setValues(DEFAULTS);
+      }
+      setErrors({});
+      setSubmitted(false);
+    }
+  }, [isOpen, initialData]);
 
   const handleClose = () => {
     setValues(DEFAULTS);
@@ -314,23 +345,20 @@ export function AddFixedExpenseModal({ isOpen, onClose }: AddFixedExpenseModalPr
 
   const addFixedExpenseMutation = useMutation({
     mutationFn: async (payload: any) => {
-      const response = await fetch('/api/v1/fixed-expenses', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const endpoint = initialData ? `fixed-expenses/${initialData.id}` : 'fixed-expenses';
+      const method = initialData ? 'PATCH' : 'POST';
+      return apiFetchClient(endpoint, {
+        method,
         body: JSON.stringify(payload),
       });
-      const json = await response.json();
-      if (!response.ok || !json.success) {
-        throw new Error(json.error?.message || 'Failed to add fixed expense');
-      }
-      return json.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wallet', 'bootstrap'] });
+      toast.success(initialData ? 'Fixed expense updated.' : 'Fixed expense added.');
       handleClose();
     },
     onError: (err: any) => {
-      setGlobalError(err.message);
+      toast.error(err.message || 'Failed to add fixed expense');
     }
   });
 
@@ -358,7 +386,7 @@ export function AddFixedExpenseModal({ isOpen, onClose }: AddFixedExpenseModalPr
     <BaseModal
       isOpen={isOpen}
       onClose={handleClose}
-      title="Add Fixed Expense"
+      title={initialData ? "Edit Fixed Expense" : "Add Fixed Expense"}
       maxWidth="lg"
     >
       <div className="flex flex-col gap-5">
@@ -455,7 +483,7 @@ export function AddFixedExpenseModal({ isOpen, onClose }: AddFixedExpenseModalPr
           disabled={isMutating}
           aria-busy={isMutating}
         >
-          {isMutating ? 'Adding…' : 'Add Expense'}
+          {isMutating ? (initialData ? 'Updating…' : 'Adding…') : (initialData ? 'Update Expense' : 'Add Expense')}
         </PrimaryButton>
       </ModalFooter>
     </BaseModal>

@@ -27,6 +27,7 @@ from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
 from supabase import AsyncClient
+from app.db.queries.transaction_queries import insert_game_event
 
 from app.schemas.wallet import RebalanceBudgetRequest
 
@@ -99,6 +100,97 @@ async def delete_wallet(
         wallet_id=wallet_id,
         user_id=user_id,
     )
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# CATEGORY CRUD FUNCTIONS
+# (These are called from categories.py — they delegate to category_queries)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+from app.db.queries import category_queries
+from app.schemas.category import CategoryCreate, CategoryOut, CategoryUpdate
+
+
+async def get_categories(db: AsyncClient, user_id: str) -> list[CategoryOut]:
+    """Return all active categories for a user."""
+    rows = await db.table("categories") \
+        .select("*") \
+        .eq("user_id", user_id) \
+        .is_("deleted_at", "null") \
+        .order("created_at", desc=False) \
+        .execute()
+    return [CategoryOut.model_validate(row) for row in (rows.data or [])]
+
+
+async def create_category(
+    client: AsyncClient,
+    user_id: str,
+    payload: CategoryCreate,
+    current_level: int = 1,
+) -> CategoryOut:
+    """Create a new category, enforcing level cap."""
+    existing = await client.table("categories") \
+        .select("id") \
+        .eq("user_id", user_id) \
+        .is_("deleted_at", "null") \
+        .execute()
+    category_count = len(existing.data or [])
+    max_categories = 10  # Level 1 cap — extend based on level as needed
+    if category_count >= max_categories:
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=403,
+            detail={"code": "LEVEL_GATE_CATEGORY_CAP", "message": f"Maximum {max_categories} categories allowed."},
+        )
+
+    from datetime import datetime, timezone
+    import uuid as _uuid
+    payload_dict = {
+        "id": str(_uuid.uuid4()),
+        "user_id": user_id,
+        "name": payload.name,
+        "category_group": "expense",
+        "monthly_limit": payload.monthly_limit,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "deleted_at": None,
+    }
+    result = await client.table("categories").insert(payload_dict).execute()
+    return CategoryOut.model_validate(result.data[0])
+
+
+async def update_category(
+    client: AsyncClient,
+    category_id: str,
+    user_id: str,
+    payload: CategoryUpdate,
+) -> CategoryOut:
+    """Update a category's name and/or monthly limit."""
+    updates = payload.model_dump(exclude_unset=True)
+    result = await client.table("categories") \
+        .update(updates) \
+        .eq("id", category_id) \
+        .eq("user_id", user_id) \
+        .is_("deleted_at", "null") \
+        .execute()
+    if not result.data:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Category not found.")
+    return CategoryOut.model_validate(result.data[0])
+
+
+async def delete_category(
+    client: AsyncClient,
+    category_id: str,
+    user_id: str,
+) -> None:
+    """Soft-delete a category."""
+    from datetime import datetime, timezone
+    await client.table("categories") \
+        .update({"deleted_at": datetime.now(timezone.utc).isoformat()}) \
+        .eq("id", category_id) \
+        .eq("user_id", user_id) \
+        .is_("deleted_at", "null") \
+        .execute()
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -242,20 +334,9 @@ async def _write_rebalance_audit_event(
     budget rebalance does not affect player progression — it is a pure
     financial planning action. The `metadata` payload captures the scale.
     """
-    await (
-        db.table("journey_events")
-        .insert(
-            {
-                "user_id": user_id,
-                "event_type": _EVENT_TYPE_BUDGET_REBALANCE,
-                "source": "system",
-                "severity": "info",
-                "status": "applied",
-                "metadata": {"rebalanced_categories": adjustment_count},
-                "xp_delta": 0,
-                "hp_delta": 0,
-                "shield_delta": 0,
-            }
-        )
-        .execute()
+    await insert_game_event(
+        db=db,
+        user_id=user_id,
+        event_type=_EVENT_TYPE_BUDGET_REBALANCE,
+        metadata={"rebalanced_categories": adjustment_count}
     )

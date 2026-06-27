@@ -19,6 +19,7 @@ import {
 } from './BaseModal';
 import { toast } from 'sonner';
 import type { IncomeStream } from '../baselines/FinancialSummaryCard';
+import { apiFetchClient } from '@/lib/apiClient.client';
 
 interface FormValues {
   name: string;
@@ -91,22 +92,12 @@ export function AddIncomeStreamModal({ isOpen, onClose, initialData }: AddIncome
 
   const addMutation = useMutation({
     mutationFn: async (payload: FormValues) => {
-      const url = initialData ? `/api/v1/income-streams/${initialData.id}` : '/api/v1/income-streams';
+      const endpoint = initialData ? `income-streams/${initialData.id}` : 'income-streams';
       const method = initialData ? 'PATCH' : 'POST';
-      const response = await fetch(url, {
+      return apiFetchClient(endpoint, {
         method,
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      if (!response.ok) {
-        let msg = initialData ? 'Failed to update income stream' : 'Failed to add income stream';
-        try {
-          const errData = await response.json();
-          msg = errData.detail || msg;
-        } catch { /* ignore */ }
-        throw new Error(msg);
-      }
-      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['income_streams'] });
