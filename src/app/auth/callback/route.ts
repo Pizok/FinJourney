@@ -38,7 +38,7 @@ export async function GET(request: Request) {
     const { data: { session }, error } = await supabase.auth.exchangeCodeForSession(code)
     
     if (!error && session) {
-      const syncRes = await apiFetchServer<{ success: boolean; data: { has_completed_setup: boolean } }>(
+      const syncRes = await apiFetchServer<{ has_completed_setup: boolean }>(
         'auth/sync',
         { method: 'POST' },
         session.access_token
@@ -49,7 +49,7 @@ export async function GET(request: Request) {
         return NextResponse.redirect(`${origin}/auth?error=Backend connection failed. Please try again.`)
       }
       
-      const hasCompletedSetup = syncRes.data?.has_completed_setup ?? false
+      const hasCompletedSetup = syncRes.has_completed_setup ?? false
       
       let redirectUrl = hasCompletedSetup ? '/dashboard' : '/onboarding'
       if (next && next !== '/') {
