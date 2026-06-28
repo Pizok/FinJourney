@@ -78,7 +78,10 @@ export async function apiFetchServer<T = unknown>(
     }
 
     return (json && 'data' in json ? json.data : json) as T
-  } catch (error) {
+  } catch (error: any) {
+    if (error && typeof error === 'object' && 'digest' in error) {
+      throw error; // Re-throw Next.js internal errors (redirect, dynamic server usage, etc.)
+    }
     console.error(`[apiFetchServer] Fatal error fetching ${endpoint}:`, error)
     return null
   }
