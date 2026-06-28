@@ -19,10 +19,16 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+import os
+
 # Enable CORS for the Next.js frontend
+frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+# If you have multiple origins, you can split by comma
+origins = [url.strip() for url in frontend_url.split(",")]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
