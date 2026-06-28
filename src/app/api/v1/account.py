@@ -37,7 +37,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import JSONResponse, Response
 
-from app.api.v1.dependencies import get_db, get_current_user
+from app.api.v1.dependencies import AuthUser, DbClient, GetAdminDB
 from app.services.account import AccountDomainError, export_account_data, delete_account
 
 _UTC = timezone.utc
