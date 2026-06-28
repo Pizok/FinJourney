@@ -296,7 +296,7 @@ function ModalBody({ onClose }: { onClose: () => void }) {
               placeholder="10.000.000"
               className={cn(inputClass(!!errors.amount), 'pl-10')}
               {...register('amount', {
-                onChange: (e) => {
+                onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
                   const rawValue = e.target.value.replace(/\D/g, '')
                   const formatted = rawValue ? parseInt(rawValue, 10).toLocaleString('id-ID') : ''
                   e.target.value = formatted

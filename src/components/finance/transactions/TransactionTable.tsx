@@ -71,6 +71,9 @@ const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   debit_card:   'Debit',
   credit_card:  'Credit',
   transfer:     'Transfer',
+  e_wallet:     'E-Wallet',
+  qr_code:      'QR',
+  other:        'Other',
 };
 
 // ---------------------------------------------------------------------------

@@ -116,6 +116,7 @@ export interface ActiveChallenge {
   color?: string;
   days_remaining: number | null;
   asset_key: string | null;
+  progress_data?: any;
 }
 
 export interface Transaction {

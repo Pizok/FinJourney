@@ -32,6 +32,7 @@ const WALLET_TYPE_LABELS: Record<WalletType, string> = {
   savings: 'Savings',
   investment: 'Investment',
   credit: 'Credit',
+  e_wallet: 'E-Wallet',
 };
 
 const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
@@ -39,6 +40,9 @@ const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   debit_card: 'Debit Card',
   credit_card: 'Credit Card',
   transfer: 'Transfer',
+  e_wallet: 'E-Wallet',
+  qr_code: 'QR Code',
+  other: 'Other',
 };
 
 // ---------------------------------------------------------------------------

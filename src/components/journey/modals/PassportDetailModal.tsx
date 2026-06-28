@@ -80,7 +80,7 @@ function StampCentrepiece({ stamp }: { stamp: PassportStamp }) {
             "text-pearl-text tracking-[-0.01em] leading-tight mb-1"
           )}
         >
-          {stamp.region}
+          {stamp.title}
         </p>
         <p className="font-sans text-[12px] text-muted-text">{stamp.date}</p>
       </div>

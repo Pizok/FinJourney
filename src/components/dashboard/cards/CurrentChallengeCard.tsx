@@ -128,7 +128,7 @@ function ActiveChallenge({
               <li key={key} className="flex items-center gap-3">
                 <CheckCircle2 size={16} strokeWidth={2} className={isDone ? "text-muted-emerald" : "text-muted-text/30"} />
                 <span className={`font-sans text-sm ${isDone ? "text-pearl-text line-through opacity-70" : "text-muted-text"}`}>
-                  {formatTaskLabel(key)}{isDone && " (Done)"}
+                  {formatTaskLabel(key)}{Boolean(isDone) && " (Done)"}
                 </span>
               </li>
             ))}
