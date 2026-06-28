@@ -184,14 +184,6 @@ function IdleState() {
       <p className="font-sans text-sm text-muted-text leading-relaxed max-w-prose flex-1 mb-5 relative z-10">
         There are no active challenges at the moment. Continue logging your daily activity until the system assigns your next objective.
       </p>
-
-      {/* Footer */}
-      <div className="mt-auto flex items-center gap-2 relative z-10">
-        <Hourglass size={14} strokeWidth={2} className="text-muted-text" />
-        <span className="font-sans text-sm text-muted-text">
-          Monitoring triggers...
-        </span>
-      </div>
     </div>
   );
 }

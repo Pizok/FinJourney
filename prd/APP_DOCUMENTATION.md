@@ -64,7 +64,12 @@ FinJourney/
 │   ├── app/
 │   │   ├── (main)/          # Public marketing & landing pages
 │   │   ├── (minimal)/       # Authenticated app (Dashboard, Finance, Journey)
-│   │   ├── api/v1/          # FastAPI backend source code (Python)
+│   │   ├── api/             # FastAPI backend source code (Python)
+│   │   ├── core/            # FastAPI core configs and security
+│   │   ├── db/              # Database models and Supabase client
+│   │   ├── journey/         # Gamification backend endpoints
+│   │   ├── schemas/         # Pydantic models for API
+│   │   ├── services/        # Python backend services (email, cron, sync)
 │   │   ├── templates/       # Jinja2 email templates
 │   │   └── main.py          # FastAPI application entry point
 │   ├── components/          # Reusable React components grouped by feature
@@ -72,9 +77,9 @@ FinJourney/
 │   │   ├── finance/         # Transactions, Wallets, Analytics components
 │   │   ├── journey/         # Gamification, Quests, and XP UI
 │   │   └── ui/              # Generic Radix/Tailwind components
-│   ├── lib/                 # Shared utilities and API client wrappers
-│   └── services/            # Python backend services (email, cron, sync)
+│   └── lib/                 # Shared utilities and API client wrappers
 ├── prd/                     # Product Requirements & Documentation
+├── supabase/                # Supabase migrations and configs
 └── README.md                # General project readme
 ```
 

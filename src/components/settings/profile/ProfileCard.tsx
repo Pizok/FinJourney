@@ -34,6 +34,8 @@ import {
   useSettingsStore,
   selectCurrentProfile,
 } from '../store/settingsStore'
+import { apiFetchClient } from '@/lib/apiClient.client'
+import { createClient } from '@/lib/supabase.client'
 
 // ─── Timezone Catalog ─────────────────────────────────────────────────────────
 // Curated list rather than the full IANA database (400+ entries would be
@@ -339,11 +341,18 @@ function DeleteAccountModal({ onClose, onSuccess }: DeleteAccountModalProps) {
     setApiError(null)
 
     try {
-      // Mocking delete for now since no endpoint is specified
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      await apiFetchClient('/account?confirm=true', {
+        method: 'DELETE',
+      })
+      
       onSuccess()
-    } catch {
-      setApiError('Network error. Check your connection and try again.')
+      
+      // Clear local session and redirect
+      const supabase = createClient()
+      await supabase.auth.signOut()
+      window.location.href = '/auth'
+    } catch (err: any) {
+      setApiError(err.message || 'Network error. Check your connection and try again.')
     } finally {
       setIsSubmitting(false)
     }

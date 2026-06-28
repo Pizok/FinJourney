@@ -146,8 +146,19 @@ async def save_baselines(user: AuthUser, db: DbClient, payload: dict):
         year = now.year
 
         # 1. Convert Pydantic payloads to dictionaries for JSONB processing
-        incomes_json = [entry.model_dump() for entry in data.incomeEntries]
-        fixed_costs_json = [entry.model_dump() for entry in data.fixedCostEntries]
+        incomes_json = []
+        for entry in data.incomeEntries:
+            d = entry.model_dump()
+            d["name"] = d.pop("label", "")
+            incomes_json.append(d)
+
+        fixed_costs_json = []
+        for entry in data.fixedCostEntries:
+            d = entry.model_dump()
+            d["name"] = d.pop("label", "")
+            d["recurrence_type"] = "monthly"
+            d["recurrence_value"] = "1"
+            fixed_costs_json.append(d)
         
         # Format savings deadlines for the RPC
         savings_json = []
@@ -157,6 +168,7 @@ async def save_baselines(user: AuthUser, db: DbClient, payload: dict):
                 if len(deadline_str) == 7:
                     deadline_str = f"{deadline_str}-01"
                 entry_dict = entry.model_dump()
+                entry_dict["name"] = entry_dict.pop("label", "")
                 entry_dict["deadline"] = deadline_str
                 # Note: target_amount is what the payload has, and monthly_contribution
                 # maps to monthly_contribution_target. We rename it for the RPC insert.

@@ -84,6 +84,7 @@ async def build_bootstrap_payload(db: AsyncClient, user_id: str) -> dict:
         "profile": {
             **profile,
             "level": level,
+            "setup_status": "complete" if profile.get("has_completed_setup") else "onboarding",
         },
         "player_state": player_state,
         "daily_status": {
