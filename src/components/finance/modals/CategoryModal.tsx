@@ -66,7 +66,7 @@ export function CategoryModal() {
     setValue,
     formState: { errors, isSubmitting },
   } = useForm<CategoryFormValues>({
-    resolver: zodResolver(categorySchema),
+    resolver: zodResolver(categorySchema) as any,
     defaultValues: {
       name: '',
       monthly_limit: 0,
