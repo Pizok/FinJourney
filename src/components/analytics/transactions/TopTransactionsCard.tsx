@@ -31,7 +31,7 @@
  * Canonical path: components/analytics/transactions/TopTransactionsCard.tsx
  */
 
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { ReceiptText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAnalyticsData } from '../layout/AnalyticsContext'
@@ -73,24 +73,18 @@ function CategoryInitial({ name }: { name: string }) {
 
 interface TransactionRowProps {
   transaction: TopTransaction
-  onClick:     (id: string) => void
   isLast:      boolean
 }
 
-function TransactionRow({ transaction, onClick, isLast }: TransactionRowProps) {
+function TransactionRow({ transaction, isLast }: TransactionRowProps) {
   const { id, amount, category_name, wallet_name, transaction_date } = transaction
 
   return (
-    <button
-      type="button"
-      onClick={() => onClick(id)}
+    <div
       className={cn(
         'flex w-full items-center gap-3 px-0 py-3 text-left',
-        'transition-colors duration-150',
-        'hover:bg-abyssal-slate/50 rounded-lg -mx-2 px-2',
         !isLast && 'border-b border-tactical-border/60',
       )}
-      aria-label={`View ${category_name} transaction of ${formatCurrency(amount)} from ${formatTransactionDate(transaction_date)} in wallet`}
     >
       {/* Category initial */}
       <CategoryInitial name={category_name} />
@@ -111,7 +105,7 @@ function TransactionRow({ transaction, onClick, isLast }: TransactionRowProps) {
           -{formatCurrency(amount)}
         </span>
       </div>
-    </button>
+    </div>
   )
 }
 
@@ -133,7 +127,6 @@ function TransactionsEmptyState() {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function TopTransactionsCard() {
-  const router    = useRouter()
   const { top_transactions: rawList = [] } = useAnalyticsData()
 
   /*
@@ -143,14 +136,7 @@ export function TopTransactionsCard() {
    */
   const transactions = [...rawList].sort((a, b) => b.amount - a.amount)
 
-  function handleTransactionClick(id: string) {
-    /*
-     * Navigate to the wallet page with a highlight query parameter.
-     * The wallet page handles scrolling the transaction into view and
-     * applying a temporary visual highlight for 3–5 seconds.
-     */
-    router.push(`/wallet?highlight=${id}`)
-  }
+
 
   return (
     <section
@@ -171,15 +157,32 @@ export function TopTransactionsCard() {
       {transactions.length === 0 ? (
         <TransactionsEmptyState />
       ) : (
-        <div>
+        <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 max-h-[220px]">
           {transactions.map((tx, idx) => (
             <TransactionRow
               key={tx.id}
               transaction={tx}
-              onClick={handleTransactionClick}
               isLast={idx === transactions.length - 1}
             />
           ))}
+        </div>
+      )}
+
+      {/* ── CTA ──────────────────────────────────────────────────────────── */}
+      {transactions.length > 0 && (
+        <div className="mt-auto border-t border-tactical-border/50 pt-5">
+          <Link
+            href="/finance?tab=transactions"
+            className={cn(
+              'flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5',
+              'border border-tactical-border font-display text-sm font-medium text-muted-text',
+              'transition-colors duration-150 hover:border-dawn-gold/40 hover:text-pearl-text',
+            )}
+            aria-label="See all transactions"
+          >
+            <ReceiptText className="h-4 w-4" strokeWidth={2} />
+            See all transactions
+          </Link>
         </div>
       )}
     </section>

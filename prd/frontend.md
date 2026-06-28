@@ -3,8 +3,8 @@
 This document provides a concise overview of the FinJourney frontend structure for AI agents to understand the setup with minimal token usage.
 
 ## Core Tech Stack
-- **Framework**: Next.js 16.2.6 (App Router)
-- **UI Library**: React 19
+- **Framework**: Next.js (App Router)
+- **UI Library**: React
 - **Styling**: Tailwind CSS v4 + Radix UI Primitives + Framer Motion
 - **State Management**: Zustand (Local State) + TanStack React Query (Server State Cache)
 - **Authentication**: Supabase SSR (`@supabase/ssr`)
@@ -13,11 +13,11 @@ This document provides a concise overview of the FinJourney frontend structure f
 ## Directory Structure (`src/`)
 - `app/`: Next.js App Router structure.
   - `(main)/`: Public-facing pages (marketing, news, pricing).
-  - `(minimal)/`: The core authenticated application (`analytics`, `auth`, `dashboard`, `finance`, `journey`, `onboarding`, `settings`). Uses a minimal shell/sidebar layout.
-  - `api/`: Next.js API routes (if any) or proxy configuration. *(Note: Python backend also shares the `src/app/` namespace but runs separately).*
+  - `(minimal)/`: The core authenticated application (`analytics`, `auth`, `dashboard`, `finance`, `journey`, `onboarding`, `settings`, `wallets`). Uses a minimal shell/sidebar layout.
+  - `api/`: Next.js API routes (if any) or proxy configuration.
 - `components/`: React components grouped by feature domain.
   - `ui/`: Generic, reusable, dumb components (Buttons, Inputs, Dialogs).
-  - `analytics/`, `auth/`, `dashboard/`, `finance/`, `journey/`, `onboarding/`, `settings/`: Feature-specific compound components. Note that `settings/` contains the UI toggles for the gamification email system (hazard alerts, daily reminders, achievements).
+  - `analytics/`, `auth/`, `dashboard/`, `finance/`, `journey/`, `onboarding/`, `settings/`, `wallets/`: Feature-specific compound components. Note that `settings/` contains the UI toggles for the gamification email system.
 - `lib/`: Utilities and API client wrappers.
   - `apiClient.client.ts`: Wrapper for `fetch` used in React Client Components (e.g., inside TanStack Query). Passes Supabase JWT to the backend.
   - `apiClient.server.ts`: Wrapper for `fetch` used in React Server Components.

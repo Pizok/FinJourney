@@ -14,7 +14,6 @@ from app.schemas.income_streams import (
     IncomeStreamResponse,
     IncomeStreamUpdate,
 )
-from app.services.savings_service import recalculate_scalars
 
 router = APIRouter(prefix="/income-streams", tags=["income_streams"])
 
@@ -40,8 +39,6 @@ async def create_income_stream(
     row_data["user_id"] = user.user_id
     response = await db.table("income_streams").insert(row_data).execute()
 
-    # Trigger scalar recalculation
-    await recalculate_scalars(db, user.user_id)
     return response.data[0]
 
 
@@ -67,8 +64,6 @@ async def update_income_stream(
     if not response.data:
         raise HTTPException(status_code=404, detail="Income stream not found")
 
-    # Trigger scalar recalculation
-    await recalculate_scalars(db, user.user_id)
     return response.data[0]
 
 
@@ -84,6 +79,3 @@ async def delete_income_stream(stream_id: UUID, user: AuthUser, db: DBClient) ->
     )
     if not response.data:
         raise HTTPException(status_code=404, detail="Income stream not found")
-
-    # Trigger scalar recalculation
-    await recalculate_scalars(db, user.user_id)

@@ -29,10 +29,10 @@ import { useCallback } from "react";
 import { Trophy } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Card } from "@/components/ui/Card";
-import { ReviewCard } from "./ReviewCard";
+import { QuarterlyReportCard } from "./QuarterlyReportCard";
 import { useModalActions } from "@/components/journey/stores/journeyStore";
-import { useJourneyData } from "../layout/JourneyContext";
-import type { QuarterlyReview } from "@/components/journey/types/journey.types";
+import { useQuarterlyReports } from "../hooks/useQuarterlyReports";
+import type { QuarterlyReportListItem } from "@/components/journey/types/journey.types";
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
@@ -86,7 +86,7 @@ function SectionLabel() {
         "tracking-[0.1em] text-muted-text mb-4",
       ].join(" ")}
     >
-      Quarterly Reviews
+      Quarterly Reports
     </p>
   );
 }
@@ -100,36 +100,39 @@ export interface QuarterlyReviewSectionProps {
 export function QuarterlyReviewSection({
   isLoading = false,
 }: QuarterlyReviewSectionProps) {
-  const overview = useJourneyData();
-  const { openReviewModal } = useModalActions();
+  const { openReportModal } = useModalActions();
+  const { data: pastReports, isLoading: reportsLoading } = useQuarterlyReports();
 
-  const handleReviewClick = useCallback(
-    (review: QuarterlyReview) => {
-      openReviewModal(review.id, review);
+  const handleReportClick = useCallback(
+    (report: QuarterlyReportListItem) => {
+      if (openReportModal) {
+        openReportModal(report);
+      } else {
+        console.warn("openReportModal not defined");
+      }
     },
-    [openReviewModal]
+    [openReportModal]
   );
 
   // ── Loading ──────────────────────────────────────────────────────────────
-  if (isLoading) return <QuarterlyReviewSkeleton />;
+  if (isLoading || reportsLoading) return <QuarterlyReviewSkeleton />;
 
-  const activeReview = overview.active_review;
-  const pastReviews = overview.past_reviews ?? [];
-  const hasAny = activeReview != null || pastReviews.length > 0;
+  const reports = pastReports ?? [];
+  const hasAny = reports.length > 0;
 
   // ── Empty ────────────────────────────────────────────────────────────────
   if (!hasAny) {
     return (
       <section
-        aria-label="Quarterly reviews"
-        data-testid="quarterly-review-section"
+        aria-label="Quarterly reports"
+        data-testid="quarterly-report-section"
         className="animate-fade-in"
       >
         <SectionLabel />
         <EmptyState
           icon={Trophy}
-          message="Your first review is being prepared."
-          description="Quarterly reviews appear every 90 account days. Check back as you progress."
+          message="Your first report is being prepared."
+          description="Quarterly reports appear every 90 account days. Check back as you progress."
         />
       </section>
     );
@@ -138,30 +141,18 @@ export function QuarterlyReviewSection({
   // ── Data ─────────────────────────────────────────────────────────────────
   return (
     <section
-      aria-label="Quarterly reviews"
-      data-testid="quarterly-review-section"
+      aria-label="Quarterly reports"
+      data-testid="quarterly-report-section"
       className="animate-fade-in"
     >
       <SectionLabel />
 
       <div className="flex flex-col gap-3">
-        {/*
-         * Active review is rendered first — it demands immediate attention.
-         * Past reviews follow in reverse-chronological display order
-         * (they arrive from the API newest-first).
-         */}
-        {activeReview && (
-          <ReviewCard
-            review={activeReview}
-            onReviewClick={handleReviewClick}
-          />
-        )}
-
-        {pastReviews.map((review) => (
-          <ReviewCard
-            key={review.id}
-            review={review}
-            onReviewClick={handleReviewClick}
+        {reports.map((report) => (
+          <QuarterlyReportCard
+            key={report.id}
+            report={report}
+            onClick={handleReportClick}
           />
         ))}
       </div>

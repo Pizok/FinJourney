@@ -12,8 +12,8 @@ from app.main import app
 
 client = TestClient(app)
 
-from app.api.v1.dependencies import CurrentUserID
-from app.api.v1.dependencies import DBClient
+from app.journey.dependencies import CurrentUserID
+from app.journey.dependencies import DBClient
 
 def override_current_user():
     return uuid.UUID("00000000-0000-0000-0000-000000000001")

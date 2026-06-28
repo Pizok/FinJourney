@@ -38,7 +38,7 @@
  *   it represents future borrowing capacity.
  *
  * Fallback rules (no fabrication):
- *   - debt_free_date === null → "Not enough loan data to generate an estimate."
+ *   - debt_free_date === null → "Log a debt payment to generate an estimate."
  *   - active_loans === 0     → debt-free confirmation state
  *
  * Canonical path: components/analytics/debt/DebtHealthCard.tsx
@@ -90,7 +90,7 @@ const formatCurrency = (amount: number): string =>
   }).format(amount)
 
 function formatDebtFreeDate(dateString: string | null): string {
-  if (!dateString) return 'Not enough loan data to generate an estimate.'
+  if (!dateString) return 'Log a debt payment to generate an estimate.'
   const date = new Date(dateString)
   return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 }
@@ -254,13 +254,16 @@ function ActiveDebtBody({ debt }: { debt: DebtHealth }) {
         <MetricRow
           label="Recommended Debt Limit"
           value={formatCurrency(safe_loan_limit)}
+          isLast
         />
+        {/*
         <MetricRow
           label="Estimated Debt-Free Date"
           value={debtFreeLabel}
           valueClass={isDateUnknown ? 'text-muted-text font-normal text-xs' : undefined}
           isLast
         />
+        */}
       </div>
     </div>
   )

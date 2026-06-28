@@ -119,31 +119,4 @@ async def update_path(db: AsyncClient, user_id: str, active_path: str, cooldown_
     )
     return result.data[0] if result.data else None
 
-async def reset_user_progress_txn(db: AsyncClient, user_id: str) -> None:
-    """
-    Executes database updates to reset user progression and soft-cancel challenges/regions.
-    """
-    # We execute these sequentially but they run on the server.
-    # 1. Reset Profile Stats
-    await db.table("journey_profiles").update({
-        "current_hp": 100, # Assuming max HP is 100
-        "total_xp": 0,
-        "gold_coins": 0,
-        "defense_shield": 0,
-        "active_path": "balanced",
-        "path_cooldown_until": None,
-        "streak_count": 0,
-        "highest_streak": 0,
-        "standby_tokens": 0
-    }).eq("id", user_id).execute()
 
-    # 2. Archive Active/Preparing Challenges
-    # Note: If no rows match, Supabase update returns empty list, no error is thrown.
-    await db.table("journey_challenges").update({
-        "status": "ARCHIVED"
-    }).eq("user_id", user_id).neq("status", "ARCHIVED").neq("status", "COMPLETED").neq("status", "FAILED").execute()
-
-    # 3. Archive Active/Preparing Regions
-    await db.table("journey_regions").update({
-        "status": "ARCHIVED"
-    }).eq("user_id", user_id).neq("status", "ARCHIVED").neq("status", "COMPLETED").execute()

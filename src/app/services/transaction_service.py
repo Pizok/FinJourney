@@ -395,6 +395,7 @@ async def _adjust_balance_for_update(
 async def _trigger_expense_pipeline(
     client: Client,
     user_id: str,
+    transaction_id: str,
     amount: int,
     local_date_str: str,
 ) -> None:
@@ -425,7 +426,7 @@ async def _trigger_expense_pipeline(
         from app.journey.repos.event_repo import EventRepository
         bus = EventBus(db=client)
         idem_key = EventRepository.build_idempotency_key(
-            user_id, local_date_str, "EXPENSE_LOGGED"
+            user_id, local_date_str, "EXPENSE_LOGGED", suffix=transaction_id[:8]
         )
         await bus.publish(
             user_id=user_id,
@@ -436,6 +437,7 @@ async def _trigger_expense_pipeline(
             payload={
                 "amount": amount,
                 "local_date": local_date_str,
+                "transaction_id": transaction_id,
             }
         )
     except Exception:
@@ -448,6 +450,7 @@ async def _trigger_expense_pipeline(
 async def _trigger_income_pipeline(
     client: Client,
     user_id: str,
+    transaction_id: str,
     amount: int,
     local_date_str: str,
 ) -> None:
@@ -457,7 +460,7 @@ async def _trigger_income_pipeline(
         from app.journey.repos.event_repo import EventRepository
         bus = EventBus(db=client)
         idem_key = EventRepository.build_idempotency_key(
-            user_id, local_date_str, "INCOME_LOGGED"
+            user_id, local_date_str, "INCOME_LOGGED", suffix=transaction_id[:8]
         )
         await bus.publish(
             user_id=user_id,
@@ -468,6 +471,7 @@ async def _trigger_income_pipeline(
             payload={
                 "amount": amount,
                 "local_date": local_date_str,
+                "transaction_id": transaction_id,
             }
         )
     except Exception:
@@ -549,9 +553,22 @@ async def create_transaction(
 
     # ── 5. Downstream game logic (expenses and income) ──────────────────────────────
     if txn_type == _EXPENSE.value:
-        await _trigger_expense_pipeline(client, user_id, payload.amount, payload.transaction_date.isoformat())
+        await _trigger_expense_pipeline(client, user_id, row["id"], payload.amount, payload.transaction_date.isoformat())
     elif txn_type == _INCOME.value:
-        await _trigger_income_pipeline(client, user_id, payload.amount, payload.transaction_date.isoformat())
+        await _trigger_income_pipeline(client, user_id, row["id"], payload.amount, payload.transaction_date.isoformat())
+
+    # ── 6. Passport Evaluation ────────────────────────────────────────────────
+    try:
+        from app.journey.engine.bus import EventBus
+        from app.journey.services.passport_svc import PassportService
+        bus = EventBus(db=client)
+        passport_svc = PassportService(client, bus)
+        # Evaluate stamps as a fire-and-forget/background task ideally, but for now we await
+        await passport_svc.evaluate_transaction_stamps(user_id)
+        await passport_svc.evaluate_balance_stamps(user_id)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Failed to evaluate passport stamps: {e}")
 
     row["wallet_id"] = row.pop("primary_wallet_id", None)
     row["created_at"] = row.pop("logged_at", None)
@@ -597,6 +614,8 @@ async def update_transaction(
     # ── 1. Fetch & validate ownership ────────────────────────────────────────
     old_txn = await _require_transaction(client, transaction_id, user_id)
     txn_type = old_txn["type"]
+
+    # ── 1.1 Passport Evaluation (Deferred to end of function ideally, but we can do it here for simplicity or wait)
 
     # ── 2. Validate ownership of any new wallet/category references ───────────
     new_wallet_id_str: Optional[str] = None
@@ -693,6 +712,18 @@ async def update_transaction(
     row["wallet_name"] = w.get("name") if isinstance(w, dict) else None
     c = row.pop("categories", None)
     row["category_name"] = c.get("name") if isinstance(c, dict) else None
+
+    # ── 6. Passport Evaluation (Balance may have gone up) ────────────────────
+    try:
+        from app.journey.engine.bus import EventBus
+        from app.journey.services.passport_svc import PassportService
+        bus = EventBus(db=client)
+        passport_svc = PassportService(client, bus)
+        await passport_svc.evaluate_balance_stamps(user_id)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Failed to evaluate passport stamps: {e}")
+
     return TransactionOut.model_validate(row)
 
 
@@ -718,14 +749,19 @@ async def delete_transaction(
     Deleting a past expense does NOT refund HP already lost to Daily Bleed.
     The journey_events ledger retains all penalty records.
     """
-    # ── 1. Fetch & validate ──────────────────────────────────────────────────
-    old_txn = await _require_transaction(client, transaction_id, user_id)
-
-    # ── 2. Reverse balance ────────────────────────────────────────────────────
-    await _reverse_balance_for_delete(client, user_id, old_txn)
-
-    # ── 3. Soft delete ────────────────────────────────────────────────────────
-    await _soft_delete_transaction_row(client, transaction_id, user_id)
+    # ── 1. Atomic Reverse & Soft Delete ───────────────────────────────────────
+    try:
+        await client.rpc("delete_transaction_atomic", {
+            "p_transaction_id": transaction_id,
+            "p_user_id": user_id
+        }).execute()
+    except Exception as e:
+        error_str = str(e)
+        if "transaction_not_found" in error_str:
+            raise TransactionDomainError("Transaction not found or you do not have permission to delete it.", 404)
+        elif "already_deleted" in error_str:
+            raise TransactionDomainError("Transaction is already deleted.", 400)
+        raise TransactionDomainError(f"Failed to delete transaction: {error_str}", 500)
 
 
 async def list_transactions(

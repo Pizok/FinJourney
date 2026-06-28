@@ -32,7 +32,7 @@ import { LoanSimulatorModal } from '../modals/LoanSimulatorModal'
 import { SavingsGoalModal } from '../modals/SavingsGoalModal'
 import { AnalyticsProvider, type AnalyticsData } from './AnalyticsContext'
 import { apiFetchClient } from '@/lib/apiClient.client'
-import { useDashboardStore } from '@/components/dashboard/stores/dashboardStore'
+import { useDashboardData } from '@/components/dashboard/hooks/useDashboardData'
 import { useAnalyticsStore } from '../stores/analyticsStore'
 import { AnalyticsEmptyState } from './AnalyticsEmptyState'
 
@@ -46,12 +46,12 @@ import { AnalyticsEmptyState } from './AnalyticsEmptyState'
 
 function AnalyticsGrid() {
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       {/* Row 1 — Advisory + Financial Stability Score */}
       <AdvisoryCard />
 
       {/* Row 2 — Cashflow (lg:3/5) | Top Transactions (lg:2/5) */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
         <div className="lg:col-span-3">
           <CashflowChart />
         </div>
@@ -61,13 +61,13 @@ function AnalyticsGrid() {
       </div>
 
       {/* Row 3 — Income Allocation (1/2) | Category Pie (1/2) */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <IncomeAllocationCard />
         <CategoryPieChart />
       </div>
 
       {/* Row 4 — Debt Health (1/2) | Asset Health (1/2) */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <DebtHealthCard />
         <AssetHealthCard />
       </div>
@@ -80,23 +80,25 @@ function AnalyticsGrid() {
 export function AnalyticsClientRoot() {
   const { timeRange } = useAnalyticsStore()
   
-  // Try to get user level from dashboard store
+  // Try to get user level and dev status from dashboard data
   // If it's undefined, the user might have navigated directly to /analytics
-  const userLevel = useDashboardStore((s) => s.data?.profile.level)
+  const { data: dashboardData } = useDashboardData()
+  const userLevel = dashboardData?.profile.level
+  const isDevAccount = dashboardData?.profile.is_dev_account
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['analytics', 'overview', timeRange],
-    queryFn: () => apiFetchClient<AnalyticsData>(`analytics/overview?timeframe=${timeRange}`),
-    enabled: (userLevel ?? 0) >= 3,
+    queryFn: () => apiFetchClient<AnalyticsData>(`analytics/overview?timeframe=${timeRange.toLowerCase()}`),
+    enabled: (userLevel ?? 0) >= 3 || !!isDevAccount,
   })
 
   // We are locked if:
   // 1. Data explicitly says locked
-  // 2. Or we know userLevel < 3
-  // 3. Or query is loading/idle but user is known to be < 3
+  // 2. Or we know userLevel < 3 AND is not dev account
+  // 3. Or query is loading/idle but user is known to be < 3 AND not dev account
   const isLocked = data 
     ? !data.unlock_status.unlocked 
-    : (userLevel !== undefined && userLevel < 3)
+    : ((userLevel !== undefined && userLevel < 3) && !isDevAccount)
 
   return (
     <div className="flex min-h-screen bg-abyssal-slate">

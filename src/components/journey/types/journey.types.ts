@@ -191,6 +191,59 @@ export interface QuarterlyReview {
 export type ReviewType = ChallengeType;
 export type ReviewStatus = ChallengeStatus;
 
+export interface ReportChallengeSummary {
+  id: string;
+  template_id: string;
+  title: string;
+  description: string;
+  icon: string;
+  achieved: boolean;
+}
+
+export interface ReportCategorySpend {
+  category_id: string;
+  category_name: string;
+  total_spend: number;
+  overspend_months_count: number;
+}
+
+export interface ReportWalletSnapshot {
+  wallet_id: string;
+  wallet_name: string;
+  starting_balance: number;
+  ending_balance: number;
+  net_change: number;
+}
+
+export interface QuarterlyReportSummary {
+  user_id: string;
+  quarter: number;
+  year: number;
+  quarter_start: string;
+  quarter_end: string;
+  is_partial: boolean;
+  longest_streak: number;
+  zero_spend_days: number;
+  total_income: number;
+  total_expenses: number;
+  net_change: number;
+  starting_wallet_balance: number;
+  ending_wallet_balance: number;
+  challenges_summary: ReportChallengeSummary[];
+  spending_by_category: ReportCategorySpend[];
+  wallet_breakdown: ReportWalletSnapshot[];
+  computed_at: string;
+}
+
+export interface QuarterlyReportListItem {
+  id: number;
+  quarter: number;
+  year: number;
+  is_partial: boolean;
+  net_change: number;
+  computed_at: string;
+}
+
 // ─── Inventory System ─────────────────────────────────────────────────────────
 
 /** Standby mode state — prevents ghost penalties and streak decay for 24h */
@@ -323,12 +376,12 @@ export interface JourneyProgress {
 /** Passport stamp — earned by completing region cycles and challenges */
 export interface PassportStamp {
   id: string;
-  /** Name of the region where the stamp was earned */
-  region: string;
+  /** Human-readable title of the stamp */
+  title: string;
   /** Human-readable date label, e.g., "Oct 2025" */
   date: string;
-  /** Challenge or milestone that triggered the stamp */
-  challenge: string;
+  /** Requirement that triggered the stamp */
+  requirement: string;
   /** "active" = in current region, "completed" = past region */
   type: "completed" | "active";
 }
@@ -336,6 +389,8 @@ export interface PassportStamp {
 /** A locked passport slot shown as a placeholder in the Passport section */
 export interface LockedStamp {
   id: string;
+  /** Human-readable title of the stamp */
+  title: string;
   /** Requirement text shown in the locked slot, e.g., "Reach Level 5" */
   requirement: string;
 }
@@ -368,7 +423,7 @@ export interface JourneyOverview {
   current_region: CurrentRegion;
   journey_progress: JourneyProgress;
   active_review: QuarterlyReview | null;
-  past_reviews: QuarterlyReview[];
+  past_reviews: QuarterlyReportListItem[];
   passport: Passport;
   recent_events: HistoryEvent[];
 }
@@ -388,7 +443,6 @@ export type ModalKind = "region" | "review" | "stamp" | null;
 export interface RegionModalPayload {
   kind: "region";
   regionId: string;
-  /** Optimistic summary from already-loaded data — avoids blank modal flash */
   summary: CurrentRegion;
 }
 
@@ -398,15 +452,33 @@ export interface ReviewModalPayload {
   summary: QuarterlyReview;
 }
 
+export interface ReportModalPayload {
+  kind: "report";
+  report: QuarterlyReportListItem;
+}
+
 export interface StampModalPayload {
   kind: "stamp";
   stamp: PassportStamp;
 }
 
+export interface HistoryModalPayload {
+  kind: "history";
+}
+
+export interface AllStampsModalPayload {
+  kind: "all_stamps";
+  stamps: PassportStamp[];
+  locked: LockedStamp[];
+}
+
 export type ModalPayload =
   | RegionModalPayload
   | ReviewModalPayload
+  | ReportModalPayload
   | StampModalPayload
+  | HistoryModalPayload
+  | AllStampsModalPayload
   | null;
 
 // ─── API Response Wrapper ─────────────────────────────────────────────────────

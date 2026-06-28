@@ -25,7 +25,7 @@
 
 import {
   BaseModal, ModalFooter, PrimaryButton,
-} from './BaseModal';
+} from '@/components/shared/modals/BaseModal';
 
 interface CapacityWarningModalProps {
   isOpen: boolean;

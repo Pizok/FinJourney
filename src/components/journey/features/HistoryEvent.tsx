@@ -147,6 +147,29 @@ export function HistoryEvent({ event, isLast }: HistoryEventProps) {
 
   const hasDeltas = event.xp_change !== 0 || event.hp_change !== 0;
 
+  // Format the date string
+  // event.date is an ISO string (e.g. "2026-06-27T18:41:34Z") from the backend
+  let displayDate = event.date;
+  try {
+    const d = new Date(event.date);
+    if (!isNaN(d.getTime())) {
+      const isLessThan24h = Date.now() - d.getTime() < 24 * 60 * 60 * 1000;
+      if (isLessThan24h) {
+        displayDate = new Intl.DateTimeFormat(undefined, {
+          hour: "numeric",
+          minute: "2-digit",
+        }).format(d);
+      } else {
+        displayDate = new Intl.DateTimeFormat(undefined, {
+          month: "short",
+          day: "numeric",
+        }).format(d);
+      }
+    }
+  } catch {
+    // fallback to raw string if parsing fails
+  }
+
   return (
     <div
       className={cn(
@@ -181,9 +204,9 @@ export function HistoryEvent({ event, isLast }: HistoryEventProps) {
           </span>
           <span
             className="font-sans text-[11px] text-muted-text whitespace-nowrap shrink-0 tabular-nums"
-            aria-label={`Date: ${event.date}`}
+            aria-label={`Date: ${displayDate}`}
           >
-            {event.date}
+            {displayDate}
           </span>
         </div>
 

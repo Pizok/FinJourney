@@ -37,8 +37,36 @@ import { Card } from "@/components/ui/Card";
 import { Progress } from "@/components/ui/Progress";
 import { useModalActions } from "@/components/journey/stores/journeyStore";
 import { useJourneyData } from "../layout/JourneyContext";
-import RegionMap from "./RegionMap";
+import RegionMap, { MAP_NODES } from "./RegionMap";
 import { cn } from "@/lib/utils";
+import { CurrentRegion } from "../types/journey.types";
+
+function computeRegionStatuses(region: CurrentRegion) {
+  const currentRegionIdNum = parseInt(region.id, 10);
+  if (isNaN(currentRegionIdNum)) return {}; 
+
+  const statuses: Record<string, "SHIFTED" | "CURRENT" | "LOCKED"> = {};
+  const regionNodes = MAP_NODES.filter((n: any) => n.region === currentRegionIdNum);
+  const totalNodes = regionNodes.length;
+  
+  const progressPct = region.total_days > 0 ? (region.progress_days / region.total_days) : 0;
+  const activeIndex = Math.min(totalNodes - 1, Math.max(0, Math.floor(progressPct * totalNodes)));
+
+  MAP_NODES.forEach((node: any) => {
+    if (node.region < currentRegionIdNum) {
+      statuses[node.id] = "SHIFTED";
+    } else if (node.region > currentRegionIdNum) {
+      statuses[node.id] = "LOCKED";
+    } else {
+      const idx = regionNodes.findIndex((n: any) => n.id === node.id);
+      if (idx < activeIndex) statuses[node.id] = "SHIFTED";
+      else if (idx === activeIndex) statuses[node.id] = "CURRENT";
+      else statuses[node.id] = "LOCKED";
+    }
+  });
+
+  return statuses;
+}
 
 // ─── SVG artwork registry ─────────────────────────────────────────────────────
 // Each entry is a React component rendering an inline SVG.
@@ -302,7 +330,7 @@ export function RegionOverview({ isLoading = false }: RegionOverviewProps) {
     >
       {/* ── Region Map ───────────────────────────── */}
       <div className="p-6 pb-0 bg-abyssal-slate/30">
-        <RegionMap onNodeClick={() => {}} />
+        <RegionMap statuses={computeRegionStatuses(region)} onNodeClick={() => {}} />
       </div>
 
       {/* ── Content ────────────────────────────────────────────────────── */}
@@ -330,7 +358,7 @@ export function RegionOverview({ isLoading = false }: RegionOverviewProps) {
               {region.name}
             </h2>
           </div>
-          <ViewDetailsButton onClick={handleViewDetails} />
+          {/* <ViewDetailsButton onClick={handleViewDetails} /> */}
         </div>
 
         {/* ── Description ─────────────────────────────────────────────── */}
@@ -345,7 +373,7 @@ export function RegionOverview({ isLoading = false }: RegionOverviewProps) {
         )}
 
         {/* ── Progress bar ────────────────────────────────────────────── */}
-        <div className="flex flex-col gap-1.5">
+        {/* <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
             <span className="font-sans text-[12px] text-muted-text">
               Day {region.progress_days} of {region.total_days}
@@ -361,10 +389,10 @@ export function RegionOverview({ isLoading = false }: RegionOverviewProps) {
             height="sm"
             aria-label={`Region progress: day ${region.progress_days} of ${region.total_days}`}
           />
-        </div>
+        </div> */}
 
         {/* ── Region shift countdown ───────────────────────────────────── */}
-        <ShiftCountdown daysRemaining={region.days_remaining} />
+        {/* <ShiftCountdown daysRemaining={region.days_remaining} /> */}
       </div>
     </Card>
   );

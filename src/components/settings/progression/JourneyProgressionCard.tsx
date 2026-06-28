@@ -15,7 +15,6 @@
 //
 // Immediate mutations (POST, not batched with the global Save flow):
 //   • POST /api/v1/settings/path/change
-//   • POST /api/v1/settings/reset-progress
 // ─────────────────────────────────────────────────────────────────────────────
 
 'use client'
@@ -519,261 +518,6 @@ function ChangePathModal({
   )
 }
 
-// ─── ResetProgressModal ───────────────────────────────────────────────────────
-
-interface ResetProgressModalProps {
-  onClose: () => void
-  onSuccess: () => void
-}
-
-const RESET_KEYWORD = 'RESET'
-
-function ResetProgressModal({ onClose, onSuccess }: ResetProgressModalProps) {
-  const [inputValue, setInputValue] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [apiError, setApiError] = useState<string | null>(null)
-  const titleId = useId()
-  const inputId = useId()
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  const isConfirmed = inputValue === RESET_KEYWORD
-
-  useEffect(() => {
-    // Short delay so focus doesn't steal from the backdrop transition
-    const t = setTimeout(() => inputRef.current?.focus(), 50)
-    return () => clearTimeout(t)
-  }, [])
-
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', handleKey)
-    return () => window.removeEventListener('keydown', handleKey)
-  }, [onClose])
-
-  async function handleReset() {
-    if (!isConfirmed || isSubmitting) return
-    setIsSubmitting(true)
-    setApiError(null)
-
-    try {
-      await apiFetchClient('settings/reset-progress', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ confirmation: RESET_KEYWORD }),
-      })
-
-      onSuccess()
-    } catch (err: any) {
-      setApiError(err?.message || 'Reset failed. Please try again.')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-50 bg-abyssal-slate/80"
-        aria-hidden="true"
-        onClick={onClose}
-      />
-
-      {/* Modal */}
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        className={[
-          'fixed left-1/2 top-1/2 z-50 w-full max-w-md',
-          '-translate-x-1/2 -translate-y-1/2',
-          'rounded-xl border border-tactical-border bg-canvas-surface',
-          'animate-fade-in',
-        ].join(' ')}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-tactical-border px-6 py-5">
-          <h3
-            id={titleId}
-            className="font-display text-base font-semibold text-terracotta"
-          >
-            Reset Journey Progress?
-          </h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className={[
-              'rounded-md p-1 text-muted-text',
-              'transition-colors hover:bg-tactical-border/40 hover:text-pearl-text',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted-emerald',
-            ].join(' ')}
-            aria-label="Close reset dialog"
-          >
-            <X size={16} strokeWidth={2} />
-          </button>
-        </div>
-
-        {/* Body */}
-        <div className="px-6 py-5">
-          {/* What resets */}
-          <p className="font-sans text-sm leading-relaxed text-muted-text">
-            This will reset your{' '}
-            <span className="font-medium text-pearl-text">Level to 1</span>,{' '}
-            <span className="font-medium text-pearl-text">XP to 0</span>, and{' '}
-            <span className="font-medium text-pearl-text">HP to 100</span>. Your
-            region progress will restart.
-          </p>
-
-          {/* What does NOT reset */}
-          <div className="mt-3 rounded-lg border border-tactical-border bg-abyssal-slate px-4 py-3">
-            <p className="font-sans text-xs leading-relaxed text-muted-text">
-              <span className="font-semibold text-pearl-text">
-                Financial data is never deleted.
-              </span>{' '}
-              Your wallets, transactions, loans, and categories remain exactly as
-              they are.
-            </p>
-          </div>
-
-          {/* Typed confirmation */}
-          <div className="mt-5">
-            <label
-              htmlFor={inputId}
-              className="mb-1.5 block font-sans text-xs font-medium text-muted-text"
-            >
-              Type{' '}
-              <span className="font-mono font-semibold text-terracotta">
-                {RESET_KEYWORD}
-              </span>{' '}
-              to confirm
-            </label>
-            <input
-              ref={inputRef}
-              id={inputId}
-              type="text"
-              value={inputValue}
-              onChange={(e) => {
-                setInputValue(e.target.value.toUpperCase())
-                setApiError(null)
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && isConfirmed) handleReset()
-              }}
-              spellCheck={false}
-              autoComplete="off"
-              placeholder="Type RESET"
-              className={[
-                'w-full rounded-lg border bg-abyssal-slate px-3 py-2.5',
-                'font-mono text-sm tracking-widest',
-                'transition-colors duration-150',
-                'placeholder:font-sans placeholder:tracking-normal placeholder:text-muted-text/40',
-                'focus:outline-none focus:ring-0',
-                isConfirmed
-                  ? 'border-terracotta/60 text-terracotta'
-                  : 'border-tactical-border text-pearl-text focus:border-terracotta/40',
-              ].join(' ')}
-              aria-describedby={apiError ? `${inputId}-error` : undefined}
-            />
-          </div>
-
-          {/* API error */}
-          {apiError && (
-            <p
-              id={`${inputId}-error`}
-              role="alert"
-              className="mt-2 font-sans text-xs text-terracotta"
-            >
-              {apiError}
-            </p>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="flex gap-3 border-t border-tactical-border px-6 py-5">
-          {/* Cancel */}
-          <button
-            type="button"
-            onClick={onClose}
-            className={[
-              'flex-1 rounded-lg border border-tactical-border py-2.5',
-              'font-sans text-sm font-medium text-pearl-text',
-              'transition-colors duration-150',
-              'hover:border-pearl-text/30 hover:bg-pearl-text/5',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted-emerald',
-            ].join(' ')}
-          >
-            Cancel
-          </button>
-
-          {/* Confirm Reset */}
-          <button
-            type="button"
-            onClick={handleReset}
-            disabled={!isConfirmed || isSubmitting}
-            className={[
-              'flex-1 flex items-center justify-center gap-2 rounded-lg py-2.5',
-              'bg-terracotta font-sans text-sm font-medium text-white',
-              'transition-colors duration-150',
-              'hover:bg-terracotta/90',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta',
-              'focus-visible:ring-offset-2 focus-visible:ring-offset-canvas-surface',
-              'disabled:cursor-not-allowed disabled:opacity-40',
-            ].join(' ')}
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="animate-spin" size={14} strokeWidth={2} />
-                <span>Resetting…</span>
-              </>
-            ) : (
-              <span>Confirm Reset</span>
-            )}
-          </button>
-        </div>
-      </div>
-    </>
-  )
-}
-
-// ─── DangerZone ───────────────────────────────────────────────────────────────
-// Design rule: terracotta text and border only — no red background fill.
-// The danger is communicated through deliberate colour choice, not aggression.
-
-function DangerZone({ onResetClick }: { onResetClick: () => void }) {
-  return (
-    <div className="border-t border-tactical-border px-8 py-6">
-      <div className="flex items-start justify-between gap-6">
-        <div>
-          <p className="font-sans text-[11px] font-semibold uppercase tracking-widest text-terracotta">
-            Danger Zone
-          </p>
-          <p className="mt-1 font-sans text-xs leading-relaxed text-muted-text">
-            Permanently resets Level, XP, HP, and region progress.
-            Financial data is not affected.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={onResetClick}
-          className={[
-            'shrink-0 rounded-lg border border-terracotta/40 px-4 py-2',
-            'font-sans text-sm font-medium text-terracotta',
-            'transition-colors duration-150',
-            'hover:border-terracotta hover:bg-terracotta hover:text-white',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta',
-            'focus-visible:ring-offset-2 focus-visible:ring-offset-canvas-surface',
-          ].join(' ')}
-          aria-label="Open reset journey progress dialog"
-        >
-          Reset Game Progress
-        </button>
-      </div>
-    </div>
-  )
-}
 
 // ─── JourneyProgressionCard ───────────────────────────────────────────────────
 
@@ -781,7 +525,6 @@ export function JourneyProgressionCard() {
   const queryClient = useQueryClient()
   const progression = useSettingsStore(selectCurrentProgression)
   const [isChangePathOpen, setIsChangePathOpen] = useState(false)
-  const [isResetOpen, setIsResetOpen] = useState(false)
 
   const { active_path, cooldown_active, cooldown_days_remaining } = progression
 
@@ -798,14 +541,7 @@ export function JourneyProgressionCard() {
     queryClient.invalidateQueries({ queryKey: ['settings'] })
   }
 
-  function handleResetSuccess() {
-    // In production: call queryClient.invalidateQueries(['settings'])
-    // and redirect the user to the dashboard (progression has restarted).
-    console.info('[ResetProgress] Journey reset confirmed.')
-    setIsResetOpen(false)
-    queryClient.invalidateQueries({ queryKey: ['settings'] })
-    window.location.href = '/dashboard'
-  }
+
 
   return (
     <>
@@ -886,8 +622,7 @@ export function JourneyProgressionCard() {
           </div>
         </div>
 
-        {/* Danger Zone — visually separated from body content */}
-        <DangerZone onResetClick={() => setIsResetOpen(true)} />
+
       </section>
 
       {/* Modals */}
@@ -899,12 +634,7 @@ export function JourneyProgressionCard() {
         />
       )}
 
-      {isResetOpen && (
-        <ResetProgressModal
-          onClose={() => setIsResetOpen(false)}
-          onSuccess={handleResetSuccess}
-        />
-      )}
+
     </>
   )
 }

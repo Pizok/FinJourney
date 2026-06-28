@@ -441,6 +441,11 @@ class XPService:
                 },
             )
 
+        if new_level > old_level:
+            from .passport_svc import PassportService
+            passport_svc = PassportService(self._db, self._bus)
+            await passport_svc.evaluate_level_stamps(user_id, new_level)
+
         logger.info(
             "XPService.check_level_up: user=%s level=%d→%d xp=%d",
             user_id, old_level, new_level, new_total_xp,

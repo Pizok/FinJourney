@@ -119,11 +119,26 @@ class BootstrapService:
             ValueError: If the player profile does not exist (not onboarded).
             Exception:  Propagates any Supabase client errors to the router.
         """
-        today = datetime.now(timezone.utc).date()
-
+        # ── Fetch profile first to get timezone ─────────────────────────────
+        profile = await self._fetch_profile(user_id)
+        if not profile:
+            raise ValueError(
+                f"Player profile not found for user_id={user_id}. "
+                "The player may not have completed onboarding."
+            )
+            
+        import pytz
+        tz_str = profile.get("timezone", "UTC")
+        try:
+            local_tz = pytz.timezone(tz_str)
+        except pytz.UnknownTimeZoneError:
+            local_tz = pytz.UTC
+            
+        local_today_date = datetime.now(local_tz).date()
+        local_today = local_today_date.isoformat()
+        
         # ── Wave 1 — concurrent data fetch ───────────────────────────────────
         (
-            profile,
             daily_survival,
             inventory_summary,
             current_region,
@@ -132,8 +147,7 @@ class BootstrapService:
             notifications_data,
             pending_unlocks,
         ) = await asyncio.gather(
-            self._fetch_profile(user_id),
-            self._fetch_daily_survival(user_id),
+            self._fetch_daily_survival(user_id, local_today),
             self._fetch_inventory_summary(user_id),
             self._fetch_current_region(user_id),
             self._fetch_active_challenge(user_id),
@@ -142,12 +156,6 @@ class BootstrapService:
             self._fetch_pending_unlocks(user_id),
         )
 
-        if not profile:
-            raise ValueError(
-                f"Player profile not found for user_id={user_id}. "
-                "The player may not have completed onboarding."
-            )
-
         # ── Wave 2 — build sub-models (pure, no I/O) ─────────────────────────
         player_state = self._build_player_state(profile)
         daily_status = self._build_daily_status(
@@ -155,8 +163,8 @@ class BootstrapService:
             daily_survival=daily_survival,
             inventory_summary=inventory_summary,
         )
-        region_progress = self._build_region_progress(current_region, today)
-        active_challenge_model = self._build_active_challenge(active_challenge)
+        region_progress = self._build_region_progress(current_region, local_today_date)
+        active_challenge_model = self._build_active_challenge(active_challenge, local_today_date)
         inventory_model = self._build_inventory(inventory_summary)
         recent_logs = self._build_recent_logs(journal_entries)
         notifications_model = self._build_notifications(notifications_data)
@@ -180,8 +188,8 @@ class BootstrapService:
     async def _fetch_profile(self, user_id: str) -> dict | None:
         return await self._profile_repo.get_profile(user_id)
 
-    async def _fetch_daily_survival(self, user_id: str) -> dict | None:
-        return await self._profile_repo.get_daily_survival(user_id)
+    async def _fetch_daily_survival(self, user_id: str, local_today: str) -> dict | None:
+        return await self._profile_repo.get_daily_survival(user_id, local_today)
 
     async def _fetch_inventory_summary(self, user_id: str) -> dict:
         """
@@ -296,7 +304,11 @@ class BootstrapService:
             daily_survival.get("status", "PENDING") if daily_survival else "PENDING"
         )
         safe_daily_budget: int = max(0, profile.get("safe_daily_budget", 0))
-        expenses_logged_today: bool = current_status == "SAFE_LOGGED"
+        
+        expense_logged_today: bool = daily_survival.get("expense_xp_claimed", False) if daily_survival else False
+        income_logged_today: bool = daily_survival.get("income_xp_claimed", False) if daily_survival else False
+        zero_spend_marked: bool = current_status == "SAFE_CLAIMED"
+        
         zero_spend_eligible: bool = current_status == "PENDING"
 
         standby_active: bool = (
@@ -308,7 +320,9 @@ class BootstrapService:
 
         return DailyStatusResponse(
             safe_daily_budget=safe_daily_budget,
-            expenses_logged_today=expenses_logged_today,
+            expense_logged_today=expense_logged_today,
+            income_logged_today=income_logged_today,
+            zero_spend_marked=zero_spend_marked,
             zero_spend_eligible=zero_spend_eligible,
             ghost_penalty_protected=ghost_penalty_protected,
         )
@@ -362,7 +376,7 @@ class BootstrapService:
         )
 
     def _build_active_challenge(
-        self, challenge: dict | None
+        self, challenge: dict | None, today: date
     ) -> ActiveChallengeResponse | None:
         """
         Builds the active challenge sub-model.
@@ -378,7 +392,7 @@ class BootstrapService:
             ends_at = datetime.fromisoformat(
                 challenge["ends_at"].replace("Z", "+00:00")
             )
-            days_remaining = max(0, (ends_at.date() - datetime.now(timezone.utc).date()).days)
+            days_remaining = max(0, (ends_at.date() - today).days)
         except (ValueError, KeyError, AttributeError):
             days_remaining = 0
 
@@ -431,6 +445,7 @@ class BootstrapService:
             color=color,
             days_remaining=days_remaining,
             win_conditions=win_conditions,
+            progress_data=progress_data,
             rewards_claimed=challenge.get("rewards_claimed", False),
         )
 

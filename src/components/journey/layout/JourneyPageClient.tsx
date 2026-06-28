@@ -57,7 +57,6 @@ import { cn } from "@/lib/utils";
 import { JourneyHeader } from "./JourneyHeader";
 import { RegionOverview } from "../features/RegionOverview";
 import { TimelineSection } from "../features/TimelineSection";
-import { QuarterlyReviewSection } from "../features/QuarterlyReviewSection";
 import { PassportSection } from "../features/PassportSection";
 import { HistorySection } from "../features/HistorySection";
 import { JourneyEmptyState } from "./JourneyEmptyState";
@@ -300,13 +299,8 @@ export function JourneyPageClient() {
           ) : (
             <>
               {/* Row 2 — Region Overview (current region + progress) */}
-              <div className="col-span-1 lg:col-span-8 flex flex-col">
+              <div className="col-span-1 lg:col-span-12 flex flex-col">
                 <RegionOverview />
-              </div>
-
-              {/* Row 2 — Quarterly Review */}
-              <div className="col-span-1 lg:col-span-4 flex flex-col">
-                <QuarterlyReviewSection />
               </div>
 
               {/* Row 3 — 12-Month Timeline */}

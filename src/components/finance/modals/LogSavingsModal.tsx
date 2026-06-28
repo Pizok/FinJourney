@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { BaseModal, FormField, FormInput, FormSelect, ModalFooter, PrimaryButton, GhostButton } from './BaseModal';
+import { BaseModal, FormField, FormInput, FormSelect, ModalFooter, PrimaryButton, GhostButton } from '@/components/shared/modals/BaseModal';
 import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query';
 import { apiFetchClient } from '@/lib/apiClient.client';
 import { useWalletStore } from '@/components/finance/stores/walletStore';

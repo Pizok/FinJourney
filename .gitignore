@@ -1,4 +1,4 @@
-﻿.env
+.env
 .venv
 .antigravity
 
@@ -51,3 +51,4 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
+src/test_backend.py

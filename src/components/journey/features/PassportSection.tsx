@@ -33,6 +33,7 @@
 import { useCallback } from "react";
 import { Scroll } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Card } from "@/components/ui/Card";
 import { EarnedStamp, LockedStampTile } from "./PassportStamp";
 import { useModalActions } from "@/components/journey/stores/journeyStore";
 import { useJourneyData } from "../layout/JourneyContext";
@@ -64,31 +65,22 @@ function PassportSkeleton() {
   );
 }
 
-// ─── Stamp count chip ─────────────────────────────────────────────────────────
+// ─── Section header ────────────────────────────────────────────────────────────
 
-interface StampCountProps {
-  earned: number;
-  total: number;
-}
-
-function StampCount({ earned, total }: StampCountProps) {
+function SectionHeader({ onViewAll }: { onViewAll: () => void }) {
   return (
-    <span
-      className="font-sans text-[12px] text-muted-text tabular-nums"
-      aria-label={`${earned} of ${total} stamps earned`}
-    >
-      {earned} / {total} stamps
-    </span>
-  );
-}
-
-// ─── Section label ────────────────────────────────────────────────────────────
-
-function SectionLabel() {
-  return (
-    <p className="font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-text">
-      Passport &amp; Achievements
-    </p>
+    <div className="flex items-center justify-between mb-4">
+      <p className="font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-text m-0">
+        Passport &amp; Achievements
+      </p>
+      <button
+        type="button"
+        onClick={onViewAll}
+        className="font-sans text-[12px] font-medium text-muted-emerald hover:text-muted-emerald/80 transition-colors"
+      >
+        View All
+      </button>
+    </div>
   );
 }
 
@@ -100,7 +92,7 @@ export interface PassportSectionProps {
 
 export function PassportSection({ isLoading = false }: PassportSectionProps) {
   const overview = useJourneyData();
-  const { openStampModal } = useModalActions();
+  const { openStampModal, openAllStampsModal } = useModalActions();
 
   const handleStampSelect = useCallback(
     (stamp: PassportStamp) => {
@@ -123,17 +115,15 @@ export function PassportSection({ isLoading = false }: PassportSectionProps) {
     return (
       <section
         aria-label="Passport and achievements"
-        className="animate-fade-in"
+        className="animate-fade-in h-full flex flex-col"
         data-testid="passport-section"
       >
-        <div className="flex items-center justify-between mb-4">
-          <SectionLabel />
-          <StampCount earned={stampsEarned} total={totalAvailable} />
-        </div>
+        <SectionHeader onViewAll={() => openAllStampsModal(stamps, locked)} />
         <EmptyState
+          className="flex-1 flex flex-col items-center justify-center"
           icon={Scroll}
           message="No stamps earned."
-          description="Complete regional cycles and quarterly challenges to earn passport stamps."
+          description="Reach milestones in your financial journey to earn passport stamps."
         />
       </section>
     );
@@ -143,31 +133,17 @@ export function PassportSection({ isLoading = false }: PassportSectionProps) {
   return (
     <section
       aria-label="Passport and achievements"
-      className="animate-fade-in"
+      className="animate-fade-in h-full flex flex-col"
       data-testid="passport-section"
     >
-      {/* Header row */}
-      <div className="flex items-center justify-between mb-4">
-        <SectionLabel />
-        <StampCount earned={stampsEarned} total={totalAvailable} />
-      </div>
+      <SectionHeader onViewAll={() => openAllStampsModal(stamps, locked)} />
 
-      {/*
-       * Stamp grid.
-       *
-       * Earned stamps appear first (active before completed, matching the
-       * order returned by the API). Locked slots follow to fill the grid,
-       * capped at 9 to keep the section from becoming overwhelming.
-       *
-       * Responsive columns:
-       *   2 on mobile → 3 tablet → 4 laptop → 5 wide desktop
-       * This matches the stamp card min-width so they never feel cramped.
-       */}
-      <div
-        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3"
-        role="list"
-        aria-label="Passport stamps"
-      >
+      <Card className="flex-1 overflow-y-auto" padding="md">
+        <div
+          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3"
+          role="list"
+          aria-label="Passport stamps"
+        >
         {/* Earned stamps */}
         {stamps.map((stamp) => (
           <div role="listitem" key={stamp.id}>
@@ -185,7 +161,8 @@ export function PassportSection({ isLoading = false }: PassportSectionProps) {
             <LockedStampTile slot={slot} />
           </div>
         ))}
-      </div>
+        </div>
+      </Card>
     </section>
   );
 }

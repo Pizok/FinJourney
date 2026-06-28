@@ -40,7 +40,7 @@ import { X, CheckCircle, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAnalyticsStore } from '../stores/analyticsStore'
 import { useRebalanceBudget } from '../hooks/useRebalanceBudget'
-import type { CategoryBreakdown, RebalanceStrategy } from '../types/analytics.types'
+import type { CategoryBreakdownItem, RebalanceStrategy } from '../types/analytics.types'
 
 // ─── Formatting ───────────────────────────────────────────────────────────────
 
@@ -162,23 +162,23 @@ function StrategySelector({ value, onChange }: StrategySelectorProps) {
 // ─── Adjustment Row ───────────────────────────────────────────────────────────
 
 interface AdjustmentRowProps {
-  category:      CategoryBreakdown
+  category:      CategoryBreakdownItem
   currentValue:  number
   onAdjust:      (id: string, amount: number) => void
 }
 
 function AdjustmentRow({ category, currentValue, onAdjust }: AdjustmentRowProps) {
-  const projectedLimit = Math.max(0, category.amount - currentValue)
+  const projectedLimit = Math.max(0, category.spent - currentValue)
 
   return (
     <div className="rounded-lg border border-tactical-border bg-abyssal-slate/40 p-4">
       {/* Category header */}
       <div className="mb-3 flex items-baseline justify-between gap-3">
         <span className="font-display text-sm font-semibold text-pearl-text">
-          {category.category_name}
+          {category.name}
         </span>
         <span className="shrink-0 font-sans text-xs text-muted-text">
-          Spent: {formatCurrency(category.amount)}
+          Spent: {formatCurrency(category.spent)}
         </span>
       </div>
 
@@ -198,7 +198,7 @@ function AdjustmentRow({ category, currentValue, onAdjust }: AdjustmentRowProps)
             inputMode="numeric"
             value={currentValue ? currentValue.toLocaleString('id-ID') : ''}
             onChange={(e) =>
-              onAdjust(category.category_id, parseFloat(e.target.value.replace(/\D/g, '')) || 0)
+              onAdjust(category.category_id || '', parseFloat(e.target.value.replace(/\D/g, '')) || 0)
             }
             placeholder="0"
             className={cn(
@@ -361,9 +361,9 @@ function ModalBody({ onClose }: { onClose: () => void }) {
             <div className="mt-2 space-y-1">
               {overspendingCategories.map((cat) => (
                 <div key={cat.category_id} className="flex items-center justify-between gap-4">
-                  <span className="font-sans text-sm text-pearl-text">{cat.category_name}</span>
+                  <span className="font-sans text-sm text-pearl-text">{cat.name}</span>
                   <span className="font-display text-sm font-semibold text-terracotta">
-                    {formatCurrency(cat.amount)}
+                    {formatCurrency(cat.spent)}
                   </span>
                 </div>
               ))}
@@ -380,13 +380,13 @@ function ModalBody({ onClose }: { onClose: () => void }) {
         {/* Adjustment rows */}
         {availableCategories.length > 0 ? (
           <div className="space-y-3">
-            {availableCategories.map((cat) => (
+            {availableCategories.map((cat, idx) => (
               <AdjustmentRow
-                key={cat.category_id}
+                key={cat.category_id || idx}
                 category={cat}
                 // Object.hasOwn() guard prevents prototype property lookup on
                 // server-supplied category_id keys (CWE-94 safe).
-                currentValue={Object.hasOwn(adjustments, cat.category_id) ? adjustments[cat.category_id] : 0}
+                currentValue={cat.category_id && Object.hasOwn(adjustments, cat.category_id) ? adjustments[cat.category_id] : 0}
                 onAdjust={setAdjustment}
               />
             ))}

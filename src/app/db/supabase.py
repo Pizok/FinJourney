@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from fastapi import HTTPException, status
 from supabase import AsyncClient, acreate_client
+from supabase_auth.errors import AuthApiError
 
 from app.core.config import settings
 
@@ -34,8 +36,14 @@ async def create_rls_client(jwt_token: str) -> AsyncClient:
         settings.supabase_url,
         settings.supabase_service_key,
     )
-    await client.auth.set_session(
-        access_token=jwt_token,
-        refresh_token="",
-    )
+    try:
+        await client.auth.set_session(
+            access_token=jwt_token,
+            refresh_token="",
+        )
+    except AuthApiError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session invalid or user does not exist",
+        )
     return client

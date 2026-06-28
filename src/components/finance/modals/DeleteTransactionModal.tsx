@@ -29,7 +29,7 @@ import { useWalletStore } from '@/components/finance/stores/walletStore';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   BaseModal, ModalFooter, GhostButton, PrimaryButton,
-} from './BaseModal';
+} from '@/components/shared/modals/BaseModal';
 import type { TransactionType } from '@/types/wallet.types';
 
 // ---------------------------------------------------------------------------
@@ -104,6 +104,7 @@ export function DeleteTransactionModal() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wallet', 'bootstrap'] });
+      queryClient.invalidateQueries({ queryKey: ['journey'] });
       handleClose();
     },
     onError: (err: any) => {

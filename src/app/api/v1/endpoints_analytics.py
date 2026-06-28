@@ -302,131 +302,7 @@ async def simulate_loan(
     )
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# POST /analytics/rebalance-budget
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-
-@router.post(
-    "/rebalance-budget",
-    status_code=status.HTTP_200_OK,
-    summary="Rebalance category budgets",
-    description=(
-        "Applies budget limit reductions to cover overspent categories. "
-        "The endpoint fetches the current limits and spent amounts from the DB, "
-        "validates that the sum of reductions exactly matches the total overspent amount, "
-        "and then updates both the reduced categories and the overspent categories "
-        "(raising their limits to match their actual spend)."
-    ),
-)
-async def rebalance_budget(
-    body: RebalanceBudgetPayload,
-    user: AuthUser,
-    db: DbClient,
-):
-    """
-    Validates and executes a zero-sum budget rebalance.
-    """
-    # 1. Fetch current category usage to get authoritative limits and spent amounts
-    usage = await category_queries.get_category_usage(db, user_id=user.user_id)
-    usage_map = {row["category_id"]: row for row in usage}
-
-    # 2. Calculate overspent amount and identify overspent categories
-    overspent_categories = [cat for cat in usage if cat["is_overspent"]]
-    total_overspent = sum(cat["spent"] - cat["limit"] for cat in overspent_categories)
-
-    if total_overspent <= 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "success": False,
-                "error": {
-                    "code": ErrorCode.VALIDATION_ERROR.value,
-                    "message": "No categories are currently overspent.",
-                },
-            },
-        )
-
-    # 3. Calculate total reductions based on DB limits
-    total_reduction = 0
-    final_adjustments = []
-
-    for adj in body.adjustments:
-        cat_id_str = str(adj.category_id)
-        if cat_id_str not in usage_map:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail={
-                    "success": False,
-                    "error": {
-                        "code": ErrorCode.RESOURCE_NOT_FOUND.value,
-                        "message": f"Category not found or not owned by user: {cat_id_str}",
-                    },
-                },
-            )
-        
-        db_cat = usage_map[cat_id_str]
-        current_limit = db_cat["limit"]
-        new_limit = adj.new_limit
-        
-        if new_limit > current_limit:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail={
-                    "success": False,
-                    "error": {
-                        "code": ErrorCode.VALIDATION_ERROR.value,
-                        "message": f"New limit for {db_cat['name']} cannot be greater than its current limit.",
-                    },
-                },
-            )
-            
-        reduction = current_limit - new_limit
-        total_reduction += reduction
-        
-        final_adjustments.append(CategoryBudgetAdjustment(
-            category_id=adj.category_id,
-            new_monthly_limit=new_limit
-        ))
-
-    # 4. Validate zero-sum invariant
-    if total_reduction != total_overspent:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "success": False,
-                "error": {
-                    "code": ErrorCode.VALIDATION_ERROR.value,
-                    "message": f"Total reductions ({total_reduction}) must equal total overspent amount ({total_overspent}).",
-                },
-            },
-        )
-
-    # 5. Increase limits for overspent categories
-    for cat in overspent_categories:
-        import uuid
-        final_adjustments.append(CategoryBudgetAdjustment(
-            category_id=uuid.UUID(cat["category_id"]),
-            new_monthly_limit=cat["spent"]
-        ))
-
-    # 6. Delegate to wallet_service to perform the update atomically
-    wallet_payload = RebalanceBudgetRequest(adjustments=final_adjustments)
-    try:
-        await wallet_service.rebalance_budget(db, user_id=uuid.UUID(user.user_id), payload=wallet_payload)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "success": False,
-                "error": {
-                    "code": ErrorCode.INTERNAL_ERROR.value,
-                    "message": str(e),
-                },
-            },
-        )
-
-    return {"success": True}
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -451,7 +327,7 @@ async def upsert_savings_target(
     """
     import uuid
     # Check for an existing active target
-    active_target = await savings_targets_queries.get_active_savings_target(db, user_id=user.user_id)
+    active_target = await savings_targets_queries.get_active_savings_targets(db, user_id=user.user_id)
     
     if active_target:
         # Update existing target

@@ -265,31 +265,4 @@ class PathChangeRequest(BaseModel):
     ]
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# POST /settings/reset-progress
-# ══════════════════════════════════════════════════════════════════════════════
 
-_RESET_CONFIRMATION_TOKEN: Literal["RESET"] = "RESET"
-
-
-class ResetProgressRequest(BaseModel):
-    """
-    Irreversible progression reset.
-
-    The client MUST send ``{"confirmation": "RESET"}`` exactly.
-    The service layer will:
-      - Reset HP to 100, XP/level to 0/1.
-      - Archive active challenges and region progress.
-      - Preserve inventory (shields, standby tokens) and the financial ledger.
-      - Publish a PROGRESS_RESET game_event.
-    """
-
-    confirmation: Annotated[
-        Literal["RESET"],
-        Field(
-            description=(
-                "Must be the exact string 'RESET'. "
-                "Any other value is rejected at schema validation time."
-            ),
-        ),
-    ]

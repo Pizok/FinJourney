@@ -35,45 +35,18 @@
 //   - No glow, no shadows
 // =============================================================================
 
-import { useState } from "react";
-import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, RefreshCw } from "lucide-react";
+import { BookOpen } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { HistoryEvent } from "./HistoryEvent";
-import { useJourneyStore } from "@/components/journey/stores/journeyStore";
 import { useJourneyData } from "../layout/JourneyContext";
-import {
-  JOURNEY_QUERY_KEYS,
-  type HistoryPage,
-  type ApiResponse,
-} from "@/components/journey/types/journey.types";
+import { useModalActions } from "@/components/journey/stores/journeyStore";
 import { cn } from "@/lib/utils";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-/** How many events to show from the overview before the "Load more" button */
+/** How many events to show from the overview before the "See more" button */
 const INITIAL_VISIBLE = 5;
-
-// ─── API fetcher ──────────────────────────────────────────────────────────────
-
-async function fetchHistoryPage(page: number): Promise<HistoryPage> {
-  const res = await fetch(`/api/v1/journey/history?page=${page}`, {
-    credentials: "include",
-  });
-
-  if (!res.ok) {
-    throw new Error(`History page ${page} request failed: ${res.status}`);
-  }
-
-  const json: ApiResponse<HistoryPage> = await res.json();
-
-  if (!json.success) {
-    throw new Error(json.error.message);
-  }
-
-  return json.data;
-}
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
@@ -116,44 +89,6 @@ function HistorySkeleton() {
   );
 }
 
-// ─── Load more button ─────────────────────────────────────────────────────────
-
-interface LoadMoreButtonProps {
-  onClick: () => void;
-  isLoading: boolean;
-}
-
-function LoadMoreButton({ onClick, isLoading }: LoadMoreButtonProps) {
-  return (
-    <div className="border-t border-tactical-border">
-      <button
-        onClick={onClick}
-        disabled={isLoading}
-        aria-label={isLoading ? "Loading more events" : "Load more events"}
-        className={cn(
-          "flex items-center justify-center gap-2",
-          "w-full px-5 py-3",
-          "font-sans text-[13px] text-pearl-text",
-          "bg-transparent",
-          "hover:bg-tactical-border/20",
-          "transition-colors duration-200",
-          "cursor-pointer disabled:cursor-default",
-          "focus-visible:outline-none focus-visible:ring-2",
-          "focus-visible:ring-inset focus-visible:ring-muted-emerald/50"
-        )}
-      >
-        <RefreshCw
-          size={13}
-          strokeWidth={2}
-          aria-hidden="true"
-          className={cn(isLoading && "animate-spin")}
-        />
-        {isLoading ? "Loading…" : "Load more events"}
-      </button>
-    </div>
-  );
-}
-
 // ─── Section label ────────────────────────────────────────────────────────────
 
 function SectionLabel() {
@@ -172,66 +107,27 @@ export interface HistorySectionProps {
 
 export function HistorySection({ isLoading = false }: HistorySectionProps) {
   const overview = useJourneyData();
-
-  // ── Live mode state ──────────────────────────────────────────────────────
-  // Deferred: the infinite query is only enabled after the first "Load more".
-  // This avoids a redundant network call on page mount — the overview already
-  // provides the first batch of events.
-  const [liveEnabled, setLiveEnabled] = useState(false);
-
-  const {
-    data: infiniteData,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-  } = useInfiniteQuery({
-    queryKey: JOURNEY_QUERY_KEYS.history(),
-    queryFn: ({ pageParam }) => fetchHistoryPage(pageParam as number),
-    // Start from page 2 — page 1 is seeded from overview.recent_events
-    initialPageParam: 2 as number,
-    getNextPageParam: (lastPage) =>
-      lastPage.next_page != null ? lastPage.next_page : undefined,
-    staleTime: 60_000,
-    // Only fire when the user has clicked "Load more" at least once
-    enabled: liveEnabled,
-  });
-
-  // ── Event list assembly ──────────────────────────────────────────────────
-  const overviewEvents = overview.recent_events ?? [];
-  const additionalEvents =
-    infiniteData?.pages.flatMap((page) => page.events) ?? [];
-
-  const events = [...overviewEvents, ...additionalEvents];
-
-  // ── "Load more" visibility ────────────────────────────────────────────────
-  // Show the button until we know for certain there are no
-  // more pages (i.e., after the first fetch returns hasNextPage === false).
-  const showLoadMore = !liveEnabled || (hasNextPage ?? false);
-  const isLoadingMore = isFetchingNextPage;
-
-  function handleLoadMore() {
-    if (!liveEnabled) {
-      // First click: enable the query (it immediately fetches page 2)
-      setLiveEnabled(true);
-    } else {
-      // Subsequent clicks: fetch the next page
-      fetchNextPage();
-    }
-  }
+  const { openHistoryModal } = useModalActions();
 
   // ── Loading ──────────────────────────────────────────────────────────────
   if (isLoading) return <HistorySkeleton />;
+
+  // ── Event list assembly ──────────────────────────────────────────────────
+  const overviewEvents = overview.recent_events ?? [];
+  const events = overviewEvents.slice(0, INITIAL_VISIBLE);
+  const hasMore = overviewEvents.length > INITIAL_VISIBLE;
 
   // ── Empty ────────────────────────────────────────────────────────────────
   if (events.length === 0) {
     return (
       <section
         aria-label="Journey history"
-        className="animate-fade-in"
+        className="animate-fade-in h-full flex flex-col"
         data-testid="history-section"
       >
         <SectionLabel />
         <EmptyState
+          className="flex-1 flex flex-col items-center justify-center"
           icon={BookOpen}
           message="No story recorded."
           description="Transactions, achievements, and milestones you reach will appear here."
@@ -244,7 +140,7 @@ export function HistorySection({ isLoading = false }: HistorySectionProps) {
   return (
     <section
       aria-label="Journey history"
-      className="animate-fade-in"
+      className="animate-fade-in h-full flex flex-col"
       data-testid="history-section"
     >
       <SectionLabel />
@@ -255,25 +151,44 @@ export function HistorySection({ isLoading = false }: HistorySectionProps) {
        * padding — this lets the separator borders run full-width inside
        * the card without clipping.
        */}
-      <Card padding="none" aria-live="polite" aria-relevant="additions">
+      <Card padding="none" aria-live="polite" aria-relevant="additions" className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 overflow-y-auto">
         {events.map((event, index) => (
           <HistoryEvent
             key={event.id}
             event={event}
-            isLast={index === events.length - 1 && !showLoadMore}
+            isLast={index === events.length - 1 && !hasMore}
           />
         ))}
 
         {/*
-         * Load more button — sits inside the Card so its top border
+         * See more button — sits inside the Card so its top border
          * aligns with the last event's bottom separator, creating a
          * seamless extension of the list rather than a detached button.
          */}
-        {showLoadMore && (
-          <LoadMoreButton
-            onClick={handleLoadMore}
-            isLoading={isLoadingMore}
-          />
+
+        </div>
+
+        {hasMore && (
+          <div className="border-t border-tactical-border">
+            <button
+              onClick={openHistoryModal}
+              aria-label="See more events"
+              className={cn(
+                "flex items-center justify-center gap-2",
+                "w-full px-5 py-3",
+                "font-sans text-[13px] text-pearl-text",
+                "bg-transparent",
+                "hover:bg-tactical-border/20",
+                "transition-colors duration-200",
+                "cursor-pointer",
+                "focus-visible:outline-none focus-visible:ring-2",
+                "focus-visible:ring-inset focus-visible:ring-muted-emerald/50"
+              )}
+            >
+              See more
+            </button>
+          </div>
         )}
       </Card>
     </section>

@@ -30,7 +30,7 @@ import {
   ModalFooter,
   PrimaryButton,
   GhostButton,
-} from './BaseModal';
+} from '@/components/shared/modals/BaseModal';
 import { useWalletStore } from '@/components/finance/stores/walletStore';
 import { Progress } from '@/components/ui/Progress';
 import type { Loan } from '@/types/wallet.types';
@@ -222,6 +222,7 @@ export function AddLoanModal({ isOpen, onClose, initialData }: AddLoanModalProps
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wallet', 'bootstrap'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics'] });
       toast.success(initialData ? 'Loan updated.' : 'Loan added.');
       handleClose();
     },

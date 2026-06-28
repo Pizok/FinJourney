@@ -48,7 +48,7 @@ import {
 import { PieChart as PieChartIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAnalyticsData } from '../layout/AnalyticsContext'
-import type { CategoryBreakdown } from '../types/analytics.types'
+import type { CategoryBreakdownItem } from '../types/analytics.types'
 
 // ─── Chart Colour Palette ─────────────────────────────────────────────────────
 // CSS variable strings cycle through design-system colours.
@@ -108,26 +108,26 @@ function OverspendingBadge() {
 // ─── Custom Tooltip ───────────────────────────────────────────────────────────
 
 interface TooltipEntry {
-  payload?: CategoryBreakdown
+  payload?: CategoryBreakdownItem
   active?:  boolean
 }
 
 // recharts passes the data object on payload[0].payload for Pie
 function CustomPieTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null
-  const entry: CategoryBreakdown = payload[0].payload
+  const entry: CategoryBreakdownItem = payload[0].payload
 
   return (
     <div className="rounded-lg border border-tactical-border bg-canvas-surface p-3 shadow-lg">
       <p className="font-display text-sm font-semibold text-pearl-text">
-        {entry.category_name}
+        {entry.name}
       </p>
       <p className="mt-0.5 font-sans text-xs text-muted-text">
-        {formatCurrency(entry.amount)}
+        {formatCurrency(entry.spent)}
         <span className="mx-1.5 opacity-40">·</span>
         {entry.percentage.toFixed(1)}%
       </p>
-      {entry.overspending && (
+      {entry.is_overspent && (
         <p className="mt-1.5 font-sans text-xs text-terracotta">
           Exceeds category limit
         </p>
@@ -139,7 +139,7 @@ function CustomPieTooltip({ active, payload }: any) {
 // ─── Custom Legend ────────────────────────────────────────────────────────────
 
 interface LegendProps {
-  data: CategoryBreakdown[]
+  data: CategoryBreakdownItem[]
 }
 
 function CategoryLegend({ data }: LegendProps) {
@@ -163,9 +163,9 @@ function CategoryLegend({ data }: LegendProps) {
                 aria-hidden="true"
               />
               <span className="truncate font-sans text-sm text-pearl-text">
-                {entry.category_name}
+                {entry.name}
               </span>
-              {entry.overspending && <OverspendingBadge />}
+              {entry.is_overspent && <OverspendingBadge />}
             </div>
 
             {/* Percentage */}
@@ -219,12 +219,12 @@ function CategoryEmptyState() {
 // ─── Chart Body ───────────────────────────────────────────────────────────────
 
 interface ChartBodyProps {
-  data: CategoryBreakdown[]
+  data: CategoryBreakdownItem[]
 }
 
 function ChartBody({ data }: ChartBodyProps) {
-  const totalAmount = data.reduce((sum, item) => sum + item.amount, 0)
-  const overspendingCount = data.filter((d) => d.overspending).length
+  const totalAmount = data.reduce((sum, item) => sum + item.spent, 0)
+  const overspendingCount = data.filter((d) => d.is_overspent).length
 
   return (
     <div className="space-y-4">
@@ -246,8 +246,8 @@ function ChartBody({ data }: ChartBodyProps) {
             <PieChart>
               <Pie
                 data={data}
-                dataKey="amount"
-                nameKey="category_name"
+                dataKey="spent"
+                nameKey="name"
                 cx="50%"
                 cy="50%"
                 innerRadius="52%"
@@ -293,9 +293,10 @@ function ChartBody({ data }: ChartBodyProps) {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function CategoryPieChart() {
-  const { category_breakdown: breakdown = [] } = useAnalyticsData()
+  const { category_breakdown } = useAnalyticsData()
 
-  const isEmpty = breakdown.length === 0
+  const data = category_breakdown?.categories || []
+  const isEmpty = !category_breakdown?.has_category_data || data.length === 0
 
   return (
     <section
@@ -314,7 +315,7 @@ export function CategoryPieChart() {
       </div>
 
       {/* ── Chart or empty state ─────────────────────────────────────────── */}
-      {isEmpty ? <CategoryEmptyState /> : <ChartBody data={breakdown} />}
+      {isEmpty ? <CategoryEmptyState /> : <ChartBody data={data} />}
     </section>
   )
 }

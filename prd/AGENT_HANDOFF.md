@@ -31,6 +31,14 @@ The user has switched accounts or started a new session. This document contains 
 * **Mistake**: Suggesting `celery`, `redis`, or `APScheduler` for cron jobs.
 * **Correction**: We use **Upstash QStash** to trigger webhooks (like `POST /cron/daily-evaluation` and `POST /cron/evening-reminder`). The backend receives the webhook, returns `202 Accepted` immediately, and does the heavy lifting in a BackgroundTask.
 
+### Backend-Frontend Synchronization
+* **Mistake**: Renaming, removing, or adding a schema in the FastAPI backend without updating the Next.js TypeScript interfaces.
+* **Correction**: Always double-check frontend type definitions (`src/components/**/types/*.types.ts`) when changing Python response schemas. For example, if the backend sends `{"can_access_analytics": true}`, the frontend `FeatureUnlocks` interface must explicitly expect `can_access_analytics`, not just `analytics`. Run `npx tsc --noEmit` in `src` to verify frontend typings after major backend schema changes.
+
+### Complete Feature Removal
+* **Mistake**: Commenting out unused code or leaving orphaned UI components when a feature is dropped (e.g. Reset Progress).
+* **Correction**: Eradicate dead code entirely. Delete the API routes, the backend service logic, the DB queries, the frontend `.tsx` components, and all associated TypeScript/Pydantic types. A clean codebase is a happy codebase.
+
 ---
 
 ## 3. Communication Guidelines with the User

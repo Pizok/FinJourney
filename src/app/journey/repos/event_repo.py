@@ -212,7 +212,7 @@ class EventRepository:
             .table("journey_events")
             .select("*")
             .eq("idempotency_key", idempotency_key)
-            .maybe_single()
+            .limit(1).maybe_single()
             .execute()
         )
         return result.data
@@ -224,7 +224,7 @@ class EventRepository:
             .table("journey_events")
             .select("*")
             .eq("id", event_id)
-            .maybe_single()
+            .limit(1).maybe_single()
             .execute()
         )
         return result.data

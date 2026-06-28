@@ -124,7 +124,7 @@ export default function SettingsPage() {
         <ProfileCard />
         <JourneyProgressionCard />
         <PreferencesCard />
-        <NotificationSettingsCard />
+        {/* <NotificationSettingsCard /> Hidden per user request */}
 
         {/* Bottom padding so UnsavedChangesBar never overlaps last card */}
         <div className="h-24" aria-hidden="true" />

@@ -32,22 +32,23 @@ async def evaluate_node_advancement(client: Client, user_id: str) -> None:
     total_xp = profile_res.data.get("total_xp", 0)
 
     # 2. Fetch thresholds from system_flags, fallback to constants
-    flags_res = (
-        await client.table("system_flags")
-        .select("value")
-        .eq("key", "node_xp_thresholds")
-        .execute()
-    )
     thresholds = NODE_XP_THRESHOLDS
-    if flags_res.data and "value" in flags_res.data[0]:
-        try:
+    try:
+        flags_res = (
+            await client.table("system_flags")
+            .select("value")
+            .eq("key", "node_xp_thresholds")
+            .execute()
+        )
+        if flags_res.data and "value" in flags_res.data[0]:
             val = flags_res.data[0]["value"]
             if isinstance(val, str):
                 thresholds = json.loads(val)
             elif isinstance(val, dict):
                 thresholds = val
-        except Exception:
-            pass
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Failed to fetch system_flags node_xp_thresholds, falling back to constants: %s", e)
 
     # Ordered sequence of nodes
     node_sequence = list(thresholds.keys())
@@ -85,7 +86,8 @@ async def evaluate_node_advancement(client: Client, user_id: str) -> None:
                     "status": "CURRENT",
                     "started_at": now.isoformat(),
                     "ends_at": one_year_later.isoformat()
-                }
+                },
+                on_conflict="id"
             ).execute()
             
             # Insert first node
@@ -179,7 +181,8 @@ async def evaluate_node_advancement(client: Client, user_id: str) -> None:
                             "status": "CURRENT",
                             "started_at": now.isoformat(),
                             "ends_at": one_year_later.isoformat()
-                        }
+                        },
+                        on_conflict="id"
                     ).execute()
                     
                     await client.table("journey_events").insert({

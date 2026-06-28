@@ -38,6 +38,7 @@ export interface Profile {
   active_theme: string;
   current_region_id: string | null;
   avatar_key: string;
+  is_dev_account: boolean;
 }
 
 export interface PlayerState {
@@ -130,11 +131,12 @@ export interface Transaction {
 }
 
 export interface FeatureUnlocks {
-  analytics: boolean;
-  unlimited_wallets: boolean;
-  unlimited_categories: boolean;
-  custom_tasks: boolean;
-  icon_customization: boolean;
+  can_use_icons: boolean;
+  can_create_custom_tasks: boolean;
+  can_delete_default_tasks: boolean;
+  can_access_analytics: boolean;
+  can_create_unlimited_wallets: boolean;
+  can_create_unlimited_categories: boolean;
 }
 
 export interface PendingUnlock {

@@ -53,7 +53,7 @@ export interface ChallengeColorSet {
  */
 const COLOR_MAP: Record<ChallengeColorKey, ChallengeColorSet> = {
   blue: {
-    bg:       "bg-blue-50 dark:bg-blue-950/40",
+    bg:       "",
     iconBg:   "bg-blue-100 dark:bg-blue-900/60",
     iconText: "text-blue-600 dark:text-blue-400",
     badge:    "bg-blue-100 dark:bg-blue-900/50",
@@ -61,7 +61,7 @@ const COLOR_MAP: Record<ChallengeColorKey, ChallengeColorSet> = {
     ring:     "ring-blue-200 dark:ring-blue-800",
   },
   teal: {
-    bg:       "bg-teal-50 dark:bg-teal-950/40",
+    bg:       "",
     iconBg:   "bg-teal-100 dark:bg-teal-900/60",
     iconText: "text-teal-600 dark:text-teal-400",
     badge:    "bg-teal-100 dark:bg-teal-900/50",
@@ -69,7 +69,7 @@ const COLOR_MAP: Record<ChallengeColorKey, ChallengeColorSet> = {
     ring:     "ring-teal-200 dark:ring-teal-800",
   },
   amber: {
-    bg:       "bg-amber-50 dark:bg-amber-950/40",
+    bg:       "",
     iconBg:   "bg-amber-100 dark:bg-amber-900/60",
     iconText: "text-amber-600 dark:text-amber-400",
     badge:    "bg-amber-100 dark:bg-amber-900/50",
@@ -77,7 +77,7 @@ const COLOR_MAP: Record<ChallengeColorKey, ChallengeColorSet> = {
     ring:     "ring-amber-200 dark:ring-amber-800",
   },
   green: {
-    bg:       "bg-green-50 dark:bg-green-950/40",
+    bg:       "",
     iconBg:   "bg-green-100 dark:bg-green-900/60",
     iconText: "text-green-600 dark:text-green-400",
     badge:    "bg-green-100 dark:bg-green-900/50",
@@ -85,7 +85,7 @@ const COLOR_MAP: Record<ChallengeColorKey, ChallengeColorSet> = {
     ring:     "ring-green-200 dark:ring-green-800",
   },
   purple: {
-    bg:       "bg-purple-50 dark:bg-purple-950/40",
+    bg:       "",
     iconBg:   "bg-purple-100 dark:bg-purple-900/60",
     iconText: "text-purple-600 dark:text-purple-400",
     badge:    "bg-purple-100 dark:bg-purple-900/50",
@@ -93,7 +93,7 @@ const COLOR_MAP: Record<ChallengeColorKey, ChallengeColorSet> = {
     ring:     "ring-purple-200 dark:ring-purple-800",
   },
   coral: {
-    bg:       "bg-orange-50 dark:bg-orange-950/40",
+    bg:       "",
     iconBg:   "bg-orange-100 dark:bg-orange-900/60",
     iconText: "text-orange-600 dark:text-orange-400",
     badge:    "bg-orange-100 dark:bg-orange-900/50",
@@ -101,7 +101,7 @@ const COLOR_MAP: Record<ChallengeColorKey, ChallengeColorSet> = {
     ring:     "ring-orange-200 dark:ring-orange-800",
   },
   pink: {
-    bg:       "bg-pink-50 dark:bg-pink-950/40",
+    bg:       "",
     iconBg:   "bg-pink-100 dark:bg-pink-900/60",
     iconText: "text-pink-600 dark:text-pink-400",
     badge:    "bg-pink-100 dark:bg-pink-900/50",
@@ -109,7 +109,7 @@ const COLOR_MAP: Record<ChallengeColorKey, ChallengeColorSet> = {
     ring:     "ring-pink-200 dark:ring-pink-800",
   },
   red: {
-    bg:       "bg-red-50 dark:bg-red-950/40",
+    bg:       "",
     iconBg:   "bg-red-100 dark:bg-red-900/60",
     iconText: "text-red-600 dark:text-red-400",
     badge:    "bg-red-100 dark:bg-red-900/50",
@@ -117,7 +117,7 @@ const COLOR_MAP: Record<ChallengeColorKey, ChallengeColorSet> = {
     ring:     "ring-red-200 dark:ring-red-800",
   },
   gray: {
-    bg:       "bg-zinc-50 dark:bg-zinc-900/40",
+    bg:       "",
     iconBg:   "bg-zinc-100 dark:bg-zinc-800/60",
     iconText: "text-zinc-500 dark:text-zinc-400",
     badge:    "bg-zinc-100 dark:bg-zinc-800/50",

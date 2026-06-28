@@ -281,25 +281,6 @@ class PathChangeResponse(BaseModel):
     event_id:       UUID = Field(description="game_events row ID for PATH_CHANGED.")
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# POST /settings/reset-progress  (success)
-# ══════════════════════════════════════════════════════════════════════════════
-
-class ResetProgressResponse(BaseModel):
-    """
-    Returned after a successful progression reset.
-
-    Preservation contract (enforced by service layer):
-      - Inventory (shields, standby tokens) is NOT cleared.
-      - Financial ledger (transactions, wallets, categories) is NOT touched.
-    """
-
-    success:        Literal_True  = True
-    progression:    ProgressionPayload   = Field(
-        description="Freshly reset state: HP=100, XP=0, level=1."
-    )
-    event_id:       UUID = Field(description="game_events row ID for PROGRESS_RESET.")
-
 
 # ══════════════════════════════════════════════════════════════════════════════
 # GET /account/export  —  Data export (not streamed; synchronous JSON)
@@ -350,4 +331,3 @@ PatchFinancialsResult      = PatchFinancialsResponse      | SettingsErrorEnvelop
 PatchPreferencesResult     = PatchPreferencesResponse     | SettingsErrorEnvelope
 PatchNotificationsResult   = PatchNotificationsResponse   | SettingsErrorEnvelope
 PathChangeResult           = PathChangeResponse           | SettingsErrorEnvelope
-ResetProgressResult        = ResetProgressResponse        | SettingsErrorEnvelope

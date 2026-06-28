@@ -53,7 +53,7 @@ class ProfileRepository:
             .table("journey_profiles")
             .select("*")
             .eq("id", user_id)
-            .maybe_single()
+            .limit(1).maybe_single()
             .execute()
         )
         return result.data
@@ -154,18 +154,17 @@ class ProfileRepository:
     # journey_daily_survival
     # ------------------------------------------------------------------
 
-    async def get_daily_survival(self, user_id: str) -> dict | None:
+    async def get_daily_survival(self, user_id: str, tracking_date_iso: str) -> dict | None:
         """
-        Fetches the player's current daily survival row.
-        The row has a single entry per user (PK = user_id).
-        current_date in the row tells us which day is being tracked.
+        Fetches the player's daily survival row for a given date.
         """
         result = await (
             self._db
             .table("journey_daily_survival")
             .select("*")
             .eq("user_id", user_id)
-            .maybe_single()
+            .eq("tracking_date", tracking_date_iso)
+            .limit(1).maybe_single()
             .execute()
         )
         return result.data if result is not None else None
@@ -194,7 +193,7 @@ class ProfileRepository:
         result = await (
             self._db
             .table("journey_daily_survival")
-            .upsert(payload, on_conflict="user_id")
+            .upsert(payload, on_conflict="user_id,tracking_date")
             .execute()
         )
         return result.data[0]
@@ -261,7 +260,8 @@ class ProfileRepository:
             .table("journey_daily_survival")
             .select("consecutive_clean_days")
             .eq("user_id", user_id)
-            .maybe_single()
+            .order("tracking_date", desc=True)
+            .limit(1).maybe_single()
             .execute()
         )
         if not result.data:
@@ -326,7 +326,7 @@ class ProfileRepository:
             .select("*")
             .eq("user_id", user_id)
             .eq("tracking_date", current_date.isoformat())
-            .maybe_single()
+            .limit(1).maybe_single()
             .execute()
         )
         return result.data
@@ -350,7 +350,7 @@ class ProfileRepository:
         await (
             self._db
             .table("journey_daily_survival")
-            .upsert(payload, on_conflict="user_id", ignore_duplicates=True)
+            .upsert(payload, on_conflict="user_id,tracking_date", ignore_duplicates=True)
             .execute()
         )
         return await self.get_daily_xp_record(user_id, current_date)
@@ -454,8 +454,7 @@ class ProfileRepository:
             .eq("user_id", user_id)
             .in_("status", ["ACTIVE", "COMPLETED"])
             .order("started_at", desc=True)
-            .limit(1)
-            .maybe_single()
+            .limit(1).maybe_single()
             .execute()
         )
         return result.data if result is not None else None
@@ -473,7 +472,7 @@ class ProfileRepository:
             .select("*")
             .eq("id", challenge_id)
             .eq("user_id", user_id)
-            .maybe_single()
+            .limit(1).maybe_single()
             .execute()
         )
         return result.data
@@ -569,7 +568,7 @@ class ProfileRepository:
             .select("*")
             .eq("user_id", user_id)
             .eq("status", "CURRENT")
-            .maybe_single()
+            .limit(1).maybe_single()
             .execute()
         )
         return result.data

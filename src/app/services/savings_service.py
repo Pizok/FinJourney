@@ -16,40 +16,6 @@ from app.schemas.transaction import PaymentMethod, TransactionCreate, Transactio
 from app.services.transaction_service import create_transaction
 
 
-async def recalculate_scalars(client: AsyncClient, user_id: str) -> None:
-    """
-    Recalculates and updates the scalar `expected_monthly_income` and
-    `monthly_savings_target` on the `journey_profiles` table.
-    
-    Must be called after any CRUD mutation on `income_streams` or `savings_targets`.
-    """
-    # 1. Sum active income streams
-    income_res = await (
-        client.table("income_streams")
-        .select("amount")
-        .eq("user_id", user_id)
-        .is_("deleted_at", "null")
-        .execute()
-    )
-    total_income = sum(item["amount"] for item in income_res.data) if income_res.data else 0
-
-    # 2. Sum active savings contributions
-    savings_res = await (
-        client.table("savings_targets")
-        .select("monthly_contribution_target")
-        .eq("user_id", user_id)
-        .is_("deleted_at", "null")
-        .execute()
-    )
-    total_savings = sum(item["monthly_contribution_target"] for item in savings_res.data) if savings_res.data else 0
-
-    # 3. Update journey_profiles
-    await client.table("journey_profiles").update({
-        "expected_monthly_income": total_income,
-        "monthly_savings_target": total_savings
-    }).eq("id", user_id).execute()
-
-
 async def log_savings(
     client: AsyncClient,
     user_id: str,

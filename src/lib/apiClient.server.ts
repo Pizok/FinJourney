@@ -65,6 +65,9 @@ export async function apiFetchServer<T = unknown>(
 
     if (!response.ok) {
       console.error(`[apiFetchServer] ${response.status} ${response.statusText} on ${endpoint}`)
+      if (response.status === 401) {
+        redirect('/auth')
+      }
       return null
     }
 

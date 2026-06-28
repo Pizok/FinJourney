@@ -88,7 +88,16 @@ router = APIRouter(
     tags=["Journey Engine"],
 )
 
-_today_iso = lambda: datetime.now(timezone.utc).date().isoformat()  # noqa: E731
+def _today_iso(timezone_str: str = "UTC") -> str:
+    try:
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo(timezone_str)
+    except Exception:
+        from datetime import timezone
+        tz = timezone.utc
+    from datetime import datetime
+    return datetime.now(tz).date().isoformat()
+
 
 
 # ---------------------------------------------------------------------------
@@ -200,12 +209,60 @@ async def get_overview(
             pass
             
     # Queries
-    local_date = _today_iso()
+    _tz_res = await db.table("journey_profiles").select("timezone").eq("id", user_id).limit(1).maybe_single().execute()
+    _tz = _tz_res.data.get("timezone", "UTC") if _tz_res.data else "UTC"
+    
+    from zoneinfo import ZoneInfo
+    local_now = datetime.now(ZoneInfo(_tz))
+    local_date = local_now.date().isoformat()
     
     events_task = db.table("journey_events").select("*").eq("user_id", user_id).eq("status", "PROCESSED").order("created_at", desc=True).limit(10).execute()
     # The active review logic expects the daily survival row
-    survival_task = db.table("journey_daily_survival").select("*").eq("user_id", user_id).maybe_single().execute()
+    survival_task = db.table("journey_daily_survival").select("*").eq("user_id", user_id).eq("tracking_date", local_date).limit(1).maybe_single().execute()
     
+    # Region logic
+    current_region_data = await profile_repo.get_current_region(user_id)
+    if current_region_data is None:
+        current_region = {
+            "id": "quiet_valley",
+            "name": "Quiet Valley",
+            "description": "Starting Zone",
+            "progress_days": 0,
+            "total_days": 365,
+            "days_remaining": 365
+        }
+    else:
+        try:
+            r_started = datetime.fromisoformat(current_region_data["started_at"].replace("Z", "+00:00")).date()
+            r_ends = datetime.fromisoformat(current_region_data["ends_at"].replace("Z", "+00:00")).date()
+            
+            p_days = (local_now.date() - r_started).days
+            r_days = (r_ends - local_now.date()).days
+        except (ValueError, KeyError, TypeError):
+            p_days = 0
+            r_days = 365
+            
+        region_id = current_region_data.get("region_id", "quiet_valley")
+        # Lightweight mapping
+        REGION_NAMES = {
+            "quiet_valley": "Quiet Valley",
+            "whispering_woods": "Whispering Woods",
+            "emerald_peaks": "Emerald Peaks"
+        }
+        
+        current_region = {
+            "id": region_id,
+            "name": REGION_NAMES.get(region_id, region_id.replace("_", " ").title()),
+            "description": "A region on your financial journey",
+            "progress_days": max(0, min(365, p_days)),
+            "total_days": 365,
+            "days_remaining": max(0, min(365, r_days))
+        }
+
+    # Completed regions count
+    completed_regions_res = await db.table("journey_regions").select("id", count="exact").eq("user_id", user_id).eq("status", "SHIFTED").execute()
+    completed_regions = completed_regions_res.count if completed_regions_res and hasattr(completed_regions_res, 'count') and completed_regions_res.count is not None else 0
+
     events_res, daily_survival_res = await asyncio.gather(
         events_task,
         survival_task
@@ -214,36 +271,64 @@ async def get_overview(
     events = events_res.data if events_res else []
     daily_survival = daily_survival_res.data if daily_survival_res else None
 
-    # Note: If `journey_regions` does not exist in schema, we will wrap in try/except or just assume it does because user said so.
-    # Same for `journey_challenges`. Let's fetch them safely.
     passport_stamps = []
+    locked_stamps = []
+    
+    # Define the 12 stamp definitions
+    STAMP_DEFINITIONS = {
+        "stamp_lvl_5": "Reach Level 5",
+        "stamp_lvl_10": "Reach Level 10",
+        "stamp_lvl_25": "Reach Level 25",
+        "stamp_lvl_50": "Reach Level 50",
+        "stamp_lvl_75": "Reach Level 75",
+        "stamp_lvl_100": "Reach Level 100",
+        "stamp_tx_1": "Log your first transaction",
+        "stamp_tx_50": "Log 50 transactions",
+        "stamp_bal_1m": "Reach Rp 1.000.000 in total balances",
+        "stamp_bal_5m": "Reach Rp 5.000.000 in total balances",
+        "stamp_bal_10m": "Reach Rp 10.000.000 in total balances",
+        "stamp_bal_50m": "Reach Rp 50.000.000 in total balances",
+    }
+    
+    STAMP_TITLES = {
+        "stamp_lvl_5": "First Step",
+        "stamp_lvl_10": "Novice Saver",
+        "stamp_lvl_25": "Consistent Earner",
+        "stamp_lvl_50": "Financial Warrior",
+        "stamp_lvl_75": "Wealth Guardian",
+        "stamp_lvl_100": "Master of Coin",
+        "stamp_tx_1": "Initiation",
+        "stamp_tx_50": "Habit Builder",
+        "stamp_bal_1m": "First Million",
+        "stamp_bal_5m": "Five Million Club",
+        "stamp_bal_10m": "Ten Million Milestone",
+        "stamp_bal_50m": "Half-Century Wealth",
+    }
+
+    unlocked_keys = {}
     try:
-        regions_res = await db.table("journey_regions").select("*").eq("user_id", user_id).eq("status", "COMPLETED").execute()
-        regions = regions_res.data
-        for r in regions:
-            passport_stamps.append({
-                "id": str(r["id"]),
-                "region": r.get("name", "Unknown Region"),
-                "date": str(r.get("completed_at", "")),
-                "challenge": "Region Completion",
-                "type": "completed"
-            })
+        stamps_res = await db.table("journey_passport_stamps").select("*").eq("user_id", user_id).execute()
+        if stamps_res and stamps_res.data:
+            unlocked_keys = {s["stamp_key"]: s for s in stamps_res.data}
     except Exception:
         pass
 
-    try:
-        challenges_res = await db.table("journey_challenges").select("*").eq("user_id", user_id).eq("status", "COMPLETED").execute()
-        challenges = challenges_res.data
-        for c in challenges:
+    for key, requirement in STAMP_DEFINITIONS.items():
+        if key in unlocked_keys:
+            s = unlocked_keys[key]
             passport_stamps.append({
-                "id": str(c["id"]),
-                "region": "Challenge",
-                "date": str(c.get("completed_at", "")),
-                "challenge": c.get("template_id", "Challenge"),
+                "id": key,
+                "title": STAMP_TITLES.get(key, key),
+                "date": str(s.get("unlocked_at", "")),
+                "requirement": requirement,
                 "type": "completed"
             })
-    except Exception:
-        pass
+        else:
+            locked_stamps.append({
+                "id": f"locked_{key}",
+                "title": STAMP_TITLES.get(key, key),
+                "requirement": requirement
+            })
 
     recent_events_mapped = []
     for evt in events:
@@ -282,18 +367,11 @@ async def get_overview(
     }
     
     overview_data = {
-        "current_region": {
-            "id": "region-0",
-            "name": "The Starting Zone",
-            "description": "Your financial journey begins here.",
-            "progress_days": 0,
-            "total_days": 90,
-            "days_remaining": 90
-        },
+        "current_region": current_region,
         "journey_progress": {
             "account_days": account_days,
             "next_milestone_days": 0,
-            "completed_regions": 0,
+            "completed_regions": completed_regions,
         },
         "active_review": active_review_data,
         "past_reviews": [],
@@ -301,7 +379,7 @@ async def get_overview(
             "stamps_earned": len(passport_stamps),
             "total_available": 12,
             "stamps": passport_stamps,
-            "locked": []
+            "locked": locked_stamps
         },
         "recent_events": recent_events_mapped,
         "profile_snapshot": profile_snapshot
@@ -342,12 +420,18 @@ async def claim_zero_spend(
     Returns:
       Updated player_state and daily_status slices.
     """
-    local_date = _today_iso()
+    _tz_res = await db.table("journey_profiles").select("timezone").eq("id", user.user_id if hasattr(user, "user_id") else user_id).limit(1).maybe_single().execute()
+    _tz = _tz_res.data.get("timezone", "UTC") if _tz_res.data else "UTC"
+    local_date = _today_iso(_tz)
     profile_repo = ProfileRepository(db)
     event_repo = EventRepository(db)
 
     # ── Pre-condition: no expenses logged today ───────────────────────────────
-    daily_survival = await profile_repo.get_daily_survival(user_id)
+    from datetime import datetime, timezone
+    _tz_res = await db.table("journey_profiles").select("timezone").eq("id", user.user_id if hasattr(user, "user_id") else user_id).limit(1).maybe_single().execute()
+    _tz = _tz_res.data.get("timezone", "UTC") if _tz_res.data else "UTC"
+    today_iso = _today_iso(_tz)
+    daily_survival = await profile_repo.get_daily_survival(user_id, today_iso)
     current_status = (daily_survival.get("status", "PENDING") if daily_survival else "PENDING")
 
     if current_status == "SAFE_LOGGED":
@@ -384,7 +468,7 @@ async def claim_zero_spend(
     bootstrap_svc = BootstrapService(db)
 
     updated_profile = await profile_repo.get_profile(user_id)
-    updated_survival = await profile_repo.get_daily_survival(user_id)
+    updated_survival = await profile_repo.get_daily_survival(user_id, today_iso)
     inventory_summary = await profile_repo.get_profile(user_id)  # for standby
 
     from .services.inventory_svc import InventoryService
@@ -431,7 +515,9 @@ async def use_standby_token(
     Returns:
       Updated inventory slice (standby_mode + active_shields).
     """
-    local_date = _today_iso()
+    _tz_res = await db.table("journey_profiles").select("timezone").eq("id", user.user_id if hasattr(user, "user_id") else user_id).limit(1).maybe_single().execute()
+    _tz = _tz_res.data.get("timezone", "UTC") if _tz_res.data else "UTC"
+    local_date = _today_iso(_tz)
 
     try:
         result = await inv_svc.consume_standby_token(
@@ -478,7 +564,9 @@ async def change_path(
 
     profile_repo = ProfileRepository(db)
     event_repo = EventRepository(db)
-    local_date = _today_iso()
+    _tz_res = await db.table("journey_profiles").select("timezone").eq("id", user.user_id if hasattr(user, "user_id") else user_id).limit(1).maybe_single().execute()
+    _tz = _tz_res.data.get("timezone", "UTC") if _tz_res.data else "UTC"
+    local_date = _today_iso(_tz)
 
     profile = await profile_repo.get_profile(user_id)
     if not profile:
@@ -559,7 +647,9 @@ async def revive(
     Returns:
       Updated player_state with hp=10 and vitality=HAZARD.
     """
-    local_date = _today_iso()
+    _tz_res = await db.table("journey_profiles").select("timezone").eq("id", user.user_id if hasattr(user, "user_id") else user_id).limit(1).maybe_single().execute()
+    _tz = _tz_res.data.get("timezone", "UTC") if _tz_res.data else "UTC"
+    local_date = _today_iso(_tz)
     try:
         heal_result = await hp_svc.execute_financial_audit(
             user_id=user_id,
@@ -607,7 +697,9 @@ async def claim_rewards(
 
     profile_repo = ProfileRepository(db)
     event_repo = EventRepository(db)
-    local_date = _today_iso()
+    _tz_res = await db.table("journey_profiles").select("timezone").eq("id", user.user_id if hasattr(user, "user_id") else user_id).limit(1).maybe_single().execute()
+    _tz = _tz_res.data.get("timezone", "UTC") if _tz_res.data else "UTC"
+    local_date = _today_iso(_tz)
 
     challenge_id = str(body.challenge_id)
 
@@ -706,6 +798,101 @@ async def acknowledge_unlock(
 # ── LAZY-LOADED DRILL-DOWNS ─────────────────────────────────────────────────
 # ===========================================================================
 
+
+@router.get(
+    "/reviews",
+    summary="List past quarterly reports",
+)
+async def get_past_reviews(
+    user_id: CurrentUserID,
+    db: DBClient,
+) -> dict[str, Any]:
+    """
+    Returns a lightweight list of past quarterly reports for the user.
+    """
+    res = await db.table("journey_quarterly_reports").select(
+        "id, quarter, year, is_partial, net_change, computed_at"
+    ).eq("user_id", user_id).order("year", desc=True).order("quarter", desc=True).execute()
+    
+    return _success({"items": res.data or []})
+
+@router.get(
+    "/reviews/{year}/{quarter}/summary",
+    summary="Get quarterly report summary drill-down",
+)
+async def get_quarterly_summary(
+    year: int,
+    quarter: int,
+    user_id: CurrentUserID,
+    db: DBClient,
+) -> dict[str, Any]:
+    """
+    Returns the full JSON summary for a specific quarter.
+    If it doesn't exist, it computes it on-demand and saves it.
+    """
+    from .services.quarterly_report_svc import QuarterlyReportService
+    
+    # 1. Try to fetch existing
+    res = await db.table("journey_quarterly_reports").select("*").eq("user_id", user_id).eq("year", year).eq("quarter", quarter).limit(1).maybe_single().execute()
+    if res.data:
+        return _success({"summary": res.data})
+        
+    # 2. Fallback on-demand compute
+    svc = QuarterlyReportService(db)
+    try:
+        new_data = await svc.compute_and_persist_quarterly_report(user_id, quarter, year)
+        return _success({"summary": new_data})
+    except ValueError as e:
+        _raise_404("NOT_FOUND", str(e))
+
+@router.get(
+    "/history",
+    summary="Paginated 7-day player event history",
+)
+async def get_history(
+    user_id: CurrentUserID,
+    db: DBClient,
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=20, ge=1, le=100),
+) -> dict[str, Any]:
+    """
+    Returns a paginated list of Journey Events for the History section.
+    Hardcoded to only return events from the last 7 days.
+    """
+    offset = (page - 1) * limit
+
+    # We ask for one extra to easily determine if there is a next_page
+    res = await db.table("journey_events").select("*") \
+        .eq("user_id", user_id) \
+        .eq("status", "PROCESSED") \
+        .order("created_at", desc=True) \
+        .range(offset, offset + limit) \
+        .execute()
+        
+    events = res.data or []
+    has_next = len(events) > limit
+    if has_next:
+        events = events[:-1]
+        
+    mapped = []
+    for evt in events:
+        payload = evt.get("payload", {})
+        xp_change = payload.get("xp_change", 0) if isinstance(payload, dict) else 0
+        hp_change = payload.get("hp_change", 0) if isinstance(payload, dict) else 0
+        mapped.append({
+            "id": str(evt["id"]),
+            "type": evt.get("event_type", "event").lower(),
+            "title": evt.get("event_type", "Event"),
+            "date": str(evt.get("created_at")),
+            "xp_change": xp_change,
+            "hp_change": hp_change,
+            "severity": evt.get("severity", "INFO").lower(),
+        })
+        
+    return _success({
+        "events": mapped,
+        "next_page": page + 1 if has_next else None
+    })
 
 @router.get(
     "/challenges/history",
@@ -885,7 +1072,9 @@ async def _process_wallet_transaction_event(
     """
     from .repos.event_repo import EventRepository as _ER
 
-    local_date = _today_iso()
+    _tz_res = await db.table("journey_profiles").select("timezone").eq("id", user.user_id if hasattr(user, "user_id") else user_id).limit(1).maybe_single().execute()
+    _tz = _tz_res.data.get("timezone", "UTC") if _tz_res.data else "UTC"
+    local_date = _today_iso(_tz)
     event_repo = _ER(db)
 
     event_type = (
@@ -1023,6 +1212,37 @@ async def cron_system_cleanup(
         content={"status": "accepted", "job": "system-cleanup"},
     )
 
+@router.post(
+    "/cron/quarterly-evaluation",
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="QStash webhook — Quarterly Report Evaluation",
+    include_in_schema=False,
+)
+async def cron_quarterly_evaluation(
+    _sig: QStashVerified,
+    background_tasks: BackgroundTasks,
+    db: DBClient,
+    bus: Annotated[EventBus, Depends(get_event_bus)],
+) -> JSONResponse:
+    """
+    Triggered on the 1st of every quarter by Upstash QStash (e.g. schedule: `0 0 1 1,4,7,10 *`).
+
+    Returns 202 immediately. Work runs in BackgroundTasks.
+    Iterates over all active users and runs compute_and_persist_quarterly_report.
+    Uses BackgroundTasks per user (or chunks) to prevent QStash timeout.
+
+    Auth: Upstash-Signature HMAC verification only. No user JWT.
+    """
+    cron_svc = CronService(db=db, bus=bus)
+    
+    # Run the user iteration in the background to avoid blocking the webhook response
+    background_tasks.add_task(cron_svc.run_quarterly_evaluations, background_tasks)
+
+    return JSONResponse(
+        status_code=status.HTTP_202_ACCEPTED,
+        content={"status": "accepted", "job": "quarterly-evaluation"},
+    )
+
 
 @router.post(
     "/cron/evening-reminder",
@@ -1059,7 +1279,7 @@ async def cron_evening_reminder(
     cron_svc = CronService(db=db, bus=bus)
 
     if body and body.target_timezone:
-        targets = [(body.target_timezone, body.trigger_date or _today_iso())]
+        targets = [(body.target_timezone, body.trigger_date or _today_iso(body.target_timezone))]
     else:
         targets = CronService.get_timezones_at_evening_now()
 

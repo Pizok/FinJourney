@@ -308,6 +308,18 @@ async def rebalance_budget(
                     },
                 },
             )
+            
+        if "validation_error" in error_str:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "success": False,
+                    "error": {
+                        "code": ErrorCode.VALIDATION_ERROR.value,
+                        "message": error_str.split("validation_error: ")[-1],
+                    },
+                },
+            )
 
         # Unexpected ValueError — propagate for the global handler.
         raise

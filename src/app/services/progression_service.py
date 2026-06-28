@@ -22,7 +22,7 @@ def is_ghost_penalty_active(days_since_last_tx: int) -> bool:
 
 # ── Feature gates ─────────────────────────────────────────────────────────────
 
-def get_feature_unlocks(level: int) -> dict:
+def get_feature_unlocks(level: int, is_dev_account: bool = False) -> dict:
     """
     Level-gated feature map returned in the bootstrap payload.
 
@@ -34,7 +34,7 @@ def get_feature_unlocks(level: int) -> dict:
         "can_use_icons": level >= 2,
         "can_create_custom_tasks": level >= 2,
         "can_delete_default_tasks": level >= 2,
-        "can_access_analytics": level >= 3,
+        "can_access_analytics": level >= 3 or is_dev_account,
         "can_create_unlimited_wallets": level >= 3,
         "can_create_unlimited_categories": level >= 3,
     }

@@ -116,9 +116,16 @@ def _vitality_from_hp(hp: int) -> str:
     return "NORMAL"
 
 
-def _today_iso() -> str:
-    """Returns today's UTC date as ISO-8601 string. Convenience for idempotency keys."""
-    return datetime.now(timezone.utc).date().isoformat()
+def _today_iso(timezone_str: str) -> str:
+    """Returns today's localized date as ISO-8601 string."""
+    try:
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo(timezone_str)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).warning(f"Invalid timezone {timezone_str}, defaulting to UTC")
+        tz = timezone.utc
+    return datetime.now(tz).date().isoformat()
 
 
 def _now_utc() -> datetime:
@@ -208,16 +215,113 @@ def _next_region_id(current_region_id: str) -> str:
         return _REGION_SEQUENCE[0]
 
 
-def _evaluate_challenge_win_conditions(progress_data: dict[str, Any]) -> bool:
-    """
-    Returns True when all win conditions in progress_data are satisfied.
-    Each condition must have 'current' >= 'target'.
-    An empty conditions list is treated as auto-fail (misconfigured template).
-    """
-    conditions: list[dict[str, Any]] = progress_data.get("win_conditions", [])
-    if not conditions:
-        return False
-    return all(c.get("current", 0) >= c.get("target", 1) for c in conditions)
+# Legacy win conditions check removed.
+
+
+async def _update_challenge_progress(ctx: "EventContext", event_type: str) -> None:
+    """Updates progress for the currently active challenge if applicable."""
+    # Only active, onboarding FIRST_STEPS challenge is currently supported for direct progress
+    challenge_res = await ctx.db.table("journey_challenges") \
+        .select("*") \
+        .eq("user_id", ctx.user_id) \
+        .eq("status", "ACTIVE") \
+        .eq("template_id", "FIRST_STEPS") \
+        .limit(1).maybe_single() \
+        .execute()
+        
+    if not challenge_res or not challenge_res.data:
+        logger.warning("Active FIRST_STEPS challenge not found for user=%s", ctx.user_id)
+        return
+        
+    challenge = challenge_res.data
+    if challenge.get("status") != "ACTIVE":
+        return
+        
+    progress_data = challenge.get("progress_data", {})
+    updated = False
+    
+    if event_type in ("EXPENSE_LOGGED", "INCOME_LOGGED"):
+        progress_data["count"] = progress_data.get("count", 0) + 1
+        updated = True
+    elif event_type == "WALLET_CREATED":
+        if "tasks" in progress_data:
+            progress_data["tasks"]["add_wallet"] = True
+            updated = True
+    elif event_type == "CATEGORY_UPDATED":
+        if "tasks" in progress_data:
+            progress_data["tasks"]["update_category"] = True
+            updated = True
+            
+    if updated:
+        await ctx.db.table("journey_challenges") \
+            .update({"progress_data": progress_data}) \
+            .eq("id", challenge["id"]) \
+            .execute()
+            
+        from app.journey.challenge_templates import get_template
+        template = get_template(challenge["template_id"])
+        if template is None:
+            logger.debug("No template found for %s, skipping evaluation", challenge["template_id"])
+            return
+            
+        if template.evaluate(progress_data):
+            await ctx.bus.emit(
+                user_id=ctx.user_id,
+                event_type="CHALLENGE_COMPLETED",
+                source="ENGINE",
+                severity="SUCCESS",
+                idempotency_key=f"CHALLENGE_COMPLETED_{challenge['id']}",
+                payload={
+                    "challenge_id": challenge["id"],
+                    "template_id": challenge["template_id"],
+                }
+            )
+
+
+async def _evaluate_new_challenge_assignment(ctx: "EventContext") -> None:
+    """Evaluates if the user needs a new challenge and assigns one if appropriate."""
+    now = datetime.now(timezone.utc)
+    
+    # 1. Idempotency and Overlap Guard
+    # Check if there's any active or preparing challenge
+    active_res = await ctx.db.table("journey_challenges") \
+        .select("id, created_at") \
+        .eq("user_id", ctx.user_id) \
+        .in_("status", ["ACTIVE", "PREPARING"]) \
+        .limit(1).maybe_single().execute()
+        
+    if active_res and active_res.data:
+        return
+        
+    # Check if a challenge was created in the last 10 seconds (race condition guard)
+    recent_res = await ctx.db.table("journey_challenges") \
+        .select("id, created_at") \
+        .eq("user_id", ctx.user_id) \
+        .order("created_at", desc=True) \
+        .limit(1).maybe_single().execute()
+        
+    if recent_res and recent_res.data:
+        created_at_dt = datetime.fromisoformat(recent_res.data["created_at"]).replace(tzinfo=timezone.utc)
+        if (now - created_at_dt).total_seconds() < 10:
+            return
+
+    # 2. Get last completed/failed challenge ID to prevent assigning the same filler twice
+    last_res = await ctx.db.table("journey_challenges") \
+        .select("template_id") \
+        .eq("user_id", ctx.user_id) \
+        .in_("status", ["COMPLETED", "FAILED"]) \
+        .order("completed_at", desc=True) \
+        .limit(1).maybe_single().execute()
+        
+    last_challenge_id = last_res.data["template_id"] if last_res and last_res.data else None
+
+    # 3. Evaluate Triggers
+    from app.journey.services.assignment_svc import ChallengeAssignmentService
+    from app.journey.repos.profile_repo import ProfileRepository
+    repo = ProfileRepository(ctx.db)
+    svc = ChallengeAssignmentService(ctx.db, repo)
+    
+    await svc.evaluate_triggers(ctx.user_id, "transaction.logged", last_challenge_id)
 
 
 async def _emit_xp_changed(
@@ -360,10 +464,14 @@ async def handle_expense_logged(ctx: "EventContext") -> None:
     variance: int = ctx.payload.get("variance", 0)
     transaction_id: str = ctx.payload.get("transaction_id", "")
     category_id: str | None = ctx.payload.get("category_id")
-    local_date: str = ctx.payload.get("local_date", _today_iso())
+    local_date: str = ctx.payload.get("local_date")
+    if not local_date:
+        _tz_res = await ctx.db.table("journey_profiles").select("timezone").eq("id", ctx.user_id).limit(1).maybe_single().execute()
+        _tz_str = _tz_res.data.get("timezone", "UTC") if _tz_res.data else "UTC"
+        local_date = _today_iso(_tz_str)
     today: date = date.fromisoformat(local_date)
 
-    daily_survival = await profile_repo.get_daily_survival(ctx.user_id)
+    daily_survival = await profile_repo.get_daily_survival(ctx.user_id, local_date)
     current_status: str = daily_survival.get("status", "PENDING") if daily_survival else "PENDING"
 
     # ── 1. Revoke zero-spend XP if SAFE_CLAIMED ─────────────────────────────
@@ -414,6 +522,12 @@ async def handle_expense_logged(ctx: "EventContext") -> None:
                 "local_date": local_date,
             },
         )
+        
+    # ── 6. Update Challenge Progress ─────────────────────────────────────────
+    await _update_challenge_progress(ctx, "EXPENSE_LOGGED")
+    
+    # ── 7. Check for new challenge assignment ────────────────────────────────
+    await _evaluate_new_challenge_assignment(ctx)
 
 
 @on("INCOME_LOGGED")
@@ -438,11 +552,15 @@ async def handle_income_logged(ctx: "EventContext") -> None:
     profile_repo = ProfileRepository(ctx.db)
 
     amount: int = ctx.payload.get("amount", 0)
-    local_date: str = ctx.payload.get("local_date", _today_iso())
+    local_date: str = ctx.payload.get("local_date")
+    if not local_date:
+        _tz_res = await ctx.db.table("journey_profiles").select("timezone").eq("id", ctx.user_id).limit(1).maybe_single().execute()
+        _tz_str = _tz_res.data.get("timezone", "UTC") if _tz_res.data else "UTC"
+        local_date = _today_iso(_tz_str)
     today: date = date.fromisoformat(local_date)
 
     # ── 1. Survival state transition (PENDING only — income preserves SAFE_CLAIMED) ──
-    daily_survival = await profile_repo.get_daily_survival(ctx.user_id)
+    daily_survival = await profile_repo.get_daily_survival(ctx.user_id, local_date)
     if daily_survival and daily_survival.get("status") == "PENDING":
         await profile_repo.set_survival_status(ctx.user_id, today, "SAFE_LOGGED")
 
@@ -458,6 +576,24 @@ async def handle_income_logged(ctx: "EventContext") -> None:
 
     # ── 3. Journal ───────────────────────────────────────────────────────────
     await _write_journal(ctx, f"Logged income of Rp {amount:,}.", "INFO")
+    
+    # ── 4. Update Challenge Progress ─────────────────────────────────────────
+    await _update_challenge_progress(ctx, "INCOME_LOGGED")
+
+    # ── 5. Check for new challenge assignment ────────────────────────────────
+    await _evaluate_new_challenge_assignment(ctx)
+
+
+@on("WALLET_CREATED")
+async def handle_wallet_created(ctx: "EventContext") -> None:
+    """Updates challenge progress when a wallet is created."""
+    await _update_challenge_progress(ctx, "WALLET_CREATED")
+
+
+@on("CATEGORY_UPDATED")
+async def handle_category_updated(ctx: "EventContext") -> None:
+    """Updates challenge progress when a category is updated/created."""
+    await _update_challenge_progress(ctx, "CATEGORY_UPDATED")
 
 
 @on("ZERO_SPEND_CLAIMED")
@@ -479,7 +615,11 @@ async def handle_zero_spend_claimed(ctx: "EventContext") -> None:
 
     profile_repo = ProfileRepository(ctx.db)
 
-    local_date: str = ctx.payload.get("local_date", _today_iso())
+    local_date: str = ctx.payload.get("local_date")
+    if not local_date:
+        _tz_res = await ctx.db.table("journey_profiles").select("timezone").eq("id", ctx.user_id).limit(1).maybe_single().execute()
+        _tz_str = _tz_res.data.get("timezone", "UTC") if _tz_res.data else "UTC"
+        local_date = _today_iso(_tz_str)
     today: date = date.fromisoformat(local_date)
 
     # ── 1. Survival state ─────────────────────────────────────────────────────
@@ -590,7 +730,9 @@ async def handle_reward_claimed(ctx: "EventContext") -> None:
     xp_reward: int = ctx.payload.get("xp_reward", 0)
     hp_reward: int = ctx.payload.get("hp_reward", 0)
     challenge_id: str = ctx.payload.get("challenge_id", "")
-    local_date: str = _today_iso()
+    _tz_res = await ctx.db.table("journey_profiles").select("timezone").eq("id", ctx.user_id).limit(1).maybe_single().execute()
+    _tz_str = _tz_res.data.get("timezone", "UTC") if _tz_res.data else "UTC"
+    local_date: str = _today_iso(_tz_str)
     ch_suffix = challenge_id[:8]
 
     if xp_reward > 0:
@@ -649,7 +791,9 @@ async def handle_financial_audit_completed(ctx: "EventContext") -> None:
         restored_hp (int) HP to restore. Should always be 10 per spec.
     """
     restored_hp: int = ctx.payload.get("restored_hp", 10)
-    local_date: str = _today_iso()
+    _tz_res = await ctx.db.table("journey_profiles").select("timezone").eq("id", ctx.user_id).limit(1).maybe_single().execute()
+    _tz_str = _tz_res.data.get("timezone", "UTC") if _tz_res.data else "UTC"
+    local_date: str = _today_iso(_tz_str)
 
     await _emit_hp_changed(
         ctx, restored_hp, "FINANCIAL_AUDIT_COMPLETED", local_date,
@@ -727,7 +871,10 @@ async def handle_midnight_evaluation_started(ctx: "EventContext") -> None:
         return
 
     active_path: str = profile.get("active_path", "UNASSIGNED")
-    daily_survival = await profile_repo.get_daily_survival(ctx.user_id)
+    _tz_res = await ctx.db.table("journey_profiles").select("timezone").eq("id", ctx.user_id).limit(1).maybe_single().execute()
+    _tz_str = _tz_res.data.get("timezone", "UTC") if _tz_res.data else "UTC"
+    local_date_str = _today_iso(_tz_str)
+    daily_survival = await profile_repo.get_daily_survival(ctx.user_id, local_date_str)
     current_status: str = daily_survival.get("status", "PENDING") if daily_survival else "PENDING"
 
     # ── 1. Ghost Penalty check ────────────────────────────────────────────────
@@ -788,37 +935,78 @@ async def handle_midnight_evaluation_started(ctx: "EventContext") -> None:
         # Ghost Penalty day counts as a broken streak.
         await profile_repo.reset_consecutive_clean_days(ctx.user_id)
 
-    # ── 3. Quarterly Challenge evaluation ─────────────────────────────────────
-    challenge = await profile_repo.get_active_challenge(ctx.user_id)
-    if challenge and challenge.get("status") == "ACTIVE":
+    # ── 3. Challenge evaluation ─────────────────────────────────────
+    challenge_res = await ctx.db.table("journey_challenges") \
+        .select("*") \
+        .eq("user_id", ctx.user_id) \
+        .eq("status", "ACTIVE") \
+        .order("started_at", desc=True) \
+        .limit(1).maybe_single() \
+        .execute()
+    challenge = challenge_res.data
+
+    if challenge:
         try:
-            ends_at = datetime.fromisoformat(
-                challenge["ends_at"].replace("Z", "+00:00")
-            )
-            if _now_utc() >= ends_at:
-                won = _evaluate_challenge_win_conditions(
-                    challenge.get("progress_data", {})
+            from app.journey.challenge_templates import get_template
+            template = get_template(challenge["template_id"])
+            if template is None:
+                logger.warning("No template found for %s, skipping midnight evaluation", challenge["template_id"])
+            else:
+                ends_at = datetime.fromisoformat(
+                    challenge["ends_at"].replace("Z", "+00:00")
                 )
-                result_event = "QUARTER_COMPLETED" if won else "QUARTER_FAILED"
-                result_severity = "SUCCESS" if won else "WARNING"
-                idem_key = event_repo.build_idempotency_key(
-                    ctx.user_id, local_date_str,
-                    result_event.lower(),
-                    suffix=challenge["id"][:8],
-                )
-                await ctx.bus.emit(
-                    user_id=ctx.user_id,
-                    event_type=result_event,
-                    source="ENGINE",
-                    severity=result_severity,
-                    idempotency_key=idem_key,
-                    payload={
-                        "challenge_id": challenge["id"],
-                        "template_id": challenge.get("template_id", ""),
-                        "won": won,
-                    },
-                )
-        except (ValueError, KeyError, TypeError) as exc:
+                progress_data = challenge.get("progress_data", {})
+                won = template.evaluate(progress_data)
+                
+                # Time is up
+                if _now_utc() >= ends_at:
+                    if won:
+                        # Time is up but they met the goal, emit completion
+                        idem_key = event_repo.build_idempotency_key(
+                            ctx.user_id, local_date_str,
+                            "challenge_completed",
+                            suffix=challenge["id"][:8],
+                        )
+                        await ctx.bus.emit(
+                            user_id=ctx.user_id,
+                            event_type="CHALLENGE_COMPLETED",
+                            source="ENGINE",
+                            severity="SUCCESS",
+                            idempotency_key=f"CHALLENGE_COMPLETED_{challenge['id']}",
+                            payload={
+                                "challenge_id": challenge["id"],
+                                "template_id": challenge["template_id"],
+                            }
+                        )
+                    else:
+                        # Time is up and they failed
+                        idem_key = event_repo.build_idempotency_key(
+                            ctx.user_id, local_date_str,
+                            "quarter_failed",
+                            suffix=challenge["id"][:8],
+                        )
+                        await ctx.bus.emit(
+                            user_id=ctx.user_id,
+                            event_type="QUARTER_FAILED",
+                            source="ENGINE",
+                            severity="WARNING",
+                            idempotency_key=idem_key,
+                            payload={"challenge_id": challenge["id"]}
+                        )
+                elif won:
+                    # Time is not up yet, but they won
+                    await ctx.bus.emit(
+                        user_id=ctx.user_id,
+                        event_type="CHALLENGE_COMPLETED",
+                        source="ENGINE",
+                        severity="SUCCESS",
+                        idempotency_key=f"CHALLENGE_COMPLETED_{challenge['id']}",
+                        payload={
+                            "challenge_id": challenge["id"],
+                            "template_id": challenge["template_id"],
+                        }
+                    )
+        except Exception as exc:
             logger.warning(
                 "MIDNIGHT_EVALUATION_STARTED: challenge date parse failed "
                 "for user=%s challenge=%s — %s",
@@ -892,7 +1080,11 @@ async def handle_ghost_penalty_applied(ctx: "EventContext") -> None:
     event_repo = EventRepository(ctx.db)
 
     active_path: str = ctx.payload.get("active_path", "UNASSIGNED")
-    local_date: str = ctx.payload.get("local_date", _today_iso())
+    local_date: str = ctx.payload.get("local_date")
+    if not local_date:
+        _tz_res = await ctx.db.table("journey_profiles").select("timezone").eq("id", ctx.user_id).limit(1).maybe_single().execute()
+        _tz_str = _tz_res.data.get("timezone", "UTC") if _tz_res.data else "UTC"
+        local_date = _today_iso(_tz_str)
 
     # ── Standby check ─────────────────────────────────────────────────────────
     if await inventory_repo.is_standby_active(ctx.user_id):
@@ -1054,6 +1246,34 @@ async def handle_standby_used(ctx: "EventContext") -> None:
     )
 
 
+@on("CHALLENGE_COMPLETED")
+async def handle_challenge_completed(ctx: "EventContext") -> None:
+    """Handles rewards when a challenge is successfully completed."""
+    challenge_id = ctx.payload.get("challenge_id")
+    template_id = ctx.payload.get("template_id")
+    
+    from app.journey.challenge_templates import get_template
+    template = get_template(template_id)
+    if template is None:
+        logger.warning("No template for %s, cannot grant rewards", template_id)
+        return
+
+    now_utc = datetime.now(timezone.utc).isoformat()
+    await ctx.db.table("journey_challenges") \
+        .update({"status": "COMPLETED", "completed_at": now_utc}) \
+        .eq("id", challenge_id) \
+        .execute()
+        
+    local_date = datetime.now(timezone.utc).date().isoformat()
+    if template.reward.xp > 0:
+        await _emit_xp_changed(
+            ctx, template.reward.xp, "CHALLENGE_COMPLETED", local_date, suffix=challenge_id
+        )
+    if getattr(template.reward, "hp_restore", 0) > 0:
+        await _emit_hp_changed(
+            ctx, template.reward.hp_restore, "CHALLENGE_COMPLETED", local_date, suffix=challenge_id
+        )
+
 @on("CHALLENGE_STARTED")
 async def handle_challenge_started(ctx: "EventContext") -> None:
     """
@@ -1105,16 +1325,18 @@ async def handle_quarter_failed(ctx: "EventContext") -> None:
         await profile_repo.update_challenge_status(challenge_id, "FAILED")
 
         # Trigger smart assignment for the next challenge
-        challenge_res = await ctx.db.table("journey_challenges").select("template_id").eq("id", challenge_id).maybe_single().execute()
-        if challenge_res.data:
-            template_id = challenge_res.data.get("template_id")
-            try:
-                from ..services.assignment_svc import ChallengeAssignmentService
-                assignment_svc = ChallengeAssignmentService(ctx.db, profile_repo)
-                await assignment_svc.evaluate_triggers(ctx.user_id, "challenge_completed", template_id)
-            except Exception as e:
-                import logging
-                logging.getLogger(__name__).error(f"Failed to assign new challenge for {ctx.user_id}: {e}")
+        challenge_res = await ctx.db.table("journey_challenges").select("template_id").eq("id", challenge_id).limit(1).maybe_single().execute()
+        if not challenge_res or not challenge_res.data:
+            logger.warning("Challenge %s not found for user=%s", challenge_id, ctx.user_id)
+            return
+            
+        template_id = challenge_res.data.get("template_id")
+        try:
+            from ..services.assignment_svc import ChallengeAssignmentService
+            assignment_svc = ChallengeAssignmentService(ctx.db, profile_repo)
+            await assignment_svc.evaluate_triggers(ctx.user_id, "challenge_completed", template_id)
+        except Exception as e:
+            logger.error("Failed to assign new challenge for %s: %s", ctx.user_id, e)
 
     await _write_journal(
         ctx,
@@ -1154,7 +1376,11 @@ async def handle_region_shift_pending(ctx: "EventContext") -> None:
 
     region_row_id: str = ctx.payload.get("region_row_id", "")
     current_region_id: str = ctx.payload.get("current_region_id", "")
-    local_date: str = ctx.payload.get("local_date", _today_iso())
+    local_date: str = ctx.payload.get("local_date")
+    if not local_date:
+        _tz_res = await ctx.db.table("journey_profiles").select("timezone").eq("id", ctx.user_id).limit(1).maybe_single().execute()
+        _tz_str = _tz_res.data.get("timezone", "UTC") if _tz_res.data else "UTC"
+        local_date = _today_iso(_tz_str)
 
     # Transition current region to SHIFT_PENDING before the completion event fires.
     if region_row_id:
@@ -1211,7 +1437,11 @@ async def handle_region_shift_completed(ctx: "EventContext") -> None:
     previous_region: str = ctx.payload.get("previous_region_id", "unknown")
     next_region: str = ctx.payload.get("next_region_id", _REGION_SEQUENCE[0])
     region_row_id: str = ctx.payload.get("region_row_id", "")
-    local_date: str = ctx.payload.get("local_date", _today_iso())
+    local_date: str = ctx.payload.get("local_date")
+    if not local_date:
+        _tz_res = await ctx.db.table("journey_profiles").select("timezone").eq("id", ctx.user_id).limit(1).maybe_single().execute()
+        _tz_str = _tz_res.data.get("timezone", "UTC") if _tz_res.data else "UTC"
+        local_date = _today_iso(_tz_str)
     now = _now_utc()
 
     # ── 1. Finalize old region row ────────────────────────────────────────────
@@ -1354,7 +1584,9 @@ async def handle_xp_changed(ctx: "EventContext") -> None:
 
     # ── Level-up cascade (handles multi-level jumps) ──────────────────────────
     if new_level > old_level:
-        local_date = _today_iso()
+        _tz_res = await ctx.db.table("journey_profiles").select("timezone").eq("id", ctx.user_id).limit(1).maybe_single().execute()
+        _tz_str = _tz_res.data.get("timezone", "UTC") if _tz_res.data else "UTC"
+        local_date = _today_iso(_tz_str)
         for reached_level in range(old_level + 1, new_level + 1):
             idem_key = event_repo.build_idempotency_key(
                 ctx.user_id, local_date, "level_up", suffix=str(reached_level)
@@ -1412,7 +1644,9 @@ async def handle_hp_changed(ctx: "EventContext") -> None:
     delta: int = ctx.payload.get("delta", 0)
     source_event: str = ctx.payload.get("source_event", "UNKNOWN")
     skip_shield: bool = ctx.payload.get("skip_shield", False)
-    local_date: str = _today_iso()
+    _tz_res = await ctx.db.table("journey_profiles").select("timezone").eq("id", ctx.user_id).limit(1).maybe_single().execute()
+    _tz_str = _tz_res.data.get("timezone", "UTC") if _tz_res.data else "UTC"
+    local_date: str = _today_iso(_tz_str)
 
     if delta == 0:
         return
@@ -1528,7 +1762,11 @@ async def handle_overspend_detected(ctx: "EventContext") -> None:
     variance: int = ctx.payload.get("variance", 0)
     daily_budget: int = max(1, ctx.payload.get("daily_budget", 1))
     source_transaction_id: str = ctx.payload.get("source_transaction_id", "")
-    local_date: str = ctx.payload.get("local_date", _today_iso())
+    local_date: str = ctx.payload.get("local_date")
+    if not local_date:
+        _tz_res = await ctx.db.table("journey_profiles").select("timezone").eq("id", ctx.user_id).limit(1).maybe_single().execute()
+        _tz_str = _tz_res.data.get("timezone", "UTC") if _tz_res.data else "UTC"
+        local_date = _today_iso(_tz_str)
 
     overspend_ratio = max(0, variance) / daily_budget
     base_damage = min(round(overspend_ratio * 20), 30)
@@ -1615,12 +1853,20 @@ async def handle_level_up(ctx: "EventContext") -> None:
         total_xp  (int) New total XP for display.
     """
     from ..repos.event_repo import EventRepository
+    from ..repos.profile_repo import ProfileRepository
 
     event_repo = EventRepository(ctx.db)
+    profile_repo = ProfileRepository(ctx.db)
+    
+    profile = await profile_repo.get_profile(ctx.user_id)
+    if not profile:
+        return
 
-    new_level: int = ctx.payload.get("new_level", 1)
+    new_level: int = profile.get("current_level", 1)
     old_level: int = ctx.payload.get("old_level", new_level - 1)
-    local_date: str = _today_iso()
+    
+    _tz_str = profile.get("timezone", "UTC")
+    local_date: str = _today_iso(_tz_str)
 
     await _write_journal(
         ctx,
@@ -1649,6 +1895,27 @@ async def handle_level_up(ctx: "EventContext") -> None:
             severity="SUCCESS",
             idempotency_key=idem_key,
             payload={"level": new_level, "feature_key": feature_key},
+        )
+
+    # ── Check Passport Stamp Thresholds ───────────────────────────────────────
+    STAMP_LEVEL_THRESHOLDS = {
+        5: "stamp_lvl_5",
+        10: "stamp_lvl_10",
+        25: "stamp_lvl_25",
+        50: "stamp_lvl_50",
+        75: "stamp_lvl_75",
+        100: "stamp_lvl_100",
+    }
+    if new_level in STAMP_LEVEL_THRESHOLDS:
+        stamp_key = STAMP_LEVEL_THRESHOLDS[new_level]
+        stamp_idem_key = f"PASSPORT_STAMP_EARNED_{ctx.user_id}_{stamp_key}"
+        await ctx.bus.emit(
+            user_id=ctx.user_id,
+            event_type="PASSPORT_STAMP_EARNED",
+            source="ENGINE",
+            severity="SUCCESS",
+            idempotency_key=stamp_idem_key,
+            payload={"stamp_key": stamp_key}
         )
 
     # -- Email: achievement_notifications pref check --
@@ -1794,16 +2061,18 @@ async def handle_quarter_completed(ctx: "EventContext") -> None:
         await profile_repo.update_challenge_status(challenge_id, "COMPLETED")
         
         # Trigger smart assignment for the next challenge
-        challenge_res = await ctx.db.table("journey_challenges").select("template_id").eq("id", challenge_id).maybe_single().execute()
-        if challenge_res.data:
-            template_id = challenge_res.data.get("template_id")
-            try:
-                from ..services.assignment_svc import ChallengeAssignmentService
-                assignment_svc = ChallengeAssignmentService(ctx.db, profile_repo)
-                await assignment_svc.evaluate_triggers(ctx.user_id, "challenge_completed", template_id)
-            except Exception as e:
-                import logging
-                logging.getLogger(__name__).error(f"Failed to assign new challenge for {ctx.user_id}: {e}")
+        challenge_res = await ctx.db.table("journey_challenges").select("template_id").eq("id", challenge_id).limit(1).maybe_single().execute()
+        if not challenge_res or not challenge_res.data:
+            logger.warning("Challenge %s not found for user=%s", challenge_id, ctx.user_id)
+            return
+            
+        template_id = challenge_res.data.get("template_id")
+        try:
+            from ..services.assignment_svc import ChallengeAssignmentService
+            assignment_svc = ChallengeAssignmentService(ctx.db, profile_repo)
+            await assignment_svc.evaluate_triggers(ctx.user_id, "challenge_completed", template_id)
+        except Exception as e:
+            logger.error("Failed to assign new challenge for %s: %s", ctx.user_id, e)
 
     await _write_journal(
         ctx,
@@ -1847,22 +2116,46 @@ async def handle_quarter_completed(ctx: "EventContext") -> None:
 @on("PASSPORT_STAMP_EARNED")
 async def handle_passport_stamp_earned(ctx: "EventContext") -> None:
     """
-    Records the earning of a Passport Stamp after completing a full year in a region.
-    Stamps are stored in journey_events (this event) and surfaced in the Passport UI
-    by querying PASSPORT_STAMP_EARNED events for the user.
+    Records the earning of a Passport Stamp.
+    Stamps are stored in journey_passport_stamps.
 
     Publish: Journal, Notification (ACHIEVEMENT)
 
     Payload fields:
-        region_id    (str) The region that was completed.
-        completed_at (str) ISO-8601 timestamp of completion.
+        stamp_key (str) The stamp that was earned.
     """
-    region_id: str = ctx.payload.get("region_id", "unknown")
-    region_label = region_id.replace("_", " ").title()
+    stamp_key: str = ctx.payload.get("stamp_key", "unknown")
+    
+    STAMP_TITLES = {
+        "stamp_lvl_5": "First Step",
+        "stamp_lvl_10": "Novice Saver",
+        "stamp_lvl_25": "Consistent Earner",
+        "stamp_lvl_50": "Financial Warrior",
+        "stamp_lvl_75": "Wealth Guardian",
+        "stamp_lvl_100": "Master of Coin",
+        "stamp_tx_1": "Initiation",
+        "stamp_tx_50": "Habit Builder",
+        "stamp_bal_1m": "First Million",
+        "stamp_bal_5m": "Five Million Club",
+        "stamp_bal_10m": "Ten Million Milestone",
+        "stamp_bal_50m": "Half-Century Wealth",
+    }
+    stamp_title = STAMP_TITLES.get(stamp_key, stamp_key.replace("_", " ").title())
+
+    # UPSERT into journey_passport_stamps
+    await (
+        ctx.db
+        .table("journey_passport_stamps")
+        .upsert(
+            {"user_id": ctx.user_id, "stamp_key": stamp_key},
+            on_conflict="user_id,stamp_key"
+        )
+        .execute()
+    )
 
     await _write_journal(
         ctx,
-        f"Passport stamp earned: '{region_label}' completed after a full year.",
+        f"Passport stamp earned: '{stamp_title}'",
         "SUCCESS",
     )
     await _write_notification(
@@ -1871,8 +2164,8 @@ async def handle_passport_stamp_earned(ctx: "EventContext") -> None:
         severity="SUCCESS",
         title="Passport Stamp Earned",
         message=(
-            f"A full year in {region_label} is complete. "
-            f"The stamp has been added to your journey passport."
+            f"You earned the '{stamp_title}' stamp! "
+            f"It has been added to your journey passport."
         ),
         action_type="open_passport",
     )
@@ -1892,7 +2185,7 @@ async def handle_passport_stamp_earned(ctx: "EventContext") -> None:
                     to=email,
                     username=name,
                     achievement_type="stamp",
-                    details={"region_name": region_label},
+                    details={"stamp_name": stamp_title},
                 )
     except Exception as _email_exc:
         logger.warning(

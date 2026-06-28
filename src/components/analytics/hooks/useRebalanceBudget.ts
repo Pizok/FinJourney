@@ -10,7 +10,7 @@
  *
  * Zero-sum invariant (enforced by this hook):
  *   sum(all adjustments) === overspentAmount
- *   Where overspentAmount = sum(advisory.reduction_targets[i].amount)
+ *   Where overspentAmount = sum(advisory.suggested_actions[i].reduction_amount)
  *
  *   The backend validates this independently. The hook pre-validates
  *   client-side so the user receives immediate feedback without a
@@ -37,9 +37,9 @@ import { useAnalyticsData } from '../layout/AnalyticsContext'
 import { apiFetchClient } from '@/lib/apiClient.client'
 import type {
   RebalanceStrategy,
-  RebalanceAdjustment,
+  CategoryBreakdownItem,
   RebalanceBudgetPayload,
-  CategoryBreakdown,
+  RebalanceAdjustment,
 } from '../types/analytics.types'
 
 // ─── API ──────────────────────────────────────────────────────────────────────
@@ -56,12 +56,12 @@ export interface UseRebalanceBudgetReturn {
   setStrategy: (s: RebalanceStrategy) => void
 
   // ── Context (derived from store) ─────────────────────────────────────────────
-  /** Total shortfall to cover. Sum of advisory.reduction_targets amounts. */
+  /** Total shortfall to cover. Sum of advisory.suggested_actions amounts. */
   overspentAmount:          number
   /** Categories currently over their limit */
-  overspendingCategories:   CategoryBreakdown[]
-  /** Categories available to draw adjustments from */
-  availableCategories:      CategoryBreakdown[]
+  overspendingCategories:   CategoryBreakdownItem[]
+  /** Categories with available budget (not overspent) */
+  availableCategories:      CategoryBreakdownItem[]
 
   // ── Adjustments: category_id → reduction amount ────────────────────────────
   adjustments:     Record<string, number>
@@ -84,7 +84,6 @@ export interface UseRebalanceBudgetReturn {
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useRebalanceBudget(): UseRebalanceBudgetReturn {
-  const { advisory = null, category_breakdown: categoryBreakdown = [] } = useAnalyticsData()
   const closeModal             = useAnalyticsStore((s) => s.closeRebalanceModal)
   const queryClient            = useQueryClient()
 
@@ -117,20 +116,23 @@ export function useRebalanceBudget(): UseRebalanceBudgetReturn {
     },
   })
 
+  const { advisory, category_breakdown: categoryBreakdownPayload } = useAnalyticsData()
+  const categoryBreakdown = categoryBreakdownPayload?.categories || []
+
   // ── Derived: context ────────────────────────────────────────────────────────
 
   const overspentAmount = useMemo(() => {
-    if (!advisory?.reduction_targets.length) return 0
-    return advisory.reduction_targets.reduce((sum: number, t: any) => sum + t.amount, 0)
+    if (!advisory?.suggested_actions.length) return 0
+    return advisory.suggested_actions.reduce((sum: number, t: any) => sum + t.reduction_amount, 0)
   }, [advisory])
 
   const overspendingCategories = useMemo(
-    () => categoryBreakdown.filter((c: CategoryBreakdown) => c.overspending),
+    () => categoryBreakdown.filter((c: CategoryBreakdownItem) => c.is_overspent),
     [categoryBreakdown],
   )
 
   const availableCategories = useMemo(
-    () => categoryBreakdown.filter((c: CategoryBreakdown) => !c.overspending),
+    () => categoryBreakdown.filter((c: CategoryBreakdownItem) => !c.is_overspent),
     [categoryBreakdown],
   )
 
@@ -181,14 +183,14 @@ export function useRebalanceBudget(): UseRebalanceBudgetReturn {
     const reductionAdjustments: RebalanceAdjustment[] = Object.entries(adjustments)
       .filter(([, amount]) => amount > 0)
       .map(([categoryId, reductionAmount]) => {
-        const cat = categoryBreakdown.find((c: CategoryBreakdown) => c.category_id === categoryId)
+        const cat = categoryBreakdown.find((c: CategoryBreakdownItem) => c.category_id === categoryId)
         return {
           category_id:  categoryId,
-          category_name: cat?.category_name ?? '',
+          category_name: cat?.name ?? '',
           // amount is used as a proxy for the current limit display.
           // The backend holds the authoritative limit value.
-          current_limit: cat?.amount ?? 0,
-          new_limit:     Math.max(0, (cat?.amount ?? 0) - reductionAmount),
+          current_limit: cat?.spent ?? 0,
+          new_limit:     Math.max(0, (cat?.spent ?? 0) - reductionAmount),
         }
       })
 

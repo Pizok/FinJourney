@@ -27,8 +27,7 @@ from app.schemas.settings_requests import (
     PatchFinancialsRequest,
     PatchPreferencesRequest,
     PatchNotificationsRequest,
-    PathChangeRequest,
-    ResetProgressRequest
+    PathChangeRequest
 )
 
 class SettingsDomainError(Exception):
@@ -274,22 +273,4 @@ async def post_path_change(db: AsyncClient, user_id: UUID, body: PathChangeReque
         "cooldown_days": 180
     }
 
-async def post_reset_progress(db: AsyncClient, user_id: UUID, body: ResetProgressRequest, bus: Any) -> dict[str, Any]:
-    # 1. Execute database updates in a single transaction via RPC
-    await settings_queries.reset_user_progress_txn(db, str(user_id))
-        
-    # 2. Emit PROGRESS_RESET event
-    from app.journey.repos.event_repo import EventRepository
-    now = _now_utc()
-    key = EventRepository.build_idempotency_key(
-        str(user_id), now.isoformat()[:10], "progress_reset", suffix=str(int(now.timestamp()))
-    )
-    await bus.emit(
-        user_id=str(user_id),
-        event_type="PROGRESS_RESET",
-        source="SYSTEM",
-        severity="CRITICAL",
-        idempotency_key=key,
-        payload={"reset_scope": ["hp", "xp", "level", "streak"], "timestamp": now.isoformat()}
-    )
-    return {"success": True, "message": "Progress has been reset."}
+

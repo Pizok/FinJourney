@@ -12,7 +12,7 @@ router = APIRouter()
 async def get_profile(user: AuthUser, db: DbClient):
     # Fetch consolidated journey_profile directly
     profile = await maybe_one(
-        db.table("journey_profiles").select("*").eq("id", user.user_id).maybe_single()
+        db.table("journey_profiles").select("*").eq("id", user.user_id).limit(1).maybe_single()
     )
 
     if not profile:
@@ -66,7 +66,7 @@ async def setup_profile(user: AuthUser, db: DbClient, payload: ProfileSetupReque
         .select("id")
         .eq("username", payload.username)
         .neq("id", user.user_id)
-        .maybe_single()
+        .limit(1).maybe_single()
     )
     if conflict:
         raise HTTPException(
@@ -107,8 +107,10 @@ async def update_theme(user: AuthUser, db: DbClient, payload: ProfileThemeReques
             db.table("journey_inventory")
             .select("id")
             .eq("user_id", user.user_id)
-            .eq("item_key", payload.theme_key)
-            .maybe_single()
+            .eq("type", "CONSUMABLE")
+            .eq("status", "AVAILABLE")
+            .eq("source_event_id", payload.theme_key)
+            .limit(1).maybe_single()
         )
         if not owned:
             raise HTTPException(
@@ -116,7 +118,7 @@ async def update_theme(user: AuthUser, db: DbClient, payload: ProfileThemeReques
                 detail="Theme not unlocked. Purchase it from the Guild Shop first.",
             )
 
-    profile_res = await db.table("journey_profiles").select("app_preferences").eq("id", user.user_id).maybe_single().execute()
+    profile_res = await db.table("journey_profiles").select("app_preferences").eq("id", user.user_id).limit(1).maybe_single().execute()
     app_prefs = profile_res.data.get("app_preferences", {}) if profile_res.data else {}
     app_prefs["theme"] = payload.theme_key
 
@@ -143,45 +145,35 @@ async def save_baselines(user: AuthUser, db: DbClient, payload: dict):
         month = now.month
         year = now.year
 
-        # Clear existing baselines to avoid duplicates if onboarding is resubmitted
-        await db.table("income_streams").delete().eq("user_id", user.user_id).execute()
-        await db.table("fixed_expenses").delete().eq("user_id", user.user_id).execute()
-        await db.table("savings_targets").delete().eq("user_id", user.user_id).execute()
-
-        # Process Incomes
-        for entry in data.incomeEntries:
-            await db.table("income_streams").insert({
-                "user_id": user.user_id,
-                "name": entry.label,
-                "amount": entry.amount
-            }).execute()
-
-        # Process Fixed Costs
-        for entry in data.fixedCostEntries:
-            await db.table("fixed_expenses").insert({
-                "user_id": user.user_id,
-                "name": entry.label,
-                "amount": entry.amount,
-                "recurrence_type": "monthly",
-                "recurrence_value": "1"
-            }).execute()
-
-        # Process Savings Targets
-        total_monthly_savings = 0
+        # 1. Convert Pydantic payloads to dictionaries for JSONB processing
+        incomes_json = [entry.model_dump() for entry in data.incomeEntries]
+        fixed_costs_json = [entry.model_dump() for entry in data.fixedCostEntries]
+        
+        # Format savings deadlines for the RPC
+        savings_json = []
         for entry in data.savingsEntries:
             if entry.monthly_contribution > 0:
-                # Add the first of the month to the YYYY-MM deadline
-                deadline_str = f"{entry.deadline}-01"
-                await db.table("savings_targets").insert({
-                    "user_id": user.user_id,
-                    "name": entry.label,
-                    "target_amount": entry.target_amount,
-                    "monthly_contribution_target": entry.monthly_contribution,
-                    "current_amount": 0,
-                    "deadline": deadline_str,
-                    "status": "active"
-                }).execute()
-                total_monthly_savings += entry.monthly_contribution
+                deadline_str = entry.deadline
+                if len(deadline_str) == 7:
+                    deadline_str = f"{deadline_str}-01"
+                entry_dict = entry.model_dump()
+                entry_dict["deadline"] = deadline_str
+                # Note: target_amount is what the payload has, and monthly_contribution
+                # maps to monthly_contribution_target. We rename it for the RPC insert.
+                entry_dict["monthly_contribution_target"] = entry.monthly_contribution
+                savings_json.append(entry_dict)
+
+        # 2. Execute Atomic DB Transaction via RPC
+        # This replaces the ~10 sequential delete/insert HTTP calls.
+        await db.rpc(
+            "save_onboarding_baselines",
+            {
+                "p_user_id": user.user_id,
+                "p_incomes": incomes_json,
+                "p_fixed_costs": fixed_costs_json,
+                "p_savings": savings_json
+            }
+        ).execute()
 
         # Seed Starter Categories (only if user has none)
         existing_categories = await db.table("categories").select("id").eq("user_id", user.user_id).is_("deleted_at", "null").limit(1).execute()
@@ -207,14 +199,11 @@ async def save_baselines(user: AuthUser, db: DbClient, payload: dict):
                 }
                 for cat in STARTER_CATEGORIES
             ]
-            await db.table("categories").insert(category_inserts).execute()
-
-        # Update the cache scalars on journey_profiles
-        total_income = sum(entry.amount for entry in data.incomeEntries)
-        await db.table("journey_profiles").update({
-            "expected_monthly_income": total_income,
-            "monthly_savings_target": total_monthly_savings
-        }).eq("id", user.user_id).execute()
+            try:
+                await db.table("categories").insert(category_inserts).execute()
+            except Exception as cat_err:
+                # Log explicitly as requested so the silent failure isn't swallowed
+                print(f"[save_baselines] ERROR seeding categories for {user.user_id}: {cat_err}")
         
         # Fire-and-forget trigger to seed the initial Journey region and node.
         # This is wrapped in a try/except so a failure here does not break the 

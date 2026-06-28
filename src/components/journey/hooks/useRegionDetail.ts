@@ -17,6 +17,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import type { CurrentRegion } from '@/components/journey/types/journey.types';
+import { apiFetchClient } from '@/lib/apiClient.client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -32,21 +33,8 @@ export interface RegionDetailData extends CurrentRegion {
 // ─── API fetcher ──────────────────────────────────────────────────────────────
 
 async function fetchRegionDetail(regionId: string): Promise<RegionDetailData> {
-  const res = await fetch(`/api/v1/journey/regions/${regionId}`, {
-    credentials: 'include',
-  });
-
-  if (!res.ok) {
-    throw new Error(`Region detail request failed: ${res.status}`);
-  }
-
-  const json = await res.json();
-
-  if (!json.success) {
-    throw new Error(json.error?.message ?? 'Unknown error');
-  }
-
-  return json.data as RegionDetailData;
+  const data = await apiFetchClient<RegionDetailData>(`journey/regions/${regionId}`);
+  return data;
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────

@@ -16,7 +16,7 @@ import {
   ModalFooter,
   PrimaryButton,
   GhostButton,
-} from './BaseModal';
+} from '@/components/shared/modals/BaseModal';
 import { toast } from 'sonner';
 import type { IncomeStream } from '../baselines/FinancialSummaryCard';
 import { apiFetchClient } from '@/lib/apiClient.client';
@@ -101,6 +101,7 @@ export function AddIncomeStreamModal({ isOpen, onClose, initialData }: AddIncome
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['income_streams'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics'] });
       toast.success(initialData ? 'Income stream updated' : 'Income stream added');
       handleClose();
     },

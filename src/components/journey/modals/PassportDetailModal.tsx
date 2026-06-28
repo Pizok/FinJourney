@@ -149,9 +149,9 @@ export function PassportDetailModal({
   const statusLabel = stamp.type === "active" ? "active" : "completed";
 
   const detailItems: { term: string; detail: React.ReactNode }[] = [
-    { term: "Region", detail: stamp.region },
+    { term: "Stamp", detail: stamp.title },
     { term: "Date earned", detail: stamp.date },
-    { term: "Related challenge", detail: stamp.challenge },
+    { term: "Requirement", detail: stamp.requirement },
     {
       term: "Status",
       detail: <StatusBadge status={statusLabel} />,
@@ -162,7 +162,7 @@ export function PassportDetailModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Passport stamp: ${stamp.region}`}
+      title={`Passport stamp: ${stamp.title}`}
       size="sm"
     >
       {/* ── Header ──────────────────────────────────────────────────── */}
@@ -193,7 +193,7 @@ export function PassportDetailModal({
               "leading-relaxed italic"
             )}
           >
-            This stamp marks the completion of the {stamp.region} chapter in
+            This stamp marks the completion of the {stamp.title} milestone in
             your financial story.
           </p>
         )}

@@ -144,11 +144,24 @@ function ChartLegend() {
 // ─── Trend Indicator ──────────────────────────────────────────────────────────
 
 interface TrendIndicatorProps {
-  trend_percentage: number
+  trend_percentage: number | null
   comparison_period: string
 }
 
 function TrendIndicator({ trend_percentage, comparison_period }: TrendIndicatorProps) {
+  if (trend_percentage == null) {
+    return (
+      <div className="flex items-center gap-1.5 text-muted-text">
+        <span className="font-display text-sm font-semibold">
+          --%
+        </span>
+        <span className="font-sans text-xs">
+          {comparison_period}
+        </span>
+      </div>
+    )
+  }
+
   const isPositive = trend_percentage >= 0
   const Icon       = isPositive ? TrendingUp : TrendingDown
   const colorClass = isPositive ? 'text-muted-emerald' : 'text-terracotta'
@@ -215,7 +228,7 @@ function CashflowChartBody({ series, timeRange }: CashflowChartBodyProps) {
 
           {/* ── Axes ──────────────────────────────────────────────────── */}
           <XAxis
-            dataKey="date"
+            dataKey="label"
             tickFormatter={tickFormatter}
             tick={{
               fill:       'var(--color-muted-text)',

@@ -31,7 +31,7 @@ import {
   ModalFooter,
   PrimaryButton,
   GhostButton,
-} from './BaseModal';
+} from '@/components/shared/modals/BaseModal';
 import { useWalletStore } from '@/components/finance/stores/walletStore';
 import type { FixedExpense } from '@/types/wallet.types';
 import { apiFetchClient } from '@/lib/apiClient.client';

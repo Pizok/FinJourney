@@ -28,11 +28,11 @@ const NAV_ITEMS: SettingsNavItem[] = [
     label: 'Preferences',
     description: 'Theme and motion',
   },
-  {
-    id: 'notifications',
-    label: 'Notifications',
-    description: 'Reminders and alerts',
-  },
+  // {
+  //   id: 'notifications',
+  //   label: 'Notifications',
+  //   description: 'Reminders and alerts',
+  // },
 ]
 
 const SECTION_ICONS: Record<string, React.ElementType> = {

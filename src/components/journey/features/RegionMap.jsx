@@ -39,19 +39,19 @@ export const MAP_NODES = [
   // Middle between caves (below) → left cave → right cave
   // → middle between caves (upper) → right snow peak → peak of mountain
   { id: "3-1", region: 3, label: "The Threshold", story: "You stand between two dark openings. Either way leads through. You must choose.", x: 59, y: 45 },
-  { id: "3-2", region: 3, label: "Cave of Echoes", story: "The left tunnel. Voices of doubt bounce off every wall. You pass through anyway.", x: 70, y: 39 },
-  { id: "3-3", region: 3, label: "The Deep Vein", story: "The right tunnel. Something valuable runs through this rock. You learn to mine it.", x: 82, y: 50 },
-  { id: "3-4", region: 3, label: "Greyspine Ridge", story: "Back above ground. The two paths reunite here. What you found below, you carry up.", x: 76, y: 42 },
+  { id: "3-2", region: 3, label: "Cave of Echoes", story: "The left tunnel. Voices of doubt bounce off every wall. You pass through anyway.", x: 63, y: 37 },
+  { id: "3-3", region: 3, label: "The Deep Vein", story: "The right tunnel. Something valuable runs through this rock. You learn to mine it.", x: 80, y: 44 },
+  { id: "3-4", region: 3, label: "Greyspine Ridge", story: "Back above ground. The two paths reunite here. What you found below, you carry up.", x: 70, y: 39 },
   { id: "3-5", region: 3, label: "The Whiteout", story: "Snow blinds you at the right peak. You navigate by memory and instinct, not sight.", x: 84, y: 30 },
   { id: "3-6", region: 3, label: "The Summit", story: "You stand above the clouds. The whole world is visible from here. You've earned this view.", x: 72, y: 22 },
 
   // ── Region 4 — Left Road / Bridge / Back to Right Hut (5 nodes) ──────────
   // Center path junction → stone bridge → cottage → back across → near right-bottom mainland hut
-  { id: "4-1", region: 4, label: "The Descent", story: "Coming down is its own discipline. You carry what you earned on the mountain.", x: 58, y: 35 },
-  { id: "4-2", region: 4, label: "The Stone Bridge", story: "An old crossing over still water. It has held for centuries. So will you.", x: 34, y: 50 },
-  { id: "4-3", region: 4, label: "Hearthside Cottage", story: "A lone dwelling on the sandy road. Rest. Recalibrate. Then move.", x: 26, y: 46 },
-  { id: "4-4", region: 4, label: "The Old Road", story: "A long-forgotten path that still leads true. Discipline over time becomes legacy.", x: 38, y: 40 },
-  { id: "4-5", region: 4, label: "Irongate Pass", story: "The last crossroads before the kingdom walls. You are almost someone else entirely.", x: 52, y: 55 },
+  { id: "4-1", region: 4, label: "The Descent", story: "Coming down is its own discipline. You carry what you earned on the mountain.", x: 56, y: 35 },
+  { id: "4-2", region: 4, label: "The Stone Bridge", story: "An old crossing over still water. It has held for centuries. So will you.", x: 30, y: 50 },
+  { id: "4-3", region: 4, label: "Hearthside Cottage", story: "A lone dwelling on the sandy road. Rest. Recalibrate. Then move.", x: 27, y: 41 },
+  { id: "4-4", region: 4, label: "The Old Road", story: "A long-forgotten path that still leads true. Discipline over time becomes legacy.", x: 16, y: 40 },
+  { id: "4-5", region: 4, label: "Irongate Pass", story: "The last crossroads before the kingdom walls. You are almost someone else entirely.", x: 45, y: 55 },
 
   // ── Region 5 — The Kingdom / Castle (top-center, 6 nodes) ────────────────
   // Castle gate base → left castle wall → right castle wall

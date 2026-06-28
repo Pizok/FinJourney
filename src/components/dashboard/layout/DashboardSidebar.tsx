@@ -21,7 +21,6 @@ import {
   Flame,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { useDashboardStore } from '../stores/dashboardStore';
 import { useDashboardData } from '../hooks/useDashboardData';
 import { initial, hpBarColor } from '../utils/dashboard.helpers';
 
@@ -120,7 +119,6 @@ function NavLink({
 export function DashboardSidebar() {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const { data } = useDashboardData();
-  const setData = useDashboardStore(s => s.setData);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -128,18 +126,6 @@ export function DashboardSidebar() {
   useEffect(() => {
     setIsMobileOpen(false);
   }, [pathname]);
-
-  useEffect(() => {
-    if (!data) {
-      apiFetchClient('/me/bootstrap')
-        .then((res: any) => {
-          if (res) {
-            setData(res);
-          }
-        })
-        .catch((err: any) => console.error("Failed to fetch dashboard sidebar data:", err));
-    }
-  }, [data, setData]);
 
   if (!data) {
     return (
@@ -159,7 +145,7 @@ export function DashboardSidebar() {
   // Build nav items with dynamic analytics lock state
   const navItems = NAV_ITEMS.map((item) => {
     if (item.href === '/analytics') {
-      return { ...item, locked: !feature_unlocks.analytics };
+      return { ...item, locked: !feature_unlocks.can_access_analytics };
     }
     return item;
   });

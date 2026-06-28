@@ -29,7 +29,10 @@
 import { useActiveModal, useModalActions } from "@/components/journey/stores/journeyStore";
 import { RegionDetailModal } from "./RegionDetailModal";
 import { ReviewDetailModal } from "./ReviewDetailModal";
+import { ReportDetailModal } from "./ReportDetailModal";
 import { PassportDetailModal } from "./PassportDetailModal";
+import { HistoryModal } from "./HistoryModal";
+import { AllStampsModal } from "./AllStampsModal";
 
 export function JourneyModals() {
   const activeModal = useActiveModal();
@@ -62,6 +65,16 @@ export function JourneyModals() {
         />
       );
 
+    // ── Report detail ──────────────────────────────────────────────────
+    case "report":
+      return (
+        <ReportDetailModal
+          isOpen
+          onClose={closeModal}
+          report={activeModal.report}
+        />
+      );
+
     // ── Passport stamp detail ──────────────────────────────────────────
     case "stamp":
       return (
@@ -69,6 +82,26 @@ export function JourneyModals() {
           isOpen
           onClose={closeModal}
           stamp={activeModal.stamp}
+        />
+      );
+
+    // ── History modal ──────────────────────────────────────────────────
+    case "history":
+      return (
+        <HistoryModal
+          isOpen
+          onClose={closeModal}
+        />
+      );
+
+    // ── All Stamps ─────────────────────────────────────────────────────
+    case "all_stamps":
+      return (
+        <AllStampsModal
+          isOpen
+          onClose={closeModal}
+          stamps={activeModal.stamps}
+          locked={activeModal.locked}
         />
       );
 

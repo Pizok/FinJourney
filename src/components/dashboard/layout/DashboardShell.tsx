@@ -69,8 +69,7 @@ function ModalLayer() {
 
 // ─── Shell ─────────────────────────────────────────────────────────────────────
 
-import { useEffect } from 'react';
-import { useDashboardStore } from '../stores/dashboardStore';
+import { useDashboardData } from '../hooks/useDashboardData';
 import type { BootstrapData } from '../types/dashboard.types';
 
 /**
@@ -80,14 +79,7 @@ import type { BootstrapData } from '../types/dashboard.types';
  * If bootstrapData is provided, the Zustand store is hydrated with it.
  */
 export function DashboardShell({ bootstrapData }: { bootstrapData?: BootstrapData | null }) {
-  const { data, isLoading, setData, setLoading } = useDashboardStore();
-
-  useEffect(() => {
-    if (bootstrapData) {
-      setData(bootstrapData);
-      setLoading(false);
-    }
-  }, [bootstrapData, setData, setLoading]);
+  const { data, isLoading } = useDashboardData(bootstrapData);
 
   // If no data is available (e.g., initial load or backend fetch failed)
   if (!data) {

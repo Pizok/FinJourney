@@ -18,7 +18,7 @@ import {
   ModalFooter,
   PrimaryButton,
   GhostButton,
-} from './BaseModal';
+} from '@/components/shared/modals/BaseModal';
 import { toast } from 'sonner';
 import type { SavingsTarget } from '../baselines/FinancialSummaryCard';
 
@@ -152,6 +152,7 @@ export function AddSavingsTargetModal({ isOpen, onClose, initialData }: AddSavin
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['savings_targets'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics'] });
       toast.success(initialData ? 'Savings target updated' : 'Savings target added');
       handleClose();
     },

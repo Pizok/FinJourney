@@ -60,7 +60,7 @@ export function EarnedStamp({ stamp, onSelect }: EarnedStampProps) {
     <div
       role="button"
       tabIndex={0}
-      aria-label={`Passport stamp: ${stamp.region}, earned ${stamp.date}, ${stamp.challenge}`}
+      aria-label={`Passport stamp: ${stamp.title}, earned ${stamp.date}, ${stamp.requirement}`}
       onClick={() => onSelect(stamp)}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -109,17 +109,17 @@ export function EarnedStamp({ stamp, onSelect }: EarnedStampProps) {
         <Award size={18} strokeWidth={2} />
       </div>
 
-      {/* Region name — truncate with title for overflow */}
+      {/* Stamp title — truncate with title for overflow */}
       <span
         className="font-sans text-[11px] font-semibold text-pearl-text text-center leading-tight line-clamp-2"
-        title={stamp.region}
+        title={stamp.title}
       >
-        {stamp.region}
+        {stamp.title}
       </span>
 
       {/* Date */}
       <span className="font-sans text-[10px] text-muted-text">
-        {stamp.date}
+        {stamp.date.split('T')[0]}
       </span>
     </div>
   );

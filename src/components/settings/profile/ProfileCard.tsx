@@ -182,125 +182,6 @@ function UsernameInput({
   )
 }
 
-// ─── EmailDisplay ─────────────────────────────────────────────────────────────
-
-function EmailDisplay({ email }: { email: string }) {
-  const id = useId()
-  const [isEditing, setIsEditing] = useState(false)
-  const [newEmail, setNewEmail] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
-  async function handleUpdateEmail(e: React.FormEvent) {
-    e.preventDefault()
-    if (!newEmail || newEmail === email) {
-      setIsEditing(false)
-      return
-    }
-
-    setIsSubmitting(true)
-    try {
-      const { createClient } = await import('@/lib/supabase.client')
-      const supabase = createClient()
-      
-      const { error } = await supabase.auth.updateUser({ email: newEmail })
-      if (error) throw error
-
-      toast.success(
-        'Email update initiated. Please check BOTH your old and new inboxes to confirm the change.'
-      )
-      setIsEditing(false)
-      setNewEmail('')
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to update email')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  if (isEditing) {
-    return (
-      <form onSubmit={handleUpdateEmail}>
-        <FieldLabel htmlFor={id}>New Email Address</FieldLabel>
-        <div className="flex gap-2">
-          <input
-            id={id}
-            type="email"
-            value={newEmail}
-            onChange={(e) => setNewEmail(e.target.value)}
-            className={[
-              'w-full rounded-lg border border-tactical-border bg-abyssal-slate px-3 py-2.5',
-              'font-sans text-sm text-pearl-text',
-              'transition-colors duration-150',
-              'focus:outline-none focus:border-muted-emerald/60',
-              'focus:ring-1 focus:ring-muted-emerald/30',
-              isSubmitting && 'opacity-50 cursor-not-allowed',
-            ].join(' ')}
-            placeholder={email}
-            disabled={isSubmitting}
-            autoFocus
-            required
-          />
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="rounded-lg bg-muted-emerald px-4 py-2 text-sm font-semibold text-[#0B0D17] hover:bg-muted-emerald/90 disabled:opacity-50"
-          >
-            {isSubmitting ? 'Sending...' : 'Update'}
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsEditing(false)}
-            disabled={isSubmitting}
-            className="rounded-lg border border-tactical-border px-4 py-2 text-sm font-semibold text-muted-text hover:text-pearl-text disabled:opacity-50"
-          >
-            Cancel
-          </button>
-        </div>
-        <HelperText>
-          You will need to confirm this change from both your old and new email addresses.
-        </HelperText>
-      </form>
-    )
-  }
-
-  return (
-    <div>
-      <FieldLabel htmlFor={id}>Connected Email</FieldLabel>
-      <div className="flex gap-2 items-center">
-        <div
-          id={id}
-          className={[
-            'flex flex-1 items-center gap-2.5 rounded-lg border border-tactical-border',
-            'bg-abyssal-slate/60 px-3 py-2.5',
-          ].join(' ')}
-        >
-          <Mail
-            className="shrink-0 text-muted-text/60"
-            size={14}
-            strokeWidth={2}
-            aria-hidden="true"
-          />
-          <span className="truncate font-sans text-sm text-muted-text">
-            {email}
-          </span>
-        </div>
-        <button
-          type="button"
-          onClick={() => {
-            setNewEmail(email)
-            setIsEditing(true)
-          }}
-          className="rounded-lg border border-tactical-border px-4 py-2.5 text-sm font-semibold text-muted-text hover:text-pearl-text transition-colors"
-        >
-          Change
-        </button>
-      </div>
-      <HelperText>
-        Managed via Supabase Auth.
-      </HelperText>
-    </div>
-  )
-}
 
 // ─── TimezoneSelector ─────────────────────────────────────────────────────────
 
@@ -695,7 +576,7 @@ export function ProfileCard() {
             value={profile.username}
             onChange={(username) => updateProfile({ username })}
           />
-          <EmailDisplay email={profile.email} />
+          {/* <EmailDisplay email={profile.email} /> Hidden per user request */}
         </div>
 
         {/* Timezone — full width row */}

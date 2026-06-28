@@ -73,7 +73,7 @@ async def _fetch_all_transactions(db: AsyncClient, user_id: UUID) -> list[dict[s
         db.table("transactions")
         .select("*")
         .eq("user_id",   str(user_id))
-        .eq("is_deleted", False)
+        .is_("deleted_at", "null")
         .order("logged_at", desc=True)
         .execute()
     )

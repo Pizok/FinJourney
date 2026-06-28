@@ -26,15 +26,13 @@ making get_active_savings_targets a single index scan.
 from __future__ import annotations
 
 from uuid import UUID
-
-import asyncpg
-
+from supabase import AsyncClient
 
 async def get_active_savings_targets(
-    db: asyncpg.Connection,
+    db: AsyncClient,
     *,
-    user_id: UUID,
-) -> list[asyncpg.Record]:
+    user_id: UUID | str,
+) -> list[dict]:
     """
     Fetch all active (non-deleted, non-archived) savings targets for the
     given user, ordered strictly by deadline ascending.
@@ -67,32 +65,23 @@ async def get_active_savings_targets(
         status           str   — always 'active' for results of this query
         created_at       datetime
     """
-    query = """
-        SELECT
-            id,
-            name,
-            target_amount::bigint   AS target_amount,
-            current_amount::bigint  AS current_amount,
-            deadline,
-            status,
-            created_at
-        FROM   savings_targets
-        WHERE
-            user_id     = $1
-            AND status  = 'active'
-            AND deleted_at IS NULL
-        ORDER BY deadline ASC
-    """
-
-    return await db.fetch(query, user_id)
+    res = await db.table("savings_targets") \
+        .select("id, name, target_amount, current_amount, deadline, status, created_at") \
+        .eq("user_id", str(user_id)) \
+        .eq("status", "active") \
+        .is_("deleted_at", "null") \
+        .order("deadline", desc=False) \
+        .execute()
+    
+    return res.data or []
 
 
 async def get_savings_target_by_id(
-    db: asyncpg.Connection,
+    db: AsyncClient,
     *,
-    user_id: UUID,
-    target_id: UUID,
-) -> asyncpg.Record | None:
+    user_id: UUID | str,
+    target_id: UUID | str,
+) -> dict | None:
     """
     Fetch a single savings target by ID, scoped to the authenticated user.
 
@@ -106,25 +95,15 @@ async def get_savings_target_by_id(
         • The target belongs to a different user (ownership violation).
         • The target has been soft-deleted (deleted_at IS NOT NULL).
 
-    Returns a Record with all columns on success:
+    Returns a dict with all columns on success:
         id, name, target_amount, current_amount, deadline,
         status, created_at, deleted_at
     """
-    query = """
-        SELECT
-            id,
-            name,
-            target_amount::bigint   AS target_amount,
-            current_amount::bigint  AS current_amount,
-            deadline,
-            status,
-            created_at,
-            deleted_at
-        FROM   savings_targets
-        WHERE
-            id          = $1
-            AND user_id = $2
-            AND deleted_at IS NULL
-    """
-
-    return await db.fetchrow(query, target_id, user_id)
+    res = await db.table("savings_targets") \
+        .select("id, name, target_amount, current_amount, deadline, status, created_at, deleted_at") \
+        .eq("id", str(target_id)) \
+        .eq("user_id", str(user_id)) \
+        .is_("deleted_at", "null") \
+        .execute()
+    
+    return res.data[0] if res.data else None

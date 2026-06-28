@@ -27,7 +27,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   BaseModal, FormField, FormInput, FormCurrencyInput, FormTextarea, FormSelect,
   ModalFooter, PrimaryButton, GhostButton,
-} from './BaseModal';
+} from '@/components/shared/modals/BaseModal';
 import { useWalletStore, selectEditTransaction } from '@/components/finance/stores/walletStore';
 import type { PaymentMethod } from '@/types/wallet.types';
 
@@ -153,6 +153,7 @@ export function EditTransactionModal() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wallet', 'bootstrap'] });
+      queryClient.invalidateQueries({ queryKey: ['journey'] });
       handleClose();
     },
     onError: (err: any) => {

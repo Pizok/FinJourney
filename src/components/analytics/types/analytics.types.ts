@@ -70,31 +70,32 @@ export interface FinancialStability {
  * Only one advisory may be active at a time.
  */
 export type AdvisoryPriority =
-  | 'debt_risk'
-  | 'payment_risk'
+  | 'insufficient_data'
+  | 'critical_debt'
+  | 'upcoming_payment'
   | 'overspending'
-  | 'savings_failure'
+  | 'savings_target'
   | 'optimization'
 
-export interface ReductionTarget {
+export interface SuggestedAction {
+  category_id?: string | null
   category_name: string
   /** Amount in the user's local currency (integer, minor units per backend convention) */
-  amount: number
+  reduction_amount: number
 }
 
 export interface Advisory {
   priority: AdvisoryPriority
   headline: string
   recommendation: string
-  /** 1–3 specific reduction targets that would resolve the advisory */
-  reduction_targets: ReductionTarget[]
+  suggested_actions: SuggestedAction[]
 }
 
 // ─── Cashflow ─────────────────────────────────────────────────────────────────
 
 export interface CashflowDataPoint {
-  /** ISO 8601 date string */
-  date: string
+  /** ISO 8601 date string or YYYY-MM label */
+  label: string
   income: number
   expense: number
 }
@@ -128,14 +129,19 @@ export interface IncomeAllocation {
 
 // ─── Category Breakdown ───────────────────────────────────────────────────────
 
-export interface CategoryBreakdown {
-  category_id: string
-  category_name: string
-  amount: number
+export interface CategoryBreakdownItem {
+  category_id: string | null
+  name: string
+  spent: number
   /** 0–100, represents share of total spending */
   percentage: number
   /** True when amount > category_limit. Backend-evaluated. */
-  overspending: boolean
+  is_overspent: boolean
+}
+
+export interface CategoryBreakdown {
+  has_category_data: boolean
+  categories: CategoryBreakdownItem[]
 }
 
 // ─── Top Transactions ─────────────────────────────────────────────────────────
@@ -252,7 +258,7 @@ export interface AnalyticsBootstrap {
   financial_stability: FinancialStability
   cashflow: Cashflow
   income_allocation: IncomeAllocation
-  category_breakdown: CategoryBreakdown[]
+  category_breakdown: CategoryBreakdown
   debt_health: DebtHealth
   asset_health: AssetHealth
   /** Top 5 highest-expense transactions in the selected timeframe */

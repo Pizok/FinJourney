@@ -15,7 +15,7 @@
 //   CTAs:  "Continue Anyway" | "Cancel"
 // =============================================================================
 
-import { BaseModal, ModalFooter, GhostButton } from './BaseModal';
+import { BaseModal, ModalFooter, GhostButton } from '@/components/shared/modals/BaseModal';
 
 interface OverdraftWarningModalProps {
   isOpen: boolean;

@@ -53,6 +53,7 @@ class AdvisoryPriority(str, Enum):
       5. optimization     — safe default / no active hazard
     """
 
+    INSUFFICIENT_DATA = "insufficient_data"
     CRITICAL_DEBT = "critical_debt"
     UPCOMING_PAYMENT = "upcoming_payment"
     OVERSPENDING = "overspending"

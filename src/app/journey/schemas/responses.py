@@ -158,7 +158,9 @@ class DailyStatusResponse(BaseModel):
         ge=0,
         description="Calculated daily spending ceiling in the user's local currency (IDR).",
     )
-    expenses_logged_today: bool
+    expense_logged_today: bool
+    income_logged_today: bool
+    zero_spend_marked: bool
     zero_spend_eligible: bool = Field(
         description="True only if no expenses have been logged in the current day window.",
     )
@@ -216,6 +218,7 @@ class ActiveChallengeResponse(BaseModel):
     color: str = Field(default="gray")
     days_remaining: int = Field(ge=0)
     win_conditions: list[WinConditionResponse] = Field(default_factory=list)
+    progress_data: dict[str, Any] = Field(default_factory=dict)
     rewards_claimed: bool = False
 
 
@@ -378,21 +381,56 @@ class PastReviewResponse(BaseModel):
     quarter: str
     score: int
 
-class PassportStampResponse(BaseModel):
+class ReportChallengeSummary(BaseModel):
+    id: UUID
+    template_id: str
+    title: str
+    description: str
+    icon: str
+    achieved: bool
+
+class ReportCategorySpend(BaseModel):
+    category_id: str
+    category_name: str
+    total_spend: float
+    overspend_months_count: int
+
+class ReportWalletSnapshot(BaseModel):
+    starting_balance: float
+    ending_balance: float
+    total_income: float
+    total_expenses: float
+    net_change: float
+
+class QuarterlyReportSummary(BaseModel):
+    id: UUID
+    quarter: int
+    year: int
+    is_partial: bool
+    longest_streak: int
+    zero_spend_days: int
+    wallet_snapshot: ReportWalletSnapshot
+    challenges_summary: list[ReportChallengeSummary] = Field(default_factory=list)
+    spending_by_category: list[ReportCategorySpend] = Field(default_factory=list)
+    computed_at: datetime
+
+
+class PassportStampV2Response(BaseModel):
     id: str
-    region: str
+    title: str
     date: str
-    challenge: str
+    requirement: str
     type: str
 
 class PassportLockedResponse(BaseModel):
     id: str
+    title: str
     requirement: str
 
 class PassportResponse(BaseModel):
     stamps_earned: int
     total_available: int
-    stamps: list[PassportStampResponse] = Field(default_factory=list)
+    stamps: list[PassportStampV2Response] = Field(default_factory=list)
     locked: list[PassportLockedResponse] = Field(default_factory=list)
 
 class JourneyEventResponse(BaseModel):

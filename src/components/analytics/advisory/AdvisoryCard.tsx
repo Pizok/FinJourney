@@ -40,9 +40,9 @@ import { ChevronDown, ChevronUp, ArrowRightLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAnalyticsStore } from '../stores/analyticsStore'
 import { useAnalyticsData } from '../layout/AnalyticsContext'
-import type { AdvisoryPriority, ReductionTarget } from '../types/analytics.types'
+import type { AdvisoryPriority, SuggestedAction } from '../types/analytics.types'
 import { FinancialStabilityScore } from './FinancialStabilityScore'
-import { RecommendationsPanel, EXAMPLE_RECOMMENDATIONS } from './RecommendationsPanel'
+import { RecommendationsPanel } from './RecommendationsPanel'
 
 // ─── Priority Display Config ──────────────────────────────────────────────────
 
@@ -52,11 +52,12 @@ const PRIORITY_DISPLAY = new Map<
   AdvisoryPriority,
   { label: string; badgeClasses: string }
 >([
-  ['debt_risk',       { label: 'Debt Risk',          badgeClasses: 'bg-terracotta/10 text-terracotta border-terracotta/20'        }],
-  ['payment_risk',    { label: 'Payment Risk',        badgeClasses: 'bg-terracotta/10 text-terracotta border-terracotta/20'        }],
-  ['overspending',    { label: 'Overspending Alert',  badgeClasses: 'bg-dawn-gold/10 text-dawn-gold border-dawn-gold/20'          }],
-  ['savings_failure', { label: 'Savings Behind',      badgeClasses: 'bg-dawn-gold/10 text-dawn-gold border-dawn-gold/20'          }],
-  ['optimization',    { label: 'Optimization',        badgeClasses: 'bg-muted-emerald/10 text-muted-emerald border-muted-emerald/20' }],
+  ['insufficient_data', { label: 'Information',       badgeClasses: 'bg-muted-emerald/10 text-muted-emerald border-muted-emerald/20' }],
+  ['critical_debt',     { label: 'Debt Risk',         badgeClasses: 'bg-terracotta/10 text-terracotta border-terracotta/20'        }],
+  ['upcoming_payment',  { label: 'Payment Risk',      badgeClasses: 'bg-terracotta/10 text-terracotta border-terracotta/20'        }],
+  ['overspending',      { label: 'Overspending Alert',badgeClasses: 'bg-dawn-gold/10 text-dawn-gold border-dawn-gold/20'          }],
+  ['savings_target',    { label: 'Savings Behind',    badgeClasses: 'bg-dawn-gold/10 text-dawn-gold border-dawn-gold/20'          }],
+  ['optimization',      { label: 'Optimization',      badgeClasses: 'bg-muted-emerald/10 text-muted-emerald border-muted-emerald/20' }],
 ])
 
 // ─── Currency Formatting ──────────────────────────────────────────────────────
@@ -75,14 +76,14 @@ const formatCurrency = (amount: number): string =>
  * Single reduction target row inside the right action column.
  * Plain bordered row — no coloured side-stripe (DESIGN.md absolute ban).
  */
-function ReductionTargetRow({ target }: { target: ReductionTarget }) {
+function SuggestedActionRow({ target }: { target: SuggestedAction }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-lg border border-tactical-border bg-abyssal-slate/40 px-4 py-3">
-      <span className="font-sans text-sm text-pearl-text">
-        {target.category_name}
+    <div className="flex items-center justify-between rounded-md border border-tactical-border/50 bg-abyssal-slate/30 px-3 py-2">
+      <span className="font-sans text-xs text-muted-text">
+        Reduce <span className="font-medium text-pearl-text">{target.category_name}</span>
       </span>
-      <span className="shrink-0 font-display text-sm font-semibold text-terracotta">
-        -{formatCurrency(target.amount)}
+      <span className="font-mono text-xs font-semibold text-terracotta">
+        -{formatCurrency(target.reduction_amount)}
       </span>
     </div>
   )
@@ -96,7 +97,7 @@ function AdvisoryActionColumn() {
   const { advisory }       = useAnalyticsData()
   const openRebalanceModal = useAnalyticsStore((s) => s.openRebalanceModal)
 
-  if (!advisory || advisory.reduction_targets.length === 0) return null
+  if (!advisory || advisory.suggested_actions.length === 0) return null
 
   return (
     <div className="flex flex-col gap-3">
@@ -107,8 +108,8 @@ function AdvisoryActionColumn() {
 
       {/* ── Reduction targets ─────────────────────────────────────────── */}
       <div className="space-y-2">
-        {advisory.reduction_targets.map((target: ReductionTarget) => (
-          <ReductionTargetRow key={target.category_name} target={target} />
+        {advisory.suggested_actions.map((target: SuggestedAction) => (
+          <SuggestedActionRow key={target.category_name} target={target} />
         ))}
       </div>
 
@@ -169,10 +170,10 @@ export function AdvisoryCard() {
         </p>
 
         {/* ── Two-column body ────────────────────────────────────────────── */}
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+        <div className="flex flex-col gap-6 lg:flex-row lg:gap-12 lg:items-start">
 
           {/* ── Left: Score + description + panel toggle ─────────────────── */}
-          <div className="flex flex-col items-center gap-4 lg:w-56 lg:shrink-0 lg:items-start">
+          <div className="flex flex-col items-center gap-4 lg:w-56 lg:shrink-0">
             <FinancialStabilityScore
               score={stability.score}
               score_trend={stability.score_trend}
@@ -272,7 +273,6 @@ export function AdvisoryCard() {
         <RecommendationsPanel
           isOpen={isPanelOpen}
           onClose={() => setIsPanelOpen(false)}
-          recommendations={EXAMPLE_RECOMMENDATIONS}
         />
       </div>
     </div>

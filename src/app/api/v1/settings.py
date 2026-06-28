@@ -24,7 +24,6 @@ from app.schemas.settings_requests import (
     PatchPreferencesRequest,
     PatchNotificationsRequest,
     PathChangeRequest,
-    ResetProgressRequest,
 )
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -261,38 +260,4 @@ async def post_path_change(
         return _domain_error_to_response(exc)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# POST /settings/reset-progress
-# Irreversible progression reset — requires {"confirmation": "RESET"}.
-# ══════════════════════════════════════════════════════════════════════════════
 
-@router.post(
-    "/reset-progress",
-    response_model=dict,
-    status_code=status.HTTP_200_OK,
-    summary="Reset game progression",
-    description=(
-        "Resets HP to 100, XP to 0, and level to 1. "
-        "Archives active journey challenges and region progress. "
-        "Does NOT touch journey_inventory, standby tokens, or the financial ledger. "
-        'Requires {"confirmation": "RESET"} in the request body. '
-        "Publishes a PROGRESS_RESET game_event."
-    ),
-)
-async def post_reset_progress(
-    body: ResetProgressRequest,
-    user: AuthUser,
-    db:   DbClient,
-    bus:  EventBus = Depends(get_event_bus),
-) -> dict[str, Any] | JSONResponse:
-    try:
-        result = await settings_svc.post_reset_progress(
-            db      = db,
-            user_id = user.user_id,
-            body    = body,
-            bus     = bus,
-        )
-        data = result.model_dump() if hasattr(result, "model_dump") else result
-        return {"success": True, "data": data}
-    except SettingsDomainError as exc:
-        return _domain_error_to_response(exc)

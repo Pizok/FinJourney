@@ -109,5 +109,5 @@ async def build_bootstrap_payload(db: AsyncClient, user_id: str) -> dict:
         "active_region": active_region,
         "active_challenge": active_challenge,
         "recent_transactions": recent_transactions,
-        "feature_unlocks": get_feature_unlocks(level),
+        "feature_unlocks": get_feature_unlocks(level, profile.get("is_dev_account", False)),
     }

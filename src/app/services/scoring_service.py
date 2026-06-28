@@ -162,6 +162,7 @@ def calculate_financial_stability(
 
 def determine_advisory_priority(
     *,
+    total_income_in_window: int,
     dti_pct: float,
     liquid_cash: int,
     baseline_costs: int,
@@ -172,6 +173,7 @@ def determine_advisory_priority(
     Return exactly one advisory using the top-down cascade defined in
     analytics_backend.md § Advisory Priority Logic:
 
+      0. insufficient_data — no income logged
       1. critical_debt    — DTI > 35 %
       2. upcoming_payment — liquid_cash < baseline_costs
       3. overspending     — any category > 110 % of monthly limit
@@ -179,6 +181,7 @@ def determine_advisory_priority(
       5. optimization     — safe default fallback
 
     Args:
+        total_income_in_window:   Sum of income transactions in the period.
         dti_pct:                  Current Debt-to-Income percentage.
         liquid_cash:              Liquid cash balance in IDR.
         baseline_costs:           Monthly fixed costs from baseline settings.
@@ -186,6 +189,15 @@ def determine_advisory_priority(
         is_savings_target_behind: True when scoring_service.is_savings_behind_schedule
                                   returned True for the active target.
     """
+    # ── Level 0: insufficient_data ────────────────────────────────────────────
+    if total_income_in_window <= 0:
+        return AdvisoryResult(
+            priority="insufficient_data",
+            headline="Not Enough Data Yet",
+            recommendation="Log at least one income transaction in this period to unlock personalized recommendations.",
+            suggested_actions=[],
+        )
+
     # ── Level 1: critical_debt ────────────────────────────────────────────────
     if dti_pct > _DTI_CRITICAL_THRESHOLD:
         return AdvisoryResult(

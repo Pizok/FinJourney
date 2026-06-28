@@ -46,6 +46,8 @@ from datetime import date, datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from fastapi import BackgroundTasks
+
 from supabase import AsyncClient
 
 from ..repos.event_repo import EventRepository
@@ -582,6 +584,52 @@ class CronService:
             target_timezone, total, sent, skipped, failed,
         )
         return result
+
+    async def run_quarterly_evaluations(self, background_tasks: BackgroundTasks) -> None:
+        """
+        Runs on the 1st of every quarter.
+        Determines the just-closed quarter and year.
+        Queries users without a snapshot for that quarter and processes them in BackgroundTasks.
+        """
+        now = datetime.now(timezone.utc)
+        
+        if now.month in (1, 2, 3):
+            quarter = 4
+            year = now.year - 1
+        elif now.month in (4, 5, 6):
+            quarter = 1
+            year = now.year
+        elif now.month in (7, 8, 9):
+            quarter = 2
+            year = now.year
+        else:
+            quarter = 3
+            year = now.year
+            
+        logger.info(f"CronService.run_quarterly_evaluations: START for Q{quarter} {year}")
+        
+        from .quarterly_report_svc import QuarterlyReportService
+        svc = QuarterlyReportService(self._db)
+        
+        try:
+            # Query all active users
+            raw = await self._db.table("journey_profiles").select("id").eq("has_completed_setup", True).execute()
+            active_users = raw.data or []
+            
+            # Query users who already have a snapshot for this quarter
+            existing_res = await self._db.table("journey_quarterly_reports").select("user_id").eq("quarter", quarter).eq("year", year).execute()
+            existing_users = {row["user_id"] for row in (existing_res.data or [])}
+            
+            users_to_process = [u["id"] for u in active_users if u["id"] not in existing_users]
+            
+            logger.info(f"CronService.run_quarterly_evaluations: Found {len(users_to_process)} users to evaluate for Q{quarter} {year}")
+            
+            # Fan out individual per-user jobs as separate tasks to BackgroundTasks
+            for user_id in users_to_process:
+                background_tasks.add_task(svc.compute_and_persist_quarterly_report, user_id=user_id, quarter=quarter, year=year)
+                
+        except Exception as exc:
+            logger.exception("CronService.run_quarterly_evaluations: failed -- %s", exc)
 
     # ------------------------------------------------------------------
     # Timezone Utility -- Determine Current Midnight Timezones

@@ -27,61 +27,17 @@
  * Canonical path: components/analytics/advisory/RecommendationsPanel.tsx
  */
 
-import { X, AlertTriangle, TrendingUp, CheckCircle } from 'lucide-react'
+import { X, AlertTriangle, TrendingUp, CheckCircle, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-export type RecommendationPriority = 'high' | 'medium' | 'low'
-
-export interface RecommendationItem {
-  id:          string
-  title:       string
-  description: string
-  priority:    RecommendationPriority
-}
-
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-// Based on the copywriting brief. Replaced by live data when the
-// recommendations endpoint is available.
-
-export const EXAMPLE_RECOMMENDATIONS: RecommendationItem[] = [
-  {
-    id:          'r1',
-    priority:    'high',
-    title:       'Reduce Food Spending',
-    description:
-      'Food expenses exceeded your monthly target by 18%. Reducing spending by Rp15,000 per day would bring you back within budget.',
-  },
-  {
-    id:          'r2',
-    priority:    'medium',
-    title:       'Increase Emergency Savings',
-    description:
-      'Your emergency fund currently covers 1.8 months of expenses. Consider increasing contributions until you reach at least 3 months.',
-  },
-  {
-    id:          'r3',
-    priority:    'medium',
-    title:       'Review Subscription Costs',
-    description:
-      'Three recurring expenses account for 12% of monthly spending. Review whether all services are still necessary.',
-  },
-  {
-    id:          'r4',
-    priority:    'low',
-    title:       'Maintain Current Progress',
-    description:
-      'Your spending and savings remain aligned with your financial goals. Continue following your current plan.',
-  },
-]
+import { useAnalyticsData } from '../layout/AnalyticsContext'
+import type { AdvisoryPriority } from '../types/analytics.types'
 
 // ─── Priority Config ──────────────────────────────────────────────────────────
 
 // Using a Map instead of a plain Record so that PRIORITY_CONFIG[item.priority]
 // (bracket access with server-supplied data) is replaced with the safe Map.get() API.
 const PRIORITY_CONFIG = new Map<
-  RecommendationPriority,
+  AdvisoryPriority,
   {
     Icon:         typeof AlertTriangle
     iconClass:    string
@@ -90,32 +46,53 @@ const PRIORITY_CONFIG = new Map<
     containerCls: string
   }
 >([
-  ['high', {
+  ['critical_debt', {
     Icon:         AlertTriangle,
     iconClass:    'text-terracotta',
     labelClass:   'text-terracotta',
     label:        'High Priority',
     containerCls: 'border-terracotta/15',
   }],
-  ['medium', {
+  ['upcoming_payment', {
+    Icon:         AlertTriangle,
+    iconClass:    'text-terracotta',
+    labelClass:   'text-terracotta',
+    label:        'High Priority',
+    containerCls: 'border-terracotta/15',
+  }],
+  ['overspending', {
     Icon:         TrendingUp,
     iconClass:    'text-dawn-gold',
     labelClass:   'text-dawn-gold',
     label:        'Medium Priority',
     containerCls: 'border-dawn-gold/15',
   }],
-  ['low', {
+  ['savings_target', {
+    Icon:         TrendingUp,
+    iconClass:    'text-dawn-gold',
+    labelClass:   'text-dawn-gold',
+    label:        'Medium Priority',
+    containerCls: 'border-dawn-gold/15',
+  }],
+  ['optimization', {
     Icon:         CheckCircle,
     iconClass:    'text-muted-emerald',
     labelClass:   'text-muted-emerald',
     label:        'Low Priority',
     containerCls: 'border-tactical-border',
   }],
+  ['insufficient_data', {
+    Icon:         Info,
+    iconClass:    'text-muted-emerald',
+    labelClass:   'text-muted-emerald',
+    label:        'Information',
+    containerCls: 'border-tactical-border',
+  }],
 ])
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function RecommendationRow({ item }: { item: RecommendationItem }) {
+function RecommendationRow({ item }: { item: { title: string, description: string, priority: AdvisoryPriority } }) {
   // Map.get() — no bracket notation on server-supplied priority value (CWE-94 safe).
   const config = PRIORITY_CONFIG.get(item.priority)!
   const { Icon } = config
@@ -158,14 +135,34 @@ function RecommendationRow({ item }: { item: RecommendationItem }) {
 interface RecommendationsPanelProps {
   isOpen:          boolean
   onClose:         () => void
-  recommendations?: RecommendationItem[]
 }
 
 export function RecommendationsPanel({
   isOpen,
   onClose,
-  recommendations = EXAMPLE_RECOMMENDATIONS,
 }: RecommendationsPanelProps) {
+  const { advisory } = useAnalyticsData();
+  
+  let recommendations: { id: string, title: string, description: string, priority: AdvisoryPriority }[] = [];
+  
+  if (advisory) {
+    if (advisory.suggested_actions && advisory.suggested_actions.length > 0) {
+      recommendations = advisory.suggested_actions.map((action, i) => ({
+        id: `action-${i}`,
+        title: `Reduce ${action.category_name} Spending`,
+        description: `Cut ${action.category_name} by Rp${action.reduction_amount.toLocaleString('id-ID')} to bring it back within your monthly budget.`,
+        priority: advisory.priority,
+      }));
+    } else {
+      recommendations = [{
+        id: 'primary',
+        title: advisory.headline,
+        description: advisory.recommendation,
+        priority: advisory.priority,
+      }];
+    }
+  }
+
   return (
     /*
      * CSS Grid fr trick for smooth expand/collapse.

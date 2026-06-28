@@ -29,7 +29,7 @@ import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   BaseModal, GhostButton, PrimaryButton, inputBase,
-} from './BaseModal';
+} from '@/components/shared/modals/BaseModal';
 import { useWalletStore } from '@/components/finance/stores/walletStore';
 import { apiFetchClient } from '@/lib/apiClient.client';
 

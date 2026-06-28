@@ -41,6 +41,12 @@ export async function apiFetchClient<T = unknown>(endpoint: string, options: Req
   }
 
   if (!response.ok) {
+    if (response.status === 401) {
+      await supabase.auth.signOut()
+      window.location.href = '/auth'
+      throw new Error('Session expired. Please log in again.')
+    }
+    
     if (json?.error?.message) {
       throw new Error(json.error.message)
     } else if (json?.detail) {

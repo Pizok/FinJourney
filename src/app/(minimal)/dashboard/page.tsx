@@ -16,6 +16,7 @@
  * ───────────────────────────────────────────────────────────────────────────────
  */
 
+import { redirect } from 'next/navigation';
 import type { BootstrapData } from '@/components/dashboard/types/dashboard.types';
 import { DashboardShell } from '@/components/dashboard/layout/DashboardShell';
 import { apiFetchServer } from '@/lib/apiClient.server';
@@ -27,10 +28,15 @@ export const metadata = {
   description: 'Your active mission overview.',
 };
 
+
 export default async function DashboardPage() {
   const bootstrapData = await apiFetchServer('me/bootstrap', {
     cache: 'no-store'
   }) as BootstrapData | null;
+
+  if (bootstrapData?.profile?.setup_status === 'onboarding') {
+    redirect('/onboarding');
+  }
 
   // UI-testing mode: shell renders with mock data from the Zustand store
   // if bootstrapData is null.

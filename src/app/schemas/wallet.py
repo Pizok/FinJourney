@@ -120,46 +120,19 @@ class WalletOut(BaseModel):
 
 class CategoryBudgetAdjustment(BaseModel):
     """
-    A single line-item in a budget rebalance operation.
-
-    new_monthly_limit replaces the existing monthly limit for the given
-    category. The service layer validates:
-      - user owns the category (RLS)
-      - the sum of all new_monthly_limit values does not exceed
-        (total_income - baseline_costs) to prevent an impossible budget
+    A single line-item in a budget rebalance operation from the frontend.
     """
-
-    category_id: UUID = Field(
-        ...,
-        description="The category whose monthly limit will be overwritten.",
-    )
-    new_monthly_limit: int = Field(
-        ...,
-        ge=0,
-        description=(
-            "New monthly spending cap in IDR. "
-            "Setting 0 effectively disables spending tracking for this category."
-        ),
-    )
+    category_id: UUID
+    category_name: str
+    current_limit: int
+    new_limit: int = Field(..., ge=0)
 
 
 class RebalanceBudgetRequest(BaseModel):
     """
     Payload for POST /api/v1/wallets/rebalance-budget.
-
-    This endpoint is the action counterpart to the analytics advisory.
-    The frontend builds this payload from Advisory.suggested_actions by
-    converting reduction_amount offsets into absolute new_monthly_limit values.
-
-    Constraints enforced by wallet_service.rebalance_budget():
-      - All category_ids must belong to the authenticated user.
-      - The combined new limits must be financially coherent (non-zero income).
-      - Each adjustment generates an append-only game_event for audit purposes.
-      - The operation is idempotent: re-submitting the same limits is safe.
-
-    At least one adjustment must be present; an empty list is rejected.
     """
-
+    strategy: str
     adjustments: list[CategoryBudgetAdjustment] = Field(
         ...,
         min_length=1,

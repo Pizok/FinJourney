@@ -130,19 +130,6 @@ export interface PathChangeResponse {
   active_path: Pick<ActivePath, 'id' | 'name'>
 }
 
-// ── Reset Progress ────────────────────────────────────────────────────────────
-
-/** POST /api/v1/settings/reset-progress */
-export interface ResetProgressRequest {
-  confirmation: 'RESET'
-}
-
-export interface ResetProgressResponse {
-  success: boolean
-  level: number
-  xp: number
-  hp: number
-}
 
 // ── Standard API Envelope ─────────────────────────────────────────────────────
 

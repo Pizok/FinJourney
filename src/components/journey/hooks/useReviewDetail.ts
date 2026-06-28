@@ -16,6 +16,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import type { QuarterlyReview } from '@/components/journey/types/journey.types';
+import { apiFetchClient } from '@/lib/apiClient.client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,21 +42,8 @@ export interface ReviewDetailData extends QuarterlyReview {
 // ─── API fetcher ──────────────────────────────────────────────────────────────
 
 async function fetchReviewDetail(reviewId: string): Promise<ReviewDetailData> {
-  const res = await fetch(`/api/v1/journey/reviews/${reviewId}`, {
-    credentials: 'include',
-  });
-
-  if (!res.ok) {
-    throw new Error(`Review detail request failed: ${res.status}`);
-  }
-
-  const json = await res.json();
-
-  if (!json.success) {
-    throw new Error(json.error?.message ?? 'Unknown error');
-  }
-
-  return json.data as ReviewDetailData;
+  const data = await apiFetchClient<ReviewDetailData>(`journey/reviews/${reviewId}`);
+  return data;
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────

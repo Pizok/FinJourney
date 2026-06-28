@@ -25,7 +25,9 @@ import type {
   ModalPayload,
   CurrentRegion,
   QuarterlyReview,
+  QuarterlyReportListItem,
   PassportStamp,
+  LockedStamp,
 } from "../types/journey.types";
 
 // ─── Store Interface ──────────────────────────────────────────────────────────
@@ -59,8 +61,17 @@ interface JourneyStore {
   /** Open the Review Detail modal with optimistic summary data */
   openReviewModal: (reviewId: string, summary: QuarterlyReview) => void;
 
+  /** Open the Report Detail modal with report metadata */
+  openReportModal: (report: QuarterlyReportListItem) => void;
+
   /** Open the Passport Stamp detail modal */
   openStampModal: (stamp: PassportStamp) => void;
+
+  /** Open the History modal */
+  openHistoryModal: () => void;
+
+  /** Open the All Stamps modal */
+  openAllStampsModal: (stamps: PassportStamp[], locked: LockedStamp[]) => void;
 
   /** Close whichever modal is currently active */
   closeModal: () => void;
@@ -101,11 +112,32 @@ export const useJourneyStore = create<JourneyStore>()(
           "journey/openReviewModal"
         ),
 
+      openReportModal: (report) =>
+        set(
+          { activeModal: { kind: "report", report } },
+          false,
+          "journey/openReportModal"
+        ),
+
       openStampModal: (stamp) =>
         set(
           { activeModal: { kind: "stamp", stamp } },
           false,
           "journey/openStampModal"
+        ),
+
+      openHistoryModal: () =>
+        set(
+          { activeModal: { kind: "history" } },
+          false,
+          "journey/openHistoryModal"
+        ),
+
+      openAllStampsModal: (stamps, locked) =>
+        set(
+          { activeModal: { kind: "all_stamps", stamps, locked } },
+          false,
+          "journey/openAllStampsModal"
         ),
 
       closeModal: () =>
@@ -157,7 +189,10 @@ export const useModalActions = () =>
     useShallow((s) => ({
       openRegionModal: s.openRegionModal,
       openReviewModal: s.openReviewModal,
+      openReportModal: s.openReportModal,
       openStampModal: s.openStampModal,
+      openHistoryModal: s.openHistoryModal,
+      openAllStampsModal: s.openAllStampsModal,
       closeModal: s.closeModal,
     }))
   );

@@ -1,4 +1,4 @@
-﻿"""
+"""
 app/services/user_lookup_svc.py
 
 Utility for fetching user information from Supabase Auth.
@@ -63,13 +63,13 @@ async def get_user_display_name(db: AsyncClient, user_id: str) -> str:
     try:
         response = await (
             db.table("journey_profiles")
-            .select("display_name")
+            .select("username")
             .eq("id", user_id)
             .single()
             .execute()
         )
         if response.data:
-            return response.data.get("display_name") or "Traveler"
+            return response.data.get("username") or "Traveler"
         return "Traveler"
     except Exception as exc:
         logger.debug(

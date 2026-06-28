@@ -25,7 +25,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   BaseModal, FormField, FormInput, FormTextarea, FormSelect,
   ModalFooter, PrimaryButton, GhostButton, DangerZone,
-} from './BaseModal';
+} from '@/components/shared/modals/BaseModal';
 import { useWalletStore, selectSettingsWallet } from '@/components/finance/stores/walletStore';
 import type { PaymentMethod, WalletType } from '@/types/wallet.types';
 import { apiFetchClient } from '@/lib/apiClient.client';

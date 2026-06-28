@@ -48,7 +48,7 @@ async def fetch_daily_status(db: AsyncClient, user_id: str, tz_name: str) -> dic
         .select("zero_spend_xp_claimed")
         .eq("user_id", user_id)
         .eq("tracking_date", today_str)
-        .maybe_single()
+        .limit(1).maybe_single()
     )
     zero_spend_marked = bool(snapshot and snapshot.get("zero_spend_xp_claimed"))
 
@@ -66,7 +66,7 @@ async def fetch_streak(db: AsyncClient, user_id: str) -> int:
         db.table("journey_profiles")
         .select("current_streak")
         .eq("id", user_id)
-        .maybe_single()
+        .limit(1).maybe_single()
     )
     return result.get("current_streak", 0) if result else 0
 
@@ -77,7 +77,7 @@ async def fetch_baselines(db: AsyncClient, user_id: str) -> dict | None:
         db.table("journey_profiles")
         .select("expected_monthly_income, monthly_savings_target")
         .eq("id", user_id)
-        .maybe_single()
+        .limit(1).maybe_single()
     )
     if not profile:
         return None
@@ -115,7 +115,7 @@ async def fetch_active_region(db: AsyncClient, user_id: str) -> dict | None:
         .select("id, region_id, status, started_at, ends_at")
         .eq("user_id", user_id)
         .eq("status", "CURRENT")
-        .maybe_single()
+        .limit(1).maybe_single()
     )
 
 async def fetch_active_challenge(db: AsyncClient, user_id: str) -> dict | None:
@@ -127,7 +127,7 @@ async def fetch_active_challenge(db: AsyncClient, user_id: str) -> dict | None:
         .eq("rewards_claimed", False)
         .order("started_at", desc=True)
         .limit(1)
-        .maybe_single()
+        .limit(1).maybe_single()
     )
     if not result:
         return None
@@ -181,7 +181,7 @@ async def upsert_daily_snapshot(
         .select("user_id")
         .eq("user_id", user_id)
         .eq("tracking_date", snapshot_date)
-        .maybe_single()
+        .limit(1).maybe_single()
     )
     if existing:
         await (

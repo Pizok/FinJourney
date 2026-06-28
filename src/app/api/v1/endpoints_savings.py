@@ -15,7 +15,7 @@ from app.schemas.savings_targets import (
     SavingsTargetOut,
     SavingsTargetUpdate,
 )
-from app.services.savings_service import log_savings, recalculate_scalars
+from app.services.savings_service import log_savings
 
 router = APIRouter(prefix="/savings-targets", tags=["savings_targets"])
 
@@ -43,8 +43,6 @@ async def create_savings_target(
     row_data["user_id"] = user.user_id
     response = await db.table("savings_targets").insert(row_data).execute()
     
-    # Trigger scalar recalculation
-    await recalculate_scalars(db, user.user_id)
     return response.data[0]
 
 
@@ -73,8 +71,6 @@ async def update_savings_target(
     if not response.data:
         raise HTTPException(status_code=404, detail="Savings target not found")
 
-    # Trigger scalar recalculation
-    await recalculate_scalars(db, user.user_id)
     return response.data[0]
 
 
@@ -92,9 +88,6 @@ async def delete_savings_target(target_id: UUID, user: AuthUser, db: DBClient) -
     )
     if not response.data:
         raise HTTPException(status_code=404, detail="Savings target not found")
-
-    # Trigger scalar recalculation
-    await recalculate_scalars(db, user.user_id)
 
 
 @router.post("/{target_id}/log", response_model=LogSavingsResponse)

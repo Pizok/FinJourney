@@ -202,13 +202,13 @@ export function TimelineSection() {
   const overview = useJourneyData();
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const accountDays = overview.journey_progress?.account_days ?? 0;
+  const progressDays = overview.current_region?.progress_days ?? 0;
 
-  // Build the node array — memoised since accountDays only changes on
+  // Build the node array — memoised since progressDays only changes on
   // snapshot events (once per day at 00:00 local timezone)
   const nodes = useMemo(
-    () => (accountDays > 0 ? buildTimelineNodes(accountDays) : []),
-    [accountDays]
+    () => buildTimelineNodes(progressDays),
+    [progressDays]
   );
 
   // ── Auto-scroll to today node ──────────────────────────────────────────────
@@ -235,8 +235,7 @@ export function TimelineSection() {
     );
   }, [nodes]);
 
-
-  if (!overview.journey_progress || accountDays === 0) return <TimelineEmptyState />;
+  if (!overview.journey_progress) return <TimelineEmptyState />;
 
   /*
    * Cycle percentage — display-only presentation of server data.
@@ -244,7 +243,7 @@ export function TimelineSection() {
    */
   const cyclePct = Math.min(
     100,
-    Math.round((accountDays / 365) * 100)
+    Math.round((progressDays / 365) * 100)
   );
 
   return (
@@ -265,7 +264,7 @@ export function TimelineSection() {
             <span className="text-pearl-text/60" aria-hidden="true">
               &middot;
             </span>
-            &nbsp;Day {accountDays}&nbsp;
+            &nbsp;Day {progressDays}&nbsp;
             <span className="text-pearl-text/60" aria-hidden="true">
               &middot;
             </span>
@@ -285,7 +284,7 @@ export function TimelineSection() {
       <div
         ref={scrollRef}
         role="list"
-        aria-label={`Journey timeline, Day ${accountDays} of 365`}
+        aria-label={`Journey timeline, Day ${progressDays} of 365`}
         className={cn(
           "flex items-center",
           "overflow-x-auto",
@@ -323,7 +322,7 @@ export function TimelineSection() {
       {/* ── Keyboard scroll hint (screen-reader only) ────────────────────── */}
       <p className="sr-only">
         Use arrow keys or swipe to explore the timeline. Today is Day{" "}
-        {accountDays}.
+        {progressDays}.
       </p>
     </Card>
   );
