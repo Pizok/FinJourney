@@ -3,7 +3,7 @@
 import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Mail, Lock } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { loginSchema, LoginFormValues } from './schemas';
 import { Button }                        from '@/components/ui/button';
 import { Input }                         from '@/components/ui/input';
@@ -19,8 +19,9 @@ interface LoginFormProps {
 }
 
 export default function LoginForm({ onSuccess, onSwitchToSignUp, onSwitchToForgotPassword }: LoginFormProps) {
-  const [loading,  setLoading]  = React.useState(false);
-  const [apiError, setApiError] = React.useState('');
+  const [loading,      setLoading]      = React.useState(false);
+  const [apiError,     setApiError]     = React.useState('');
+  const [showPassword, setShowPassword] = React.useState(false);
   
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -128,11 +129,21 @@ export default function LoginForm({ onSuccess, onSwitchToSignUp, onSwitchToForgo
           </div>
           <Input
             id="login-password"
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             placeholder="Your password"
             autoComplete="current-password"
             icon={<Lock size={16} />}
             error={!!errors.password || !!apiError}
+            suffix={
+              <button
+                type="button"
+                onClick={() => setShowPassword(v => !v)}
+                className="pointer-events-auto text-muted-text hover:text-pearl-text transition-colors"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            }
             {...register('password')}
           />
           <FieldError message={errors.password?.message} />

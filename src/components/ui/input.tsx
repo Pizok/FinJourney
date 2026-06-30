@@ -34,7 +34,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           {...props}
         />
         {suffix && (
-          <span className="absolute right-4 text-muted-text pointer-events-none text-sm">
+          <span className="absolute right-4 text-muted-text text-sm">
             {suffix}
           </span>
         )}

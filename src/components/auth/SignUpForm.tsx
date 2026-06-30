@@ -3,7 +3,7 @@
 import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Mail, Lock } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { signUpSchema, SignUpFormValues } from './schemas';
 import { Button }                         from '@/components/ui/button';
 import { Input }                          from '@/components/ui/input';
@@ -18,9 +18,11 @@ interface SignUpFormProps {
 }
 
 export default function SignUpForm({ onSuccess, onSwitchToLogin }: SignUpFormProps) {
-  const [loading, setLoading] = React.useState(false);
-  const [apiError, setApiError] = React.useState('');
-  const [checkEmail, setCheckEmail] = React.useState(false);
+  const [loading,             setLoading]             = React.useState(false);
+  const [apiError,             setApiError]             = React.useState('');
+  const [checkEmail,           setCheckEmail]           = React.useState(false);
+  const [showPassword,         setShowPassword]         = React.useState(false);
+  const [showConfirmPassword,  setShowConfirmPassword]  = React.useState(false);
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -143,11 +145,21 @@ export default function SignUpForm({ onSuccess, onSwitchToLogin }: SignUpFormPro
           <Label htmlFor="password">Password</Label>
           <Input
             id="password"
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             placeholder="Min. 8 characters"
             autoComplete="new-password"
             icon={<Lock size={16} />}
             error={!!errors.password}
+            suffix={
+              <button
+                type="button"
+                onClick={() => setShowPassword(v => !v)}
+                className="pointer-events-auto text-muted-text hover:text-pearl-text transition-colors"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            }
             {...register('password')}
           />
           <FieldError message={errors.password?.message} />
@@ -158,11 +170,21 @@ export default function SignUpForm({ onSuccess, onSwitchToLogin }: SignUpFormPro
           <Label htmlFor="confirmPassword">Confirm password</Label>
           <Input
             id="confirmPassword"
-            type="password"
+            type={showConfirmPassword ? 'text' : 'password'}
             placeholder="Repeat your password"
             autoComplete="new-password"
             icon={<Lock size={16} />}
             error={!!errors.confirmPassword}
+            suffix={
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(v => !v)}
+                className="pointer-events-auto text-muted-text hover:text-pearl-text transition-colors"
+                aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+              >
+                {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            }
             {...register('confirmPassword')}
           />
           <FieldError message={errors.confirmPassword?.message} />
