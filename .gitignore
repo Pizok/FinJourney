@@ -52,3 +52,7 @@ __pycache__/
 *$py.class
 *.so
 src/test_backend.py
+
+test_concurrency.py
+test_delete.py
+test_*.py

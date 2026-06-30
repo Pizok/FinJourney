@@ -145,7 +145,7 @@ async def get_export(
 # ══════════════════════════════════════════════════════════════════════════════
 
 @router.delete(
-    "/",
+    "",
     response_model=dict,
     status_code=status.HTTP_200_OK,
     summary="Delete account",

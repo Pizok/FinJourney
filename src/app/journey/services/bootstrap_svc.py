@@ -157,7 +157,7 @@ class BootstrapService:
         )
 
         # ── Wave 2 — build sub-models (pure, no I/O) ─────────────────────────
-        player_state = self._build_player_state(profile)
+        player_state = self._build_player_state(profile, user_id)
         daily_status = self._build_daily_status(
             profile=profile,
             daily_survival=daily_survival,
@@ -234,7 +234,7 @@ class BootstrapService:
     # Wave 2 — Sub-model Builders (pure Python, no I/O)
     # ------------------------------------------------------------------
 
-    def _build_player_state(self, profile: dict) -> PlayerStateResponse:
+    def _build_player_state(self, profile: dict | None, user_id: str) -> PlayerStateResponse:
         """
         Constructs the PlayerStateResponse from the profile row.
 
@@ -243,6 +243,12 @@ class BootstrapService:
         the frontend. The profile's current_level column is the cached DB value
         kept in sync by XPService; we re-derive here for correctness.
         """
+        if not profile:
+            import logging
+            logging.warning(f"Player state unavailable: profile fetch failed for user_id={user_id}.")
+            from fastapi import HTTPException
+            raise HTTPException(status_code=500, detail="Player state unavailable: profile fetch failed")
+
         total_xp: int = profile.get("total_xp", 0)
         level: int = XPService.compute_level(total_xp)
         xp_needed: int = XPService.compute_xp_to_next_level(level, total_xp)

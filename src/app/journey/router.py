@@ -5,27 +5,27 @@ FastAPI APIRouter for the Journey Engine.
 
 Base URL: /api/v1/journey  (registered in the root FastAPI app)
 Auth:      All user-facing routes require a valid Supabase JWT via
-           Authorization: Bearer <token> — enforced by CurrentUserID dependency.
-Format:    JSON — all responses follow the standard envelope:
+           Authorization: Bearer <token> â€” enforced by CurrentUserID dependency.
+Format:    JSON â€” all responses follow the standard envelope:
            {"success": true, "data": {...}} or {"success": false, "error": {...}}
 
 Endpoint index:
-  GET  /bootstrap                 — full dashboard hydration
-  POST /claim/zero-spend    🔒    — claim zero-spend day (+XP, ghost protection)
-  POST /standby/use         🔒    — activate standby token (24h ghost freeze)
-  POST /path/change               — switch player path (6-month cooldown)
-  POST /revive                    — financial audit recovery from CRITICAL_FAILURE
-  POST /rewards/claim             — claim quarterly challenge rewards
-  POST /unlocks/{id}/acknowledge  — dismiss level-up feature unlock modal
-  GET  /challenges/history        — paginated ARCHIVED challenge list
-  GET  /journal                   — paginated journal entries
-  GET  /notifications             — paginated notifications
-  PATCH /notifications/{id}       — mark notification READ or ARCHIVED
-  POST /cron/daily-evaluation     — QStash rolling midnight webhook (auth: HMAC)
-  POST /cron/system-cleanup       — QStash daily janitor webhook (auth: HMAC)
-  POST /cron/evening-reminder     — QStash 20:00 daily reminder email batch (auth: HMAC)
+  GET  /bootstrap                 â€” full dashboard hydration
+  POST /claim/zero-spend    ðŸ”’    â€” claim zero-spend day (+XP, ghost protection)
+  POST /standby/use         ðŸ”’    â€” activate standby token (24h ghost freeze)
+  POST /path/change               â€” switch player path (6-month cooldown)
+  POST /revive                    â€” financial audit recovery from CRITICAL_FAILURE
+  POST /rewards/claim             â€” claim quarterly challenge rewards
+  POST /unlocks/{id}/acknowledge  â€” dismiss level-up feature unlock modal
+  GET  /challenges/history        â€” paginated ARCHIVED challenge list
+  GET  /journal                   â€” paginated journal entries
+  GET  /notifications             â€” paginated notifications
+  PATCH /notifications/{id}       â€” mark notification READ or ARCHIVED
+  POST /cron/daily-evaluation     â€” QStash rolling midnight webhook (auth: HMAC)
+  POST /cron/system-cleanup       â€” QStash daily janitor webhook (auth: HMAC)
+  POST /cron/evening-reminder     â€” QStash 20:00 daily reminder email batch (auth: HMAC)
 
-CF-Locked (🔒) endpoints return HTTP 403 CRITICAL_FAILURE_ACTIVE when HP == 0.
+CF-Locked (ðŸ”’) endpoints return HTTP 403 CRITICAL_FAILURE_ACTIVE when HP == 0.
 Cron endpoints return 202 Accepted immediately; heavy work runs in BackgroundTasks.
 """
 from __future__ import annotations
@@ -142,14 +142,14 @@ def _raise_404(code: str, message: str) -> None:
 
 
 # ===========================================================================
-# ── PRIMARY HYDRATION ───────────────────────────────────────────────────────
+# â”€â”€ PRIMARY HYDRATION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # ===========================================================================
 
 
 @router.get(
     "/bootstrap",
     response_model=BootstrapResponse,
-    summary="Dashboard hydration — full concurrent fetch",
+    summary="Dashboard hydration â€” full concurrent fetch",
 )
 async def get_bootstrap(
     user_id: CurrentUserID,
@@ -171,7 +171,7 @@ async def get_bootstrap(
 
 
 # ===========================================================================
-# ── OVERVIEW (HISTORICAL & PROGRESSION) ─────────────────────────────────────
+# â”€â”€ OVERVIEW (HISTORICAL & PROGRESSION) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # ===========================================================================
 
 @router.get(
@@ -389,13 +389,13 @@ async def get_overview(
 
 
 # ===========================================================================
-# ── CORE PLAYER ACTIONS ─────────────────────────────────────────────────────
+# â”€â”€ CORE PLAYER ACTIONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # ===========================================================================
 
 
 @router.post(
     "/claim/zero-spend",
-    summary="🔒 CF-Locked — Claim a Zero-Spend day",
+    summary="ðŸ”’ CF-Locked â€” Claim a Zero-Spend day",
 )
 async def claim_zero_spend(
     _cf: CFGuard,
@@ -414,24 +414,21 @@ async def claim_zero_spend(
       - Zero-Spend has not already been claimed today.
 
     Effects:
-      - Emits ZERO_SPEND_CLAIMED event → survival state transitions to SAFE_CLAIMED.
+      - Emits ZERO_SPEND_CLAIMED event â†’ survival state transitions to SAFE_CLAIMED.
       - Grants XP via XPService.evaluate_xp_gain (+10, or +15 for PHANTOM path).
 
     Returns:
       Updated player_state and daily_status slices.
     """
-    _tz_res = await db.table("journey_profiles").select("timezone").eq("id", user.user_id if hasattr(user, "user_id") else user_id).limit(1).maybe_single().execute()
+    _tz_res = await db.table("journey_profiles").select("timezone").eq("id", user_id).limit(1).maybe_single().execute()
     _tz = _tz_res.data.get("timezone", "UTC") if _tz_res.data else "UTC"
     local_date = _today_iso(_tz)
     profile_repo = ProfileRepository(db)
     event_repo = EventRepository(db)
 
-    # ── Pre-condition: no expenses logged today ───────────────────────────────
+    # â”€â”€ Pre-condition: no expenses logged today â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     from datetime import datetime, timezone
-    _tz_res = await db.table("journey_profiles").select("timezone").eq("id", user.user_id if hasattr(user, "user_id") else user_id).limit(1).maybe_single().execute()
-    _tz = _tz_res.data.get("timezone", "UTC") if _tz_res.data else "UTC"
-    today_iso = _today_iso(_tz)
-    daily_survival = await profile_repo.get_daily_survival(user_id, today_iso)
+    daily_survival = await profile_repo.get_daily_survival(user_id, local_date)
     current_status = (daily_survival.get("status", "PENDING") if daily_survival else "PENDING")
 
     if current_status == "SAFE_LOGGED":
@@ -446,7 +443,7 @@ async def claim_zero_spend(
             "Zero-Spend Day has already been claimed for today.",
         )
 
-    # ── Emit ZERO_SPEND_CLAIMED event ─────────────────────────────────────────
+    # â”€â”€ Emit ZERO_SPEND_CLAIMED event â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     idem_key = event_repo.build_idempotency_key(user_id, local_date, "zero_spend_claimed")
     result = await bus.publish(
         user_id=user_id,
@@ -463,12 +460,12 @@ async def claim_zero_spend(
             "Zero-Spend Day has already been claimed for today.",
         )
 
-    # ── Build response from refreshed profile ─────────────────────────────────
+    # â”€â”€ Build response from refreshed profile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     from .services.bootstrap_svc import BootstrapService
     bootstrap_svc = BootstrapService(db)
 
     updated_profile = await profile_repo.get_profile(user_id)
-    updated_survival = await profile_repo.get_daily_survival(user_id, today_iso)
+    updated_survival = await profile_repo.get_daily_survival(user_id, local_date)
     inventory_summary = await profile_repo.get_profile(user_id)  # for standby
 
     from .services.inventory_svc import InventoryService
@@ -476,7 +473,7 @@ async def claim_zero_spend(
     inv_repo = InventoryRepository(db)
     inv_summary = await inv_repo.get_inventory_summary(user_id)
 
-    player_state = bootstrap_svc._build_player_state(updated_profile)
+    player_state = bootstrap_svc._build_player_state(updated_profile, user_id)
     daily_status = bootstrap_svc._build_daily_status(
         profile=updated_profile,
         daily_survival=updated_survival,
@@ -491,7 +488,7 @@ async def claim_zero_spend(
 
 @router.post(
     "/standby/use",
-    summary="🔒 CF-Locked — Activate a Standby Token",
+    summary="ðŸ”’ CF-Locked â€” Activate a Standby Token",
 )
 async def use_standby_token(
     _cf: CFGuard,
@@ -509,13 +506,13 @@ async def use_standby_token(
       - No token is currently ACTIVE.
 
     Effects:
-      - Oldest AVAILABLE token → ACTIVE, expires_at = now + 24h.
+      - Oldest AVAILABLE token â†’ ACTIVE, expires_at = now + 24h.
       - Emits STANDBY_ACTIVATED event (journal + notification).
 
     Returns:
       Updated inventory slice (standby_mode + active_shields).
     """
-    _tz_res = await db.table("journey_profiles").select("timezone").eq("id", user.user_id if hasattr(user, "user_id") else user_id).limit(1).maybe_single().execute()
+    _tz_res = await db.table("journey_profiles").select("timezone").eq("id", user_id).limit(1).maybe_single().execute()
     _tz = _tz_res.data.get("timezone", "UTC") if _tz_res.data else "UTC"
     local_date = _today_iso(_tz)
 
@@ -564,7 +561,7 @@ async def change_path(
 
     profile_repo = ProfileRepository(db)
     event_repo = EventRepository(db)
-    _tz_res = await db.table("journey_profiles").select("timezone").eq("id", user.user_id if hasattr(user, "user_id") else user_id).limit(1).maybe_single().execute()
+    _tz_res = await db.table("journey_profiles").select("timezone").eq("id", user_id).limit(1).maybe_single().execute()
     _tz = _tz_res.data.get("timezone", "UTC") if _tz_res.data else "UTC"
     local_date = _today_iso(_tz)
 
@@ -572,7 +569,7 @@ async def change_path(
     if not profile:
         _raise_404("PROFILE_NOT_FOUND", "Player profile not found.")
 
-    # ── Cooldown check ────────────────────────────────────────────────────────
+    # â”€â”€ Cooldown check â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     cooldown_str: str | None = profile.get("path_cooldown_until")
     if cooldown_str:
         try:
@@ -586,16 +583,16 @@ async def change_path(
                     "Paths can only be changed once every 6 months.",
                 )
         except ValueError:
-            pass  # Malformed date — allow the change.
+            pass  # Malformed date â€” allow the change.
 
-    # ── Apply path change ─────────────────────────────────────────────────────
+    # â”€â”€ Apply path change â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     old_path: str = profile.get("active_path", "UNASSIGNED")
     new_path: str = body.new_path.value
     cooldown_until = datetime.now(timezone.utc) + timedelta(days=180)
 
     await profile_repo.set_path_and_cooldown(user_id, new_path, cooldown_until)
 
-    # ── Emit PATH_CHANGED event ───────────────────────────────────────────────
+    # â”€â”€ Emit PATH_CHANGED event â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     idem_key = event_repo.build_idempotency_key(
         user_id, local_date, "path_changed", suffix=new_path.lower()
     )
@@ -620,7 +617,7 @@ async def change_path(
 
 @router.post(
     "/revive",
-    summary="Financial Audit — recover from CRITICAL_FAILURE",
+    summary="Financial Audit â€” recover from CRITICAL_FAILURE",
 )
 async def revive(
     user_id: CurrentUserID,
@@ -637,17 +634,17 @@ async def revive(
 
     Effects:
       - HP restored to 10.
-      - vitality transitions: CRITICAL_FAILURE → HAZARD.
+      - vitality transitions: CRITICAL_FAILURE â†’ HAZARD.
       - Emits FINANCIAL_AUDIT_COMPLETED (journal + "Account Restored" notification).
 
     Note:
       This endpoint is intentionally NOT CF-Locked so it remains accessible
-      when the account is locked (journey_state_machine.md §1 Restrictions).
+      when the account is locked (journey_state_machine.md Â§1 Restrictions).
 
     Returns:
       Updated player_state with hp=10 and vitality=HAZARD.
     """
-    _tz_res = await db.table("journey_profiles").select("timezone").eq("id", user.user_id if hasattr(user, "user_id") else user_id).limit(1).maybe_single().execute()
+    _tz_res = await db.table("journey_profiles").select("timezone").eq("id", user_id).limit(1).maybe_single().execute()
     _tz = _tz_res.data.get("timezone", "UTC") if _tz_res.data else "UTC"
     local_date = _today_iso(_tz)
     try:
@@ -679,7 +676,7 @@ async def claim_rewards(
 ) -> dict[str, Any]:
     """
     Claims pending XP and HP rewards from a COMPLETED Quarterly Challenge.
-    Rewards must be explicitly claimed — they are never auto-granted on completion.
+    Rewards must be explicitly claimed â€” they are never auto-granted on completion.
 
     Preconditions:
       - Challenge belongs to the requesting user.
@@ -687,7 +684,7 @@ async def claim_rewards(
       - rewards_claimed == False (not yet claimed).
 
     Effects:
-      - Emits REWARD_CLAIMED event → XP_CHANGED + HP_CHANGED cascades.
+      - Emits REWARD_CLAIMED event â†’ XP_CHANGED + HP_CHANGED cascades.
       - Sets challenge.rewards_claimed = True.
 
     Returns:
@@ -697,13 +694,13 @@ async def claim_rewards(
 
     profile_repo = ProfileRepository(db)
     event_repo = EventRepository(db)
-    _tz_res = await db.table("journey_profiles").select("timezone").eq("id", user.user_id if hasattr(user, "user_id") else user_id).limit(1).maybe_single().execute()
+    _tz_res = await db.table("journey_profiles").select("timezone").eq("id", user_id).limit(1).maybe_single().execute()
     _tz = _tz_res.data.get("timezone", "UTC") if _tz_res.data else "UTC"
     local_date = _today_iso(_tz)
 
     challenge_id = str(body.challenge_id)
 
-    # ── Validate challenge ────────────────────────────────────────────────────
+    # â”€â”€ Validate challenge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     challenge = await profile_repo.get_challenge_by_id(user_id, challenge_id)
     if not challenge:
         _raise_404("CHALLENGE_NOT_FOUND", f"Challenge {challenge_id} not found.")
@@ -721,7 +718,7 @@ async def claim_rewards(
             "Only COMPLETED challenges have claimable rewards.",
         )
 
-    # ── Rewards from template ──────────────────────────────────────────────────
+    # â”€â”€ Rewards from template â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     from .challenge_templates import get_template
     
     template_id = challenge.get("template_id")
@@ -734,10 +731,10 @@ async def claim_rewards(
     ITEM_TYPE = template.reward.item_type
     ITEM_EXPIRY = template.reward.item_expiry_days
 
-    # ── Mark rewards claimed before emitting (prevents double-claim on retry) ──
+    # â”€â”€ Mark rewards claimed before emitting (prevents double-claim on retry) â”€â”€
     await profile_repo.mark_challenge_rewards_claimed(challenge_id)
 
-    # ── Emit REWARD_CLAIMED → XP_CHANGED + HP_CHANGED cascades ──────────────
+    # â”€â”€ Emit REWARD_CLAIMED â†’ XP_CHANGED + HP_CHANGED cascades â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     idem_key = event_repo.build_idempotency_key(
         user_id, local_date, "reward_claimed", suffix=challenge_id[:8]
     )
@@ -756,10 +753,10 @@ async def claim_rewards(
         },
     )
 
-    # ── Return refreshed player state ─────────────────────────────────────────
+    # â”€â”€ Return refreshed player state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     updated_profile = await profile_repo.get_profile(user_id)
     from .services.bootstrap_svc import BootstrapService
-    player_state = BootstrapService(db)._build_player_state(updated_profile)
+    player_state = BootstrapService(db)._build_player_state(updated_profile, user_id)
 
     return _success({
         "player_state": player_state.model_dump(),
@@ -795,7 +792,7 @@ async def acknowledge_unlock(
 
 
 # ===========================================================================
-# ── LAZY-LOADED DRILL-DOWNS ─────────────────────────────────────────────────
+# â”€â”€ LAZY-LOADED DRILL-DOWNS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # ===========================================================================
 
 
@@ -906,7 +903,7 @@ async def get_challenge_history(
 ) -> dict[str, Any]:
     """
     Returns a paginated list of ARCHIVED (historical) quarterly challenges.
-    Does not include ACTIVE or COMPLETED challenges — use /bootstrap for those.
+    Does not include ACTIVE or COMPLETED challenges â€” use /bootstrap for those.
     """
     profile_repo = ProfileRepository(db)
     challenges = await profile_repo.list_archived_challenges(
@@ -1012,14 +1009,14 @@ async def update_notification(
 
 
 # ===========================================================================
-# ── CROSS-DOMAIN INTEGRATION HOOK ──────────────────────────────────────────
+# â”€â”€ CROSS-DOMAIN INTEGRATION HOOK â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # ===========================================================================
 
 
 @router.post(
     "/internal/wallet-event",
-    include_in_schema=False,  # Internal hook — excluded from public OpenAPI docs.
-    summary="WalletService → JourneyService intercept (internal)",
+    include_in_schema=False,  # Internal hook â€” excluded from public OpenAPI docs.
+    summary="WalletService â†’ JourneyService intercept (internal)",
 )
 async def wallet_event_hook(
     background_tasks: BackgroundTasks,
@@ -1072,7 +1069,7 @@ async def _process_wallet_transaction_event(
     """
     from .repos.event_repo import EventRepository as _ER
 
-    _tz_res = await db.table("journey_profiles").select("timezone").eq("id", user.user_id if hasattr(user, "user_id") else user_id).limit(1).maybe_single().execute()
+    _tz_res = await db.table("journey_profiles").select("timezone").eq("id", user_id).limit(1).maybe_single().execute()
     _tz = _tz_res.data.get("timezone", "UTC") if _tz_res.data else "UTC"
     local_date = _today_iso(_tz)
     event_repo = _ER(db)
@@ -1103,20 +1100,20 @@ async def _process_wallet_transaction_event(
         )
     except Exception as exc:
         logger.exception(
-            "_process_wallet_transaction_event: failed for user=%s txn=%s — %s",
+            "_process_wallet_transaction_event: failed for user=%s txn=%s â€” %s",
             payload.user_id, payload.transaction_id, exc,
         )
 
 
 # ===========================================================================
-# ── CRON WEBHOOKS ───────────────────────────────────────────────────────────
+# â”€â”€ CRON WEBHOOKS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # ===========================================================================
 
 
 @router.post(
     "/cron/daily-evaluation",
     status_code=status.HTTP_202_ACCEPTED,
-    summary="QStash webhook — Rolling Midnight evaluator",
+    summary="QStash webhook â€” Rolling Midnight evaluator",
     include_in_schema=False,
 )
 async def cron_daily_evaluation(
@@ -1138,7 +1135,7 @@ async def cron_daily_evaluation(
       4. Enqueue one BackgroundTask per timezone to process_rolling_midnight().
 
     Idempotency: QStash may retry if it drops the 202 response. Each user's
-    MIDNIGHT_EVALUATION_STARTED event carries a unique idempotency key —
+    MIDNIGHT_EVALUATION_STARTED event carries a unique idempotency key â€”
     duplicate injections are silently skipped by EventBus.
 
     Auth: Upstash-Signature HMAC verification only. No user JWT.
@@ -1154,7 +1151,7 @@ async def cron_daily_evaluation(
 
     if not targets:
         logger.info(
-            "cron_daily_evaluation: no timezones at midnight right now — no-op."
+            "cron_daily_evaluation: no timezones at midnight right now â€” no-op."
         )
         return JSONResponse(
             status_code=status.HTTP_202_ACCEPTED,
@@ -1184,7 +1181,7 @@ async def cron_daily_evaluation(
 @router.post(
     "/cron/system-cleanup",
     status_code=status.HTTP_202_ACCEPTED,
-    summary="QStash webhook — Daily Janitor",
+    summary="QStash webhook â€” Daily Janitor",
     include_in_schema=False,
 )
 async def cron_system_cleanup(
@@ -1198,8 +1195,8 @@ async def cron_system_cleanup(
     Triggered once per UTC day by Upstash QStash (schedule: `0 0 * * *`).
 
     Returns 202 immediately. All cleanup work runs in a BackgroundTask:
-      - Expires overdue Defense Shields (AVAILABLE → EXPIRED).
-      - Transitions stale Standby Tokens (ACTIVE → USED).
+      - Expires overdue Defense Shields (AVAILABLE â†’ EXPIRED).
+      - Transitions stale Standby Tokens (ACTIVE â†’ USED).
       - Clears stalled PREPARING challenges older than 24 hours.
 
     Auth: Upstash-Signature HMAC verification only. No user JWT.
@@ -1215,7 +1212,7 @@ async def cron_system_cleanup(
 @router.post(
     "/cron/quarterly-evaluation",
     status_code=status.HTTP_202_ACCEPTED,
-    summary="QStash webhook — Quarterly Report Evaluation",
+    summary="QStash webhook â€” Quarterly Report Evaluation",
     include_in_schema=False,
 )
 async def cron_quarterly_evaluation(
@@ -1247,7 +1244,7 @@ async def cron_quarterly_evaluation(
 @router.post(
     "/cron/evening-reminder",
     status_code=status.HTTP_202_ACCEPTED,
-    summary="QStash webhook — Evening Reminder",
+    summary="QStash webhook â€” Evening Reminder",
     include_in_schema=False,
 )
 async def cron_evening_reminder(
@@ -1310,3 +1307,4 @@ async def cron_evening_reminder(
             "timezones": [t[0] for t in targets],
         },
     )
+

@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import TYPE_CHECKING
 
 from supabase import AsyncClient
@@ -146,38 +146,24 @@ class InventoryService:
             StandbyActivationResult with the activated token and remaining count.
 
         Raises:
-            ValueError: If no tokens are available or one is already active.
+            ValueError: If no tokens are available or one is already active (propagated from RPC).
         """
-        # ── Pre-condition checks ──────────────────────────────────────────────
-        available_count = await self._inventory_repo.count_available_tokens(user_id)
-        if available_count == 0:
-            raise ValueError(
-                f"User {user_id} has no AVAILABLE Standby Tokens. "
-                f"Tokens are refilled at the start of each new Region cycle."
-            )
+        import uuid
 
-        already_active = await self._inventory_repo.get_active_standby(user_id)
-        if already_active:
-            ends_at = already_active.get("expires_at", "")
-            raise ValueError(
-                f"User {user_id} already has an ACTIVE Standby Token "
-                f"(expires {ends_at}). Cannot activate another simultaneously."
-            )
+        now = datetime.now(timezone.utc)
+        ends_at = (now + timedelta(hours=24)).isoformat()
 
-        # ── Activate oldest AVAILABLE token ───────────────────────────────────
-        activated_token = await self._inventory_repo.activate_standby_token(
-            user_id, source_event_id=None
-        )
-        ends_at: str = activated_token.get("expires_at", "")
-
-        # Count remaining after activation.
-        tokens_remaining = await self._inventory_repo.count_available_tokens(user_id)
-
-        # ── Emit STANDBY_ACTIVATED event ─────────────────────────────────────
+        # Each call gets a unique idempotency key so concurrent requests cannot
+        # be deduplicated into the same event — each must independently hit the
+        # RPC and get accepted or rejected by the database.
         idem_key = self._event_repo.build_idempotency_key(
             user_id, local_date, "standby_activated",
-            suffix=activated_token.get("id", "")[:8],
+            suffix=str(uuid.uuid4())[:8],
         )
+
+        # ── Emit STANDBY_ACTIVATED event ─────────────────────────────────────
+        # The mutation and invariant check are handled atomically by the RPC
+        # inside the handler. ValueError is raised here if the RPC fails.
         await self._bus.emit(
             user_id=user_id,
             event_type="STANDBY_ACTIVATED",
@@ -185,11 +171,17 @@ class InventoryService:
             severity="INFO",
             idempotency_key=idem_key,
             payload={
-                "token_id": activated_token.get("id"),
                 "ends_at": ends_at,
-                "tokens_remaining": tokens_remaining,
             },
         )
+
+        # ── Fetch final committed state ───────────────────────────────────────
+        activated_token = await self._inventory_repo.get_active_standby(user_id)
+        if not activated_token:
+            # Should theoretically never happen unless an admin revoked it in the last ms
+            raise RuntimeError(f"Failed to verify activated token for user {user_id}")
+
+        tokens_remaining = await self._inventory_repo.count_available_tokens(user_id)
 
         logger.info(
             "InventoryService.consume_standby_token: user=%s token=%s ends_at=%s "

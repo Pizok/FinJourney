@@ -648,15 +648,32 @@ async def handle_zero_spend_claimed(ctx: "EventContext") -> None:
 async def handle_standby_activated(ctx: "EventContext") -> None:
     """
     Records Standby Token activation.
-    The inventory mutation (AVAILABLE → ACTIVE) is performed by InventoryService
-    before this event is published. This handler writes the audit trail only.
+    Performs the database mutation via a Postgres RPC function to ensure 
+    strict database-level atomicity against concurrent activations.
 
     Publish: Journal, Notification (SYSTEM)
 
     Payload fields:
         ends_at (str) ISO-8601 timestamp when Standby protection expires.
     """
+    from supabase_auth.errors import AuthApiError
+    import postgrest
+    from app.journey.engine.bus import BusinessRuleViolation
+
     ends_at: str = ctx.payload.get("ends_at", "")
+    
+    try:
+        # Enforce atomic consume via RPC
+        result = await ctx.db.rpc(
+            "consume_standby_token_atomic", 
+            {"p_user_id": ctx.user_id, "p_ends_at": ends_at}
+        ).execute()
+    except postgrest.exceptions.APIError as exc:
+        # The RPC raises for known business rule violations (ALREADY_ACTIVE, NONE_AVAILABLE).
+        # Raise BusinessRuleViolation so the bus routes this to REJECTED, not FAILED.
+        err_msg = exc.message if hasattr(exc, "message") else str(exc)
+        raise BusinessRuleViolation(err_msg) from exc
+
     await _write_journal(
         ctx,
         f"Standby Mode activated — Ghost Penalty frozen until {ends_at}.",

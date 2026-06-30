@@ -248,6 +248,7 @@ class InventoryRepository:
         """
         Returns all AVAILABLE (unconsumed) standby tokens ordered by creation date.
         FIFO order ensures the oldest token is consumed first on activation.
+        Secondary ordering by id ensures deterministic selection.
         """
         result = await (
             self._db
@@ -257,6 +258,7 @@ class InventoryRepository:
             .eq("type", "STANDBY_TOKEN")
             .eq("status", "AVAILABLE")
             .order("created_at", desc=False)
+            .order("id", desc=False)
             .execute()
         )
         return result.data or []
@@ -294,7 +296,7 @@ class InventoryRepository:
             .maybe_single()
             .execute()
         )
-        return result.data
+        return result.data if result else None
 
     async def is_standby_active(self, user_id: str) -> bool:
         """
@@ -308,46 +310,6 @@ class InventoryRepository:
     # Standby Tokens — Write
     # ------------------------------------------------------------------
 
-    async def activate_standby_token(
-        self,
-        user_id: str,
-        source_event_id: Optional[str] = None,
-    ) -> dict:
-        """
-        Consumes the oldest AVAILABLE token and transitions it to ACTIVE.
-        Sets a 24-hour expiry window from the current UTC timestamp.
-
-        Raises:
-            ValueError: If the player has no AVAILABLE tokens to activate.
-        """
-        tokens = await self.get_available_standby_tokens(user_id)
-        if not tokens:
-            raise ValueError(
-                f"User {user_id} has no AVAILABLE Standby Tokens. "
-                "Cannot activate protection."
-            )
-
-        token = tokens[0]  # Oldest token (FIFO)
-        now = datetime.now(timezone.utc)
-        ends_at = (now + timedelta(hours=_STANDBY_LIFESPAN_HOURS)).isoformat()
-
-        payload = {
-            "status": "ACTIVE",
-            "activated_at": now.isoformat(),
-            "expires_at": ends_at,
-        }
-        result = await (
-            self._db
-            .table("journey_inventory")
-            .update(payload)
-            .eq("id", token["id"])
-            .execute()
-        )
-        logger.info(
-            "Standby Token activated: user=%s token_id=%s expires_at=%s",
-            user_id, token["id"], ends_at,
-        )
-        return result.data[0]
 
     async def expire_stale_active_tokens(self) -> int:
         """

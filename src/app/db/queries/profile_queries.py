@@ -13,21 +13,37 @@ async def fetch_profile(db: AsyncClient, user_id: str) -> dict | None:
 
 
 async def fetch_player_state(db: AsyncClient, user_id: str) -> dict | None:
-    result = await maybe_one(
-        db.table("journey_profiles")
-        .select("current_hp, total_xp, gold_coins, defense_shield, standby_tokens")
-        .eq("id", user_id)
-        .maybe_single()
-    )
-    if not result:
+    import asyncio
+
+    profile_task = db.table("journey_profiles") \
+        .select("current_hp, total_xp, gold_coins, defense_shield") \
+        .eq("id", user_id) \
+        .maybe_single() \
+        .execute()
+
+    inv_task = db.table("journey_inventory") \
+        .select("id", count="exact") \
+        .eq("user_id", user_id) \
+        .eq("type", "STANDBY_TOKEN") \
+        .eq("status", "AVAILABLE") \
+        .execute()
+
+    profile_res, inv_res = await asyncio.gather(profile_task, inv_task)
+    
+    if not profile_res.data:
         return None
+
+    result = profile_res.data
+    standby_tokens = inv_res.count if hasattr(inv_res, "count") and inv_res.count is not None else 0
+
     return {
         "hp": result.get("current_hp", 0),
         "xp": result.get("total_xp", 0),
         "gold": result.get("gold_coins", 0),
         "shield": result.get("defense_shield", 0),
-        "standby_tokens": result.get("standby_tokens", 0),
+        "standby_tokens": standby_tokens,
     }
+
 
 
 async def fetch_wallets(db: AsyncClient, user_id: str) -> list[dict]:

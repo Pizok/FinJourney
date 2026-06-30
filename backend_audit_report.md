@@ -111,3 +111,24 @@ The codebase routinely relies on hardcoded UTC dates rather than the user's loca
    - Consolidate and optimize redundant sums and generator expressions into single-pass calculations to improve efficiency.
 2. **Adjust Advisory Logic:** Decide whether timeframe-independent metrics should continue to mask timeframe-dependent ones in `scoring_service.py`'s cascade.
 
+---
+
+## 4. Zero-Day Claim Feature (500 Error)
+
+**Symptom:**
+The zero-day claim feature (and potentially other routes like standby token usage) fails with a 500 Internal Server Error when requested.
+
+**Component Assessed:**
+`src/app/journey/router.py` (specifically `claim_zero_spend` and `use_standby_token`)
+
+**Root Causes Identified:**
+1. **Undefined Variable Reference (`NameError`):** In `claim_zero_spend`, the endpoint defines the current user ID via the parameter `user_id: CurrentUserID`. However, the timezone query code references an undefined variable `user` (e.g., at lines 423 and 431):
+   ```python
+   _tz_res = await db.table("journey_profiles").select("timezone").eq("id", user.user_id if hasattr(user, "user_id") else user_id).limit(1).maybe_single().execute()
+   ```
+   Because `user` does not exist in this scope, it raises a `NameError: name 'user' is not defined`, crashing the request. The identical issue is present in `use_standby_token`.
+
+**Proposed Fix Plan:**
+1. **Refactor `router.py` endpoints:** 
+   - Remove the faulty `user.user_id if hasattr(user, "user_id") else user_id` fallback logic.
+   - Simply pass the injected `user_id` parameter directly to the database query: `.eq("id", user_id)`.

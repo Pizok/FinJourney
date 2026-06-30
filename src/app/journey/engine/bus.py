@@ -12,6 +12,7 @@ Architecture:
 Event lifecycle (journey_state_machine.md §5):
   CREATED → (handler evaluation) → PROCESSED → (distribution) → PUBLISHED
   CREATED → (handler exception) → FAILED
+  CREATED → (business rule rejection) → REJECTED
 
 Cascading events:
   Handlers may publish further events by calling ctx.bus.emit(...).
@@ -59,6 +60,22 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 HandlerFn = Callable[["EventContext"], Awaitable[None]]
+
+
+# ---------------------------------------------------------------------------
+# Sentinel Exception
+# ---------------------------------------------------------------------------
+
+
+class BusinessRuleViolation(ValueError):
+    """
+    Raised by handlers when an operation is rejected due to a known business
+    rule (e.g. no tokens available, token already active).
+
+    The bus routes this to a REJECTED event status rather than FAILED, keeping
+    the audit log clean. It still propagates as a ValueError so that routers
+    can catch it and return a 400 Bad Request.
+    """
 
 
 # ---------------------------------------------------------------------------
@@ -362,6 +379,18 @@ class EventBus:
                 event_id,
                 ctx.user_id,
             )
+        except BusinessRuleViolation as exc:
+            # Expected business rule rejection — log at INFO, not ERROR, and mark REJECTED.
+            error_log = f"{type(exc).__name__}: {exc}"
+            logger.info(
+                "EventBus._dispatch: business rule rejection — type=%s id=%s user=%s reason=%r",
+                ctx.event_type,
+                event_id,
+                ctx.user_id,
+                error_log,
+            )
+            await self._mark_rejected(event_id, error_log)
+            raise
         except Exception as exc:
             error_log = f"{type(exc).__name__}: {exc}"
             logger.exception(
@@ -390,6 +419,12 @@ class EventBus:
         """Marks event as FAILED with the exception trace for dead-letter inspection."""
         await self._event_repo.update_event_status(
             event_id, "FAILED", error_log=error_log
+        )
+
+    async def _mark_rejected(self, event_id: str, error_log: str) -> None:
+        """Marks event as REJECTED when a known business rule prevented processing."""
+        await self._event_repo.update_event_status(
+            event_id, "REJECTED", error_log=error_log
         )
 
     # ------------------------------------------------------------------

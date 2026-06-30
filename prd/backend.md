@@ -35,11 +35,15 @@ Routed through `journey/router.py` (mounted directly on `app` in `main.py`).
 - **Services**: `hp_svc.py`, `xp_svc.py`, `inventory_svc.py`, `cron_svc.py`, `email_svc.py`, `user_lookup_svc.py`.
 - **Background/Cron Jobs**: Handled via `POST /cron/*` webhooks triggered by QStash (e.g., midnight evaluations).
 
-## Architectural Guidelines
+## Architectural & API Guidelines
+To ensure consistency and integrity when creating new endpoints or modifying connections:
 1. **Ghost Domains**: In `api.py`, uncreated routers are commented out. Importing a missing module will crash FastAPI.
 2. **Mounting Router**: Feature routers in `api/v1/` are attached to `api_router`. The `journey` router is attached directly to the root `app`.
 3. **Database Client**: Use Supabase client imported from `app.db.supabase.get_admin_db`. PostgREST does not support transactions; atomic operations require PostgreSQL RPCs.
-4. **Validation**: All incoming/outgoing data must use models defined in `app/schemas/` or `app/journey/schemas/`.
+4. **Validation & Schemas**: All incoming request bodies and outgoing responses MUST use Pydantic models defined in `app/schemas/` or `app/journey/schemas/`. Do not return raw dictionaries from endpoints.
+5. **Business Logic & Separation of Concerns**: Keep route handlers thin. Delegate complex logic to service files (e.g., `services/<feature>_service.py`) and database interactions to query files (`db/queries/<feature>_queries.py`).
+6. **Error Handling**: Raise standard `HTTPException`s from FastAPI with appropriate status codes (e.g., 400 for bad request, 404 for not found, 403 for forbidden) to ensure the frontend can predictably handle errors.
+7. **Authentication**: All protected endpoints must use the appropriate authentication dependencies (like `get_current_user` if available) to ensure the requester is authenticated and to inject the user context into the endpoint.
 
 ## Database Schema Summary
 The following core tables and columns are used by the application:
