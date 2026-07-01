@@ -20,7 +20,8 @@ export function DangerModal({ onClose }: DangerModalProps) {
       return apiFetchClient('journey/standby/use', { method: 'POST' });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dashboard', 'bootstrap'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
       onClose();
     },
     onError: (err: any) => {

@@ -401,29 +401,52 @@ async def _trigger_expense_pipeline(
 ) -> None:
     """
     Hand off to the downstream game logic pipeline after an expense is committed.
-
-    Pipeline order (per wallet_backend.md §6):
-      1. budget_service.apply_daily_bleed  → calculates overspend, applies HP loss.
-      2. progression_service.handle_event  → creates journey_events row, checks level-up.
-
-    This function is a no-op if either service is unavailable (import guard).
-    Errors from downstream services are logged but do not roll back the transaction —
-    the financial record is always committed before game state is updated.
     """
     try:
-        # ← downstream call 1: Daily Bleed
-        # budget_service.apply_daily_bleed(client=client, user_id=user_id)
-        pass  # Remove when budget_service is wired in.
-    except Exception:
-        # Downstream failure must never fail the transaction endpoint.
-        import logging
-        logging.getLogger(__name__).exception(
-            "budget_service.apply_daily_bleed failed for user %s", user_id
-        )
-
-    try:
+        from app.db.queries.daily_queries import fetch_daily_status, fetch_baselines
+        from app.services.budget_service import calculate_daily_budget
         from app.journey.engine.bus import EventBus
         from app.journey.repos.event_repo import EventRepository
+        
+        # 1. Check HP Exclusion Filters
+        txn_res = await client.table("transactions").select("payment_method, loan_id, savings_target_id").eq("id", transaction_id).eq("user_id", user_id).maybe_single().execute()
+        txn = txn_res.data
+        if not txn:
+            return
+            
+        if txn.get("payment_method") == "credit_card":
+            return
+        if txn.get("loan_id") is not None:
+            return
+        if txn.get("savings_target_id") is not None:
+            return
+
+        # 2. Fetch user timezone (Rule #4 strict check)
+        tz_res = await client.table("journey_profiles").select("timezone").eq("id", user_id).limit(1).maybe_single().execute()
+        if not tz_res.data or not tz_res.data.get("timezone"):
+            import logging
+            logging.getLogger(__name__).warning("User timezone not set in journey_profiles for user=%s", user_id)
+            raise ValueError("User timezone not set in journey_profiles")
+        tz_name = tz_res.data["timezone"]
+
+        # 2. Compute daily budget
+        baselines = await fetch_baselines(client, user_id)
+        daily_budget = 0.0
+        if baselines:
+            daily_budget = calculate_daily_budget(
+                baselines["monthly_income"],
+                baselines["fixed_costs"],
+                baselines["savings_target"],
+            )
+            
+        # 3. Calculate spent today
+        daily_status = await fetch_daily_status(client, user_id, tz_name)
+        spent_today = daily_status.get("spent_today", 0.0)
+        
+        # 4. Variance logic
+        variance = int(spent_today - daily_budget)
+        is_over_budget = variance > 0
+        
         bus = EventBus(db=client)
         idem_key = EventRepository.build_idempotency_key(
             user_id, local_date_str, "EXPENSE_LOGGED", suffix=transaction_id[:8]
@@ -438,6 +461,9 @@ async def _trigger_expense_pipeline(
                 "amount": amount,
                 "local_date": local_date_str,
                 "transaction_id": transaction_id,
+                "is_over_budget": is_over_budget,
+                "variance": variance,
+                "daily_budget": int(daily_budget),
             }
         )
     except Exception:

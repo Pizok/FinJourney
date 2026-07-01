@@ -82,7 +82,7 @@ function EmptyState() {
 
 export function RecentLogCard() {
   const { data } = useDashboardData();
-  const transactions = data.recent_transactions.slice(0, 10);
+  const transactions = data.recent_transactions.slice(0, 8);
   const isEmpty = transactions.length === 0;
 
   return (
@@ -93,7 +93,7 @@ export function RecentLogCard() {
           Recent Activity
         </h2>
         <Link
-          href="/wallets"
+          href="/finance"
           className="inline-flex items-center gap-1 font-sans text-xs text-muted-text hover:text-pearl-text transition-colors"
         >
           Open Wallet

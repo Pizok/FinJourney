@@ -97,6 +97,8 @@ async def get_top_transactions(
         .eq("user_id", str(user_id)) \
         .eq("type", "expense") \
         .is_("deleted_at", "null") \
+        .is_("loan_id", "null") \
+        .is_("savings_target_id", "null") \
         .gte("transaction_date", start_date.isoformat()) \
         .lte("transaction_date", end_date.isoformat()) \
         .order("amount", desc=True) \
@@ -108,8 +110,8 @@ async def get_top_transactions(
         formatted.append({
             "id": row["id"],
             "amount": row["amount"],
-            "category_name": row.get("categories", {}).get("name") if row.get("categories") else None,
-            "wallet_name": row.get("wallets", {}).get("name") if row.get("wallets") else None,
+            "category_name": row.get("categories", {}).get("name") if row.get("categories") else "Uncategorized",
+            "wallet_name": row.get("wallets", {}).get("name") if row.get("wallets") else "Unknown Wallet",
             "transaction_date": row["transaction_date"],
             "note": row["note"],
         })

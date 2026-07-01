@@ -88,6 +88,7 @@ class TransactionCreate(BaseModel):
     wallet_id:   Optional[UUID] = Field(default=None)
     category_id: Optional[UUID] = Field(default=None)
     savings_target_id: Optional[UUID] = Field(default=None)
+    loan_id:           Optional[UUID] = Field(default=None)
 
     # --- Transfer fields ---
     source_wallet_id:      Optional[UUID] = Field(default=None)
@@ -211,6 +212,7 @@ class TransactionUpdate(BaseModel):
     payment_method:   Optional[PaymentMethod] = Field(default=None)
     transaction_date: Optional[date]          = Field(default=None)
     note:             Optional[str]           = Field(default=None, max_length=256)
+    loan_id:          Optional[UUID]          = Field(default=None)
 
     @field_validator("transaction_date", mode="before")
     @classmethod
@@ -269,6 +271,7 @@ class TransactionOut(BaseModel):
     category_id: Optional[UUID]
     category_name: Optional[str] = None
     savings_target_id: Optional[UUID] = None
+    loan_id:           Optional[UUID] = None
 
     # transfer
     source_wallet_id:      Optional[UUID]

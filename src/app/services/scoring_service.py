@@ -52,7 +52,7 @@ _DISCIPLINE_COST_PER_OVERSPEND: float = _DISCIPLINE_MAX_PTS / 3
 
 # Advisory cascade thresholds
 _DTI_CRITICAL_THRESHOLD: float = 35.0      # Level 1: critical_debt
-_OVERSPEND_ADVISORY_PCT: float = 110.0     # Level 3: overspending at > 110 %
+_OVERSPEND_ADVISORY_PCT: float = 100.0     # Level 3: overspending at > 100 %
 
 
 # ── Internal data-transfer objects ───────────────────────────────────────────
@@ -236,22 +236,23 @@ def determine_advisory_priority(
             )
             for cat in overspent
         ]
-        if len(overspent) == 1:
-            headline = f"Reduce {overspent[0].name} Spending"
-            recommendation = (
-                f"Cut {overspent[0].name} by "
-                f"{_fmt_idr(actions[0].reduction_amount)} "
-                "to bring it back within your monthly budget."
-            )
+        n = len(overspent)
+        category_word = "category" if n == 1 else "categories"
+        headline = f"You're over budget in {n} {category_word} this month"
+
+        if n == 1:
+            category_list = overspent[0].name
+        elif n == 2:
+            category_list = f"{overspent[0].name} and {overspent[1].name}"
         else:
-            names = ", ".join(c.name for c in overspent[:3])
-            total_excess = sum(a.reduction_amount for a in actions)
-            headline = "Reduce Variable Spending"
-            recommendation = (
-                f"{len(overspent)} categories are over budget ({names}). "
-                f"Reducing them to their limits would save {_fmt_idr(total_excess)} "
-                "this month."
-            )
+            names = [c.name for c in overspent]
+            category_list = ", ".join(names[:-1]) + f", and {names[-1]}"
+
+        recommendation = (
+            f"You've exceeded your budget in {category_list} this month. "
+            "Consider reducing spending in these areas or adjusting your monthly limits "
+            "to better reflect your actual habits."
+        )
         return AdvisoryResult(
             priority="overspending",
             headline=headline,

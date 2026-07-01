@@ -56,7 +56,7 @@ function EventRowSkeleton({ isLast }: { isLast: boolean }) {
   return (
     <div
       className={cn(
-        "flex items-start gap-3 px-5 py-4",
+        "flex items-start gap-3 px-5 py-[18px]",
         !isLast && "border-b border-tactical-border"
       )}
       aria-hidden="true"
@@ -171,6 +171,11 @@ export function HistorySection({ isLoading = false }: HistorySectionProps) {
 
         {hasMore && (
           <div className="border-t border-tactical-border">
+            <div className="px-5 py-3 text-center border-b border-tactical-border/50 bg-tactical-border/10">
+              <p className="text-[11px] text-muted-text font-sans">
+                You have more events in your history. Click below to view them.
+              </p>
+            </div>
             <button
               onClick={openHistoryModal}
               aria-label="See more events"

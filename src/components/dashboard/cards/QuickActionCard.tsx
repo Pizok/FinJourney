@@ -1,6 +1,6 @@
 'use client';
 
-import { Plus, CheckCircle2 } from 'lucide-react';
+import { Plus, CheckCircle2, Info } from 'lucide-react';
 import { useDashboardModals } from '../hooks/useDashboardModals';
 import { useDashboardData } from '../hooks/useDashboardData';
 
@@ -49,6 +49,16 @@ export function QuickActionCard() {
           <CheckCircle2 size={15} strokeWidth={2.5} />
           {daily_status.zero_spend_marked ? "Zero-Spend Claimed" : "Claim Zero-Spend"}
         </button>
+        <div className="flex items-center justify-center gap-1 mt-1 group/tooltip relative">
+          <span className="text-[11px] text-muted-text">About zero spend</span>
+          <Info size={12} className="text-muted-text hover:text-pearl-text cursor-help transition-colors" />
+          
+          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-abyssal-slate border border-tactical-border rounded-md shadow-lg opacity-0 group-hover/tooltip:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+            <p className="text-[10px] text-muted-text leading-tight whitespace-normal text-center">
+              Click zero spend if there is no transaction made in the day, protect Grants XP and protects against the midnight Ghost Penalty.
+            </p>
+          </div>
+        </div>
       </div>
     </article>
   );

@@ -36,6 +36,7 @@
 // =============================================================================
 
 import { Route } from "lucide-react";
+import { REGION_META, REGION_ID_TO_NUMBER } from "../features/RegionMap";
 import { Badge, DayBadge } from "@/components/ui/Badge";
 import { useJourneyData } from "./JourneyContext";
 
@@ -127,6 +128,15 @@ export function JourneyHeader({ isLoading = false }: JourneyHeaderProps) {
     Math.round((journey_progress.account_days / 365) * 100)
   );
 
+  let displayRegionName = current_region.name;
+  let regionIdNum = parseInt(current_region.id, 10);
+  if (isNaN(regionIdNum)) {
+    regionIdNum = (REGION_ID_TO_NUMBER as any)[current_region.id] ?? -1;
+  }
+  if (regionIdNum >= 1 && (REGION_META as any)[regionIdNum]) {
+    displayRegionName = (REGION_META as any)[regionIdNum].label;
+  }
+
   return (
     <header
       className="pb-6 animate-fade-in"
@@ -142,7 +152,7 @@ export function JourneyHeader({ isLoading = false }: JourneyHeaderProps) {
           variant="violet"
           icon={<Route size={10} strokeWidth={2} />}
         >
-          {current_region.name}
+          {displayRegionName}
         </Badge>
         <DayBadge day={journey_progress.account_days} />
       </div>

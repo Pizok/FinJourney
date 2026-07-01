@@ -7,10 +7,10 @@ export function JourneyEmptyState() {
         <Compass size={40} className="text-muted-emerald" />
       </div>
       <h3 className="mb-2 font-display text-2xl font-semibold text-pearl-text">
-        Your journey begins here
+        No history yet
       </h3>
       <p className="max-w-md text-sm text-muted-text leading-relaxed">
-        You haven't completed any regions or earned any stamps yet. Log your daily spending and stay under budget to gain XP, unlock regions, and build your financial fortress.
+        Your journey events, passport stamps, and activity timeline will appear here as you log transactions, stay under budget, and earn XP each day.
       </p>
     </div>
   );

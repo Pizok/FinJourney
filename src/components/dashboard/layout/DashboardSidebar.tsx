@@ -19,6 +19,7 @@ import {
   Menu,
   X,
   Flame,
+  Info
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useDashboardData } from '../hooks/useDashboardData';
@@ -136,19 +137,14 @@ export function DashboardSidebar() {
     );
   }
 
-  const { profile, player_state, feature_unlocks } = data;
+  const { profile, player_state } = data;
 
 
   const avatarLetter = initial(profile.avatar_key ?? profile.username ?? 'U');
   const hpColor = hpBarColor(player_state?.hp ?? 100);
 
-  // Build nav items with dynamic analytics lock state
-  const navItems = NAV_ITEMS.map((item) => {
-    if (item.href === '/analytics') {
-      return { ...item, locked: !feature_unlocks.can_access_analytics };
-    }
-    return item;
-  });
+  // Analytics lock removed — always accessible
+  const navItems = NAV_ITEMS;
 
   async function handleLogout() {
     try {
@@ -236,10 +232,19 @@ export function DashboardSidebar() {
         <div className="py-4 border-t border-tactical-border space-y-1">
           <div className="flex items-center gap-4 px-6 py-3 mt-1 min-w-max" title="Standby tokens">
             <Lock size={20} strokeWidth={2} className="text-muted-text flex-shrink-0" />
-            <div className="flex items-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 flex-1">
-              <span className="font-sans text-xs text-muted-text whitespace-nowrap">
+            <div className="flex items-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 flex-1 group/tooltip relative">
+              <span className="font-sans text-xs text-muted-text whitespace-nowrap flex items-center gap-1">
                 Standby tokens
+                <Info size={13} className="text-muted-text hover:text-pearl-text cursor-help transition-colors" />
               </span>
+              
+              {/* Tooltip */}
+              <div className="absolute left-0 bottom-full mb-2 w-48 p-2 bg-abyssal-slate border border-tactical-border rounded-md shadow-lg opacity-0 group-hover/tooltip:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+                <p className="text-[10px] text-muted-text leading-tight whitespace-normal">
+                  Consumable item used to freeze the midnight Ghost Penalty.
+                </p>
+              </div>
+
               <span className="ml-auto font-sans text-xs text-pearl-text font-medium pl-4">
                 {player_state.standby_tokens}/7
               </span>

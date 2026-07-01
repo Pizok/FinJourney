@@ -11,10 +11,14 @@ export function AuditModal() {
 
   const reviveMutation = useMutation({
     mutationFn: async () => {
-      return apiFetchClient('journey/revive', { method: 'POST' });
+      return apiFetchClient('journey/revive', { 
+        method: 'POST',
+        body: JSON.stringify({ audit_acknowledged: true })
+      });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dashboard', 'bootstrap'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
     },
     onError: (err: any) => {
       setErrorMsg(err?.message || 'Financial Audit failed. Please check your network and try again.');

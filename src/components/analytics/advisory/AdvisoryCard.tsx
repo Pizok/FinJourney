@@ -36,7 +36,8 @@
  */
 
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, ArrowRightLeft } from 'lucide-react'
+import { ChevronDown, ChevronUp, ArrowRightLeft, Info } from 'lucide-react'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { useAnalyticsStore } from '../stores/analyticsStore'
 import { useAnalyticsData } from '../layout/AnalyticsContext'
@@ -113,21 +114,6 @@ function AdvisoryActionColumn() {
         ))}
       </div>
 
-      {/* ── Rebalance Budget CTA ─────────────────────────────────────── */}
-      {/* Secondary/ghost button — no glow per DESIGN.md */}
-      <button
-        type="button"
-        onClick={openRebalanceModal}
-        className={cn(
-          'mt-1 flex items-center justify-center gap-2 rounded-lg px-4 py-2.5',
-          'border border-tactical-border font-display text-sm font-medium text-muted-text',
-          'transition-colors duration-150 hover:border-muted-emerald/50 hover:text-pearl-text',
-        )}
-        aria-label="Open budget rebalancing tool"
-      >
-        <ArrowRightLeft className="h-3.5 w-3.5" strokeWidth={2} />
-        Rebalance Budget
-      </button>
     </div>
   )
 }
@@ -182,6 +168,17 @@ export function AdvisoryCard() {
             {/* Score description */}
             <p className="max-w-prose font-sans text-sm leading-relaxed text-muted-text lg:text-center">
               {scoreDescription}
+              <TooltipProvider delayDuration={100}>
+                <Tooltip>
+                  <TooltipTrigger type="button" className="ml-1.5 inline-block align-text-bottom focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-pearl-text rounded-sm">
+                    <Info className="h-4 w-4 text-tactical-text hover:text-pearl-text cursor-help transition-colors" />
+                    <span className="sr-only">Score calculation details</span>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-[280px] p-3 text-sm">
+                    Category spending and Cashflow include credit card commitments, as the score measures overall financial liabilities, not just pure cash flow.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </p>
 
             {/* View Recommendations toggle */}
@@ -241,8 +238,26 @@ export function AdvisoryCard() {
                   {advisory.recommendation}
                 </p>
 
-                {/* Reduction targets + Rebalance button */}
-                <AdvisoryActionColumn />
+                {/* Inline reduction targets strictly for overspending priority */}
+                {advisory.priority === 'overspending' && advisory.suggested_actions.length > 0 && (
+                  <div className="flex flex-col gap-3 mt-2">
+                    <p className="font-sans text-xs uppercase tracking-wide text-muted-text">
+                      Overspent Categories
+                    </p>
+                    <div className="space-y-2">
+                      {advisory.suggested_actions.map((target) => (
+                        <div key={target.category_name} className="flex items-center justify-between rounded-md border border-tactical-border/50 bg-abyssal-slate/30 px-3 py-2">
+                          <span className="font-sans text-xs text-muted-text">
+                            <span className="font-medium text-pearl-text">{target.category_name}</span>
+                          </span>
+                          <span className="font-mono text-xs font-semibold text-terracotta">
+                            -{formatCurrency(target.reduction_amount)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               /* No active advisory — finances are healthy */

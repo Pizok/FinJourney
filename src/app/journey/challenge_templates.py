@@ -154,10 +154,7 @@ class _RestChallenge(ChallengeTemplate):
 FIRST_STEPS = _TaskListChallenge(
     template_id="FIRST_STEPS",
     title="First steps",
-    description=(
-        "Complete your initial setup: Create a wallet, set a category limit, "
-        "and log your first 10 transactions to build the habit."
-    ),
+    description="Complete your initial setup:",
     category="onboarding",
     difficulty="easy",
     duration_days=7,

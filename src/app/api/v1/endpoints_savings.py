@@ -108,5 +108,5 @@ async def log_savings_endpoint(
     
     return {
         "success": True,
-        "data": updated_target
+        "savings_target": updated_target
     }

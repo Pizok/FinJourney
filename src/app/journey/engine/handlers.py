@@ -247,7 +247,7 @@ async def _update_challenge_progress(ctx: "EventContext", event_type: str) -> No
         if "tasks" in progress_data:
             progress_data["tasks"]["add_wallet"] = True
             updated = True
-    elif event_type == "CATEGORY_UPDATED":
+    elif event_type in ("CATEGORY_CREATED", "CATEGORY_UPDATED"):
         if "tasks" in progress_data:
             progress_data["tasks"]["update_category"] = True
             updated = True
@@ -467,8 +467,9 @@ async def handle_expense_logged(ctx: "EventContext") -> None:
     local_date: str = ctx.payload.get("local_date")
     if not local_date:
         _tz_res = await ctx.db.table("journey_profiles").select("timezone").eq("id", ctx.user_id).limit(1).maybe_single().execute()
-        _tz_str = _tz_res.data.get("timezone", "UTC") if _tz_res.data else "UTC"
-        local_date = _today_iso(_tz_str)
+        if not _tz_res.data or not _tz_res.data.get("timezone"):
+            raise ValueError(f"User timezone not set in journey_profiles for user={ctx.user_id}")
+        local_date = _today_iso(_tz_res.data["timezone"])
     today: date = date.fromisoformat(local_date)
 
     daily_survival = await profile_repo.get_daily_survival(ctx.user_id, local_date)
@@ -517,6 +518,7 @@ async def handle_expense_logged(ctx: "EventContext") -> None:
             idempotency_key=idem_key,
             payload={
                 "variance": variance,
+                "daily_budget": ctx.payload.get("daily_budget", 1),
                 "category_id": category_id,
                 "source_transaction_id": transaction_id,
                 "local_date": local_date,
@@ -590,9 +592,15 @@ async def handle_wallet_created(ctx: "EventContext") -> None:
     await _update_challenge_progress(ctx, "WALLET_CREATED")
 
 
+@on("CATEGORY_CREATED")
+async def handle_category_created(ctx: "EventContext") -> None:
+    """Updates FIRST_STEPS challenge when a new category is created (task: set category limit)."""
+    await _update_challenge_progress(ctx, "CATEGORY_CREATED")
+
+
 @on("CATEGORY_UPDATED")
 async def handle_category_updated(ctx: "EventContext") -> None:
-    """Updates challenge progress when a category is updated/created."""
+    """Updates FIRST_STEPS challenge when a category is modified."""
     await _update_challenge_progress(ctx, "CATEGORY_UPDATED")
 
 
@@ -1100,8 +1108,9 @@ async def handle_ghost_penalty_applied(ctx: "EventContext") -> None:
     local_date: str = ctx.payload.get("local_date")
     if not local_date:
         _tz_res = await ctx.db.table("journey_profiles").select("timezone").eq("id", ctx.user_id).limit(1).maybe_single().execute()
-        _tz_str = _tz_res.data.get("timezone", "UTC") if _tz_res.data else "UTC"
-        local_date = _today_iso(_tz_str)
+        if not _tz_res.data or not _tz_res.data.get("timezone"):
+            raise ValueError(f"User timezone not set in journey_profiles for user={ctx.user_id}")
+        local_date = _today_iso(_tz_res.data["timezone"])
 
     # ── Standby check ─────────────────────────────────────────────────────────
     if await inventory_repo.is_standby_active(ctx.user_id):
@@ -1782,8 +1791,9 @@ async def handle_overspend_detected(ctx: "EventContext") -> None:
     local_date: str = ctx.payload.get("local_date")
     if not local_date:
         _tz_res = await ctx.db.table("journey_profiles").select("timezone").eq("id", ctx.user_id).limit(1).maybe_single().execute()
-        _tz_str = _tz_res.data.get("timezone", "UTC") if _tz_res.data else "UTC"
-        local_date = _today_iso(_tz_str)
+        if not _tz_res.data or not _tz_res.data.get("timezone"):
+            raise ValueError(f"User timezone not set in journey_profiles for user={ctx.user_id}")
+        local_date = _today_iso(_tz_res.data["timezone"])
 
     overspend_ratio = max(0, variance) / daily_budget
     base_damage = min(round(overspend_ratio * 20), 30)
@@ -1812,6 +1822,14 @@ async def handle_overspend_detected(ctx: "EventContext") -> None:
             "skip_shield": False,
             "variance": variance,
         },
+    )
+
+    await _write_notification(
+        ctx,
+        category="HAZARD",
+        severity="WARNING",
+        title="Overspend Detected",
+        message=f"You exceeded your daily budget by {variance:,}. Lost {base_damage} HP.",
     )
 
 

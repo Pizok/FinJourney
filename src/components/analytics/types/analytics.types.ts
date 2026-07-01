@@ -37,7 +37,7 @@ export interface UnlockStatus {
  *   warning → Dawn Gold    (#f59e0b)
  *   bad     → Terracotta   (#e11d48)
  */
-export type HealthStatus = 'good' | 'warning' | 'bad'
+export type HealthStatus = 'good' | 'warning' | 'bad' | 'critical'
 
 // ─── Financial Stability ───────────────────────────────────────────────────────
 

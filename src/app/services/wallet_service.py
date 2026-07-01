@@ -147,6 +147,7 @@ async def get_categories(db: AsyncClient, user_id: str) -> list[CategoryOut]:
 
 async def create_category(
     client: AsyncClient,
+    bus: "EventBus",
     user_id: str,
     payload: CategoryCreate,
     current_level: int = 1,
@@ -178,7 +179,24 @@ async def create_category(
         "deleted_at": None,
     }
     result = await client.table("categories").insert(payload_dict).execute()
-    return CategoryOut.model_validate(result.data[0])
+    category = CategoryOut.model_validate(result.data[0])
+
+    try:
+        from app.journey.repos.event_repo import EventRepository
+        idem_key = f"CATEGORY_CREATED_{category.id}"
+        await bus.publish(
+            user_id=user_id,
+            event_type="CATEGORY_CREATED",
+            source="USER",
+            severity="SUCCESS",
+            idempotency_key=idem_key,
+            payload={"category_id": str(category.id)}
+        )
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception("Failed to publish CATEGORY_CREATED event")
+
+    return category
 
 
 async def update_category(

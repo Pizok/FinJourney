@@ -154,6 +154,7 @@ export function EditTransactionModal() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wallet', 'bootstrap'] });
       queryClient.invalidateQueries({ queryKey: ['journey'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics'] });
       handleClose();
     },
     onError: (err: any) => {

@@ -163,7 +163,8 @@ async def fetch_active_challenge(db: AsyncClient, user_id: str) -> dict | None:
         "icon": icon,
         "color": color,
         "days_remaining": days_remaining,
-        "asset_key": None
+        "asset_key": None,
+        "progress_data": result.get("progress_data", {}),
     }
 
 

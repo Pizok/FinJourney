@@ -23,12 +23,14 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 
 from app.api.v1.dependencies import AuthUser, DBClient
 from app.schemas.category import CategoryCreate, CategoryOut, CategoryUpdate
 from app.services import wallet_service
+from app.journey.engine.bus import EventBus
+from app.journey.dependencies import get_event_bus
 
 router = APIRouter(tags=["categories"])
 
@@ -87,9 +89,11 @@ async def create_category(
     payload: CategoryCreate,
     user:    AuthUser,
     db:      DBClient,
+    bus:     EventBus = Depends(get_event_bus),
 ) -> dict[str, Any]:
     category: CategoryOut = await wallet_service.create_category(
         client=db,
+        bus=bus,
         user_id=user.user_id,
         payload=payload,
         current_level=user.level,

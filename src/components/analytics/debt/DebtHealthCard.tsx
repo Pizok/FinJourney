@@ -77,6 +77,12 @@ const STATUS_CONFIG = new Map<
     textClass: 'text-terracotta',
     fillClass: 'bg-terracotta',
   }],
+  ['critical', {
+    label:     'Critical',
+    colorVar:  'var(--color-terracotta)',
+    textClass: 'text-terracotta',
+    fillClass: 'bg-terracotta',
+  }],
 ])
 
 // ─── Formatting ───────────────────────────────────────────────────────────────
@@ -222,7 +228,7 @@ function DebtFreeState({ safe_loan_limit }: { safe_loan_limit: number }) {
 function ActiveDebtBody({ debt }: { debt: DebtHealth }) {
   const { dti_percentage, status, active_loans, debt_free_date, safe_loan_limit } = debt
   // Map.get() — no bracket notation on server-supplied status value (CWE-94 safe).
-  const cfg            = STATUS_CONFIG.get(status)!
+  const cfg            = STATUS_CONFIG.get(status) ?? STATUS_CONFIG.get('good')!
   const debtFreeLabel  = formatDebtFreeDate(debt_free_date)
   const isDateUnknown  = debt_free_date === null
 

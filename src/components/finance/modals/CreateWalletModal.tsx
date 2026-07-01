@@ -154,6 +154,7 @@ export function CreateWalletModal() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wallet', 'bootstrap'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'bootstrap'] });
       handleClose();
     },
     onError: (err: any) => {

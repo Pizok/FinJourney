@@ -297,7 +297,6 @@ class SavingsTargetSummary(BaseModel):
     progress_percentage: Optional[float] = Field(
         default=None,
         ge=0,
-        le=100,
         description="(current_amount / target_amount) * 100",
     )
     deadline: Optional[date] = None

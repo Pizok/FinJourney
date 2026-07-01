@@ -56,3 +56,6 @@ src/test_backend.py
 test_concurrency.py
 test_delete.py
 test_*.py
+test_*_*.py
+verify_*.py
+verify_*_*.py

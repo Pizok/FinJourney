@@ -11,6 +11,7 @@ export function AddTransactionModal({ onClose }: { onClose: () => void }) {
 
   const handleSuccess = () => {
     queryClient.invalidateQueries({ queryKey: ['dashboard', 'bootstrap'] });
+    queryClient.invalidateQueries({ queryKey: ['analytics'] });
   };
 
   return (

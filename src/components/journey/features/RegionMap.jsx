@@ -80,12 +80,20 @@ export const MOCK_STATUSES = MAP_NODES.reduce((acc, node, i) => {
 }, {});
 
 // ─── Region metadata ──────────────────────────────────────────────────────────
-const REGION_META = {
+export const REGION_META = {
   1: { color: "text-muted-emerald", label: "The Island" },
   2: { color: "text-steel-violet", label: "The Wilds" },
   3: { color: "text-pearl-text", label: "The Mountain" },
   4: { color: "text-dawn-gold", label: "The Old Road" },
   5: { color: "text-dawn-gold", label: "The Kingdom" },
+};
+
+// Maps backend region_id strings → numeric region numbers used in MAP_NODES.
+// The backend sends string slugs (e.g. "quiet_valley"); MAP_NODES uses integers (1–5).
+export const REGION_ID_TO_NUMBER = {
+  quiet_valley:    1,
+  whispering_woods: 2,
+  emerald_peaks:   3,
 };
 
 // ─── Node pin ─────────────────────────────────────────────────────────────────

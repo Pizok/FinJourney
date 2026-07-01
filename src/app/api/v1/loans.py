@@ -71,3 +71,38 @@ async def delete_loan(
     db: DbClient,
 ):
     await hard_delete_loan(db, loan_id, user.user_id)
+
+class LoanRepayRequest(BaseModel):
+    amount: float
+    wallet_id: str
+
+@router.post(
+    "/{loan_id}/repay",
+    status_code=status.HTTP_200_OK,
+    summary="Log a loan repayment",
+)
+async def repay_loan(
+    loan_id: str,
+    body: LoanRepayRequest,
+    user: AuthUser,
+    db: DbClient,
+):
+    from fastapi import HTTPException
+    try:
+        await db.rpc(
+            "log_loan_repayment",
+            {
+                "p_user_id": user.user_id,
+                "p_wallet_id": body.wallet_id,
+                "p_loan_id": loan_id,
+                "p_amount": body.amount
+            }
+        ).execute()
+        return {"success": True}
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Failed to log loan repayment: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to log loan repayment."
+        )

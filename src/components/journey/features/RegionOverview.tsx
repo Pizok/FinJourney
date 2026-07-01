@@ -37,20 +37,29 @@ import { Card } from "@/components/ui/Card";
 import { Progress } from "@/components/ui/Progress";
 import { useModalActions } from "@/components/journey/stores/journeyStore";
 import { useJourneyData } from "../layout/JourneyContext";
-import RegionMap, { MAP_NODES } from "./RegionMap";
+import RegionMap, { MAP_NODES, REGION_META, REGION_ID_TO_NUMBER } from "./RegionMap";
 import { cn } from "@/lib/utils";
 import { CurrentRegion } from "../types/journey.types";
 
+
+
 function computeRegionStatuses(region: CurrentRegion) {
-  const currentRegionIdNum = parseInt(region.id, 10);
-  if (isNaN(currentRegionIdNum)) return {}; 
+  // Try numeric parse first (forward-compatible), then fall back to the slug map.
+  let currentRegionIdNum = parseInt(region.id, 10);
+  if (isNaN(currentRegionIdNum)) {
+    currentRegionIdNum = (REGION_ID_TO_NUMBER as Record<string, number>)[region.id] ?? -1;
+  }
+  if (currentRegionIdNum < 1) return {};
 
   const statuses: Record<string, "SHIFTED" | "CURRENT" | "LOCKED"> = {};
   const regionNodes = MAP_NODES.filter((n: any) => n.region === currentRegionIdNum);
   const totalNodes = regionNodes.length;
-  
+
+  // New users have progress_days = 0 → always land on the first node (index 0).
   const progressPct = region.total_days > 0 ? (region.progress_days / region.total_days) : 0;
-  const activeIndex = Math.min(totalNodes - 1, Math.max(0, Math.floor(progressPct * totalNodes)));
+  const activeIndex = region.progress_days === 0
+    ? 0
+    : Math.min(totalNodes - 1, Math.max(0, Math.floor(progressPct * totalNodes)));
 
   MAP_NODES.forEach((node: any) => {
     if (node.region < currentRegionIdNum) {
@@ -59,9 +68,9 @@ function computeRegionStatuses(region: CurrentRegion) {
       statuses[node.id] = "LOCKED";
     } else {
       const idx = regionNodes.findIndex((n: any) => n.id === node.id);
-      if (idx < activeIndex) statuses[node.id] = "SHIFTED";
+      if (idx < activeIndex)       statuses[node.id] = "SHIFTED";
       else if (idx === activeIndex) statuses[node.id] = "CURRENT";
-      else statuses[node.id] = "LOCKED";
+      else                          statuses[node.id] = "LOCKED";
     }
   });
 
@@ -313,6 +322,15 @@ export function RegionOverview({ isLoading = false }: RegionOverviewProps) {
 
   const region = overview.current_region;
 
+  let displayRegionName = region.name;
+  let regionIdNum = parseInt(region.id, 10);
+  if (isNaN(regionIdNum)) {
+    regionIdNum = REGION_ID_TO_NUMBER[region.id] ?? -1;
+  }
+  if (regionIdNum >= 1 && (REGION_META as any)[regionIdNum]) {
+    displayRegionName = (REGION_META as any)[regionIdNum].label;
+  }
+
   /*
    * Progress percentage — presentation division of two server integers.
    * The backend owns all region completion logic; this is display-only.
@@ -355,7 +373,7 @@ export function RegionOverview({ isLoading = false }: RegionOverviewProps) {
                 "text-pearl-text tracking-[-0.01em] leading-tight",
               ].join(" ")}
             >
-              {region.name}
+              {displayRegionName}
             </h2>
           </div>
           {/* <ViewDetailsButton onClick={handleViewDetails} /> */}

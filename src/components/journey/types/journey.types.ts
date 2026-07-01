@@ -405,7 +405,53 @@ export interface Passport {
 /** A single entry in the Journey History timeline */
 export interface HistoryEvent {
   id: string;
-  type: "achievement" | "penalty" | "milestone" | "task" | "hazard" | "region";
+  /**
+   * Raw event_type from the backend (lowercased).
+   * Legacy abstract values kept for forward compatibility.
+   */
+  type:
+    // ── Abstract (legacy / reserved) ──────────────────────────────────────
+    | "achievement"
+    | "penalty"
+    | "milestone"
+    | "task"
+    | "hazard"
+    | "region"
+    // ── Raw backend event_type values (lowercased) ─────────────────────────
+    // Transactions
+    | "expense_logged"
+    | "income_logged"
+    | "transaction_adjustment"
+    // Wallet & categories
+    | "wallet_created"
+    | "category_created"
+    | "category_updated"
+    // HP events
+    | "hp_changed"
+    | "hp_critical_failure"
+    | "overspend_detected"
+    | "ghost_penalty_applied"
+    | "shield_generated"
+    | "shield_destroyed"
+    | "financial_audit_completed"
+    // XP & levelling
+    | "xp_changed"
+    | "level_up"
+    | "feature_unlocked"
+    // Journey / region
+    | "region_shift_pending"
+    | "region_shift_completed"
+    | "passport_stamp_earned"
+    | "challenge_completed"
+    | "quarter_failed"
+    | "reward_claimed"
+    // Survival / daily
+    | "zero_spend_claimed"
+    | "standby_activated"
+    | "standby_used"
+    // Settings / system
+    | "path_changed"
+    | "midnight_evaluation_started";
   title: string;
   /** Human-readable date label, e.g., "Jun 1, 2026" */
   date: string;

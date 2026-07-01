@@ -49,6 +49,26 @@ import {
   Flame,
   MapPin,
   Activity,
+  TrendingDown,
+  TrendingUp,
+  Wallet,
+  Tag,
+  Heart,
+  Skull,
+  ShieldOff,
+  ShieldCheck,
+  Zap,
+  ArrowUpCircle,
+  Unlock,
+  Trophy,
+  XCircle,
+  Gift,
+  Sun,
+  PauseCircle,
+  Shuffle,
+  Settings,
+  Moon,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { HistoryEvent as HistoryEventType, EventSeverity } from "@/components/journey/types/journey.types";
@@ -57,16 +77,89 @@ import type { HistoryEvent as HistoryEventType, EventSeverity } from "@/componen
 
 type EventType = HistoryEventType["type"];
 
-const EVENT_ICONS: Record<EventType, React.ReactNode> = {
+const EVENT_ICONS: Partial<Record<EventType, React.ReactNode>> = {
+  // Abstract (legacy)
   achievement: <CheckCircle size={13} strokeWidth={2} aria-hidden="true" />,
-  penalty: <AlertTriangle size={13} strokeWidth={2} aria-hidden="true" />,
-  milestone: <Star size={13} strokeWidth={2} aria-hidden="true" />,
-  task: <Target size={13} strokeWidth={2} aria-hidden="true" />,
-  hazard: <Flame size={13} strokeWidth={2} aria-hidden="true" />,
-  region: <MapPin size={13} strokeWidth={2} aria-hidden="true" />,
+  penalty:     <AlertTriangle size={13} strokeWidth={2} aria-hidden="true" />,
+  milestone:   <Star size={13} strokeWidth={2} aria-hidden="true" />,
+  task:        <Target size={13} strokeWidth={2} aria-hidden="true" />,
+  hazard:      <Flame size={13} strokeWidth={2} aria-hidden="true" />,
+  region:      <MapPin size={13} strokeWidth={2} aria-hidden="true" />,
+  // Transactions
+  expense_logged:         <TrendingDown size={13} strokeWidth={2} aria-hidden="true" />,
+  income_logged:          <TrendingUp size={13} strokeWidth={2} aria-hidden="true" />,
+  transaction_adjustment: <RefreshCw size={13} strokeWidth={2} aria-hidden="true" />,
+  // Wallet & categories
+  wallet_created:   <Wallet size={13} strokeWidth={2} aria-hidden="true" />,
+  category_created: <Tag size={13} strokeWidth={2} aria-hidden="true" />,
+  category_updated: <Tag size={13} strokeWidth={2} aria-hidden="true" />,
+  // HP events
+  hp_changed:               <Heart size={13} strokeWidth={2} aria-hidden="true" />,
+  hp_critical_failure:      <Skull size={13} strokeWidth={2} aria-hidden="true" />,
+  overspend_detected:       <AlertTriangle size={13} strokeWidth={2} aria-hidden="true" />,
+  ghost_penalty_applied:    <Flame size={13} strokeWidth={2} aria-hidden="true" />,
+  shield_generated:         <ShieldCheck size={13} strokeWidth={2} aria-hidden="true" />,
+  shield_destroyed:         <ShieldOff size={13} strokeWidth={2} aria-hidden="true" />,
+  financial_audit_completed:<CheckCircle size={13} strokeWidth={2} aria-hidden="true" />,
+  // XP & levelling
+  xp_changed:      <Zap size={13} strokeWidth={2} aria-hidden="true" />,
+  level_up:        <ArrowUpCircle size={13} strokeWidth={2} aria-hidden="true" />,
+  feature_unlocked:<Unlock size={13} strokeWidth={2} aria-hidden="true" />,
+  // Journey / region
+  region_shift_pending:   <MapPin size={13} strokeWidth={2} aria-hidden="true" />,
+  region_shift_completed: <MapPin size={13} strokeWidth={2} aria-hidden="true" />,
+  passport_stamp_earned:  <Star size={13} strokeWidth={2} aria-hidden="true" />,
+  challenge_completed:    <Trophy size={13} strokeWidth={2} aria-hidden="true" />,
+  quarter_failed:         <XCircle size={13} strokeWidth={2} aria-hidden="true" />,
+  reward_claimed:         <Gift size={13} strokeWidth={2} aria-hidden="true" />,
+  // Survival / daily
+  zero_spend_claimed: <Sun size={13} strokeWidth={2} aria-hidden="true" />,
+  standby_activated:  <PauseCircle size={13} strokeWidth={2} aria-hidden="true" />,
+  standby_used:       <Shuffle size={13} strokeWidth={2} aria-hidden="true" />,
+  // Settings / system
+  path_changed:                <Settings size={13} strokeWidth={2} aria-hidden="true" />,
+  midnight_evaluation_started: <Moon size={13} strokeWidth={2} aria-hidden="true" />,
 };
 
 const FALLBACK_ICON = <Activity size={13} strokeWidth={2} aria-hidden="true" />;
+
+/** Human-readable labels for raw backend event_type values. */
+const TITLE_MAP: Partial<Record<EventType, string>> = {
+  // Transactions
+  expense_logged:         "Expense Logged",
+  income_logged:          "Income Logged",
+  transaction_adjustment: "Transaction Adjusted",
+  // Wallet & categories
+  wallet_created:   "Wallet Created",
+  category_created: "Category Created",
+  category_updated: "Category Updated",
+  // HP events
+  hp_changed:               "HP Changed",
+  hp_critical_failure:      "Critical Failure",
+  overspend_detected:       "Overspend Detected",
+  ghost_penalty_applied:    "Ghost Penalty Applied",
+  shield_generated:         "Shield Activated",
+  shield_destroyed:         "Shield Broken",
+  financial_audit_completed:"Financial Audit Completed",
+  // XP & levelling
+  xp_changed:      "XP Gained",
+  level_up:        "Level Up!",
+  feature_unlocked:"Feature Unlocked",
+  // Journey / region
+  region_shift_pending:   "Region Shift Pending",
+  region_shift_completed: "Region Completed",
+  passport_stamp_earned:  "Passport Stamp Earned",
+  challenge_completed:    "Challenge Completed",
+  quarter_failed:         "Quarter Failed",
+  reward_claimed:         "Reward Claimed",
+  // Survival / daily
+  zero_spend_claimed: "Zero-Spend Day Claimed",
+  standby_activated:  "Standby Mode Activated",
+  standby_used:       "Standby Used",
+  // Settings / system
+  path_changed:                "Path Changed",
+  midnight_evaluation_started: "Daily Evaluation",
+};
 
 // ─── Severity → colour config ────────────────────────────────────────────────
 
@@ -147,6 +240,15 @@ export function HistoryEvent({ event, isLast }: HistoryEventProps) {
 
   const hasDeltas = event.xp_change !== 0 || event.hp_change !== 0;
 
+  // Resolve a human-readable title.
+  // Priority: TITLE_MAP lookup → backend-provided title (if not a raw type string) → formatted type.
+  const mappedTitle = TITLE_MAP[event.type];
+  const displayTitle =
+    mappedTitle ??
+    (event.title && event.title !== event.type
+      ? event.title
+      : event.type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()));
+
   // Format the date string
   // event.date is an ISO string (e.g. "2026-06-27T18:41:34Z") from the backend
   let displayDate = event.date;
@@ -174,7 +276,7 @@ export function HistoryEvent({ event, isLast }: HistoryEventProps) {
     <div
       className={cn(
         "flex items-start gap-3",
-        "px-5 py-4",
+        "px-5 py-[18px]",
         !isLast && "border-b border-tactical-border"
       )}
       data-testid={`history-event-${event.id}`}
@@ -200,7 +302,7 @@ export function HistoryEvent({ event, isLast }: HistoryEventProps) {
         {/* Title + date row */}
         <div className="flex items-start justify-between gap-3">
           <span className="font-sans text-[13px] font-medium text-pearl-text leading-snug">
-            {event.title}
+            {displayTitle}
           </span>
           <span
             className="font-sans text-[11px] text-muted-text whitespace-nowrap shrink-0 tabular-nums"

@@ -71,31 +71,31 @@ function ActiveChallenge({
       </h2>
 
       {/* Description */}
-      <p className="font-sans text-sm text-muted-text leading-relaxed max-w-prose flex-1 mb-5 relative z-10">
+      <p className="font-sans text-sm text-muted-text leading-relaxed max-w-prose mb-3 relative z-10">
         {description}
       </p>
 
       {/* Dynamic Progress UI */}
-      <div className="mb-6 relative z-10">
-        {type === 'FIRST_STEPS' && progress_data?.tasks ? (
-          // Legacy hardcoded FIRST_STEPS tasks (with count)
+      <div className="flex-1 mb-4 relative z-10">
+        {type === 'FIRST_STEPS' ? (
+          // FIRST_STEPS tasks (with count)
           <ul className="space-y-2">
             <li className="flex items-center gap-3">
-              <CheckCircle2 size={16} strokeWidth={2} className={progress_data.tasks.add_wallet ? "text-muted-emerald" : "text-muted-text/30"} />
-              <span className={`font-sans text-sm ${progress_data.tasks.add_wallet ? "text-pearl-text line-through opacity-70" : "text-muted-text"}`}>
-                Create a wallet{progress_data.tasks.add_wallet && " (Done)"}
+              <CheckCircle2 size={16} strokeWidth={2} className={progress_data?.tasks?.add_wallet ? "text-muted-emerald" : "text-muted-text/30"} />
+              <span className={`font-sans text-sm ${progress_data?.tasks?.add_wallet ? "text-pearl-text line-through opacity-70" : "text-muted-text"}`}>
+                Create a wallet
               </span>
             </li>
             <li className="flex items-center gap-3">
-              <CheckCircle2 size={16} strokeWidth={2} className={progress_data.tasks.update_category ? "text-muted-emerald" : "text-muted-text/30"} />
-              <span className={`font-sans text-sm ${progress_data.tasks.update_category ? "text-pearl-text line-through opacity-70" : "text-muted-text"}`}>
-                Set a category limit{progress_data.tasks.update_category && " (Done)"}
+              <CheckCircle2 size={16} strokeWidth={2} className={progress_data?.tasks?.update_category ? "text-muted-emerald" : "text-muted-text/30"} />
+              <span className={`font-sans text-sm ${progress_data?.tasks?.update_category ? "text-pearl-text line-through opacity-70" : "text-muted-text"}`}>
+                Set a category limit
               </span>
             </li>
             <li className="flex items-center gap-3">
-              <CheckCircle2 size={16} strokeWidth={2} className={(progress_data.count ?? 0) >= 10 ? "text-muted-emerald" : "text-muted-text/30"} />
-              <span className={`font-sans text-sm ${(progress_data.count ?? 0) >= 10 ? "text-pearl-text line-through opacity-70" : "text-muted-text"}`}>
-                Log your first 10 transactions ({Math.min(progress_data.count ?? 0, 10)}/10){(progress_data.count ?? 0) >= 10 && " (Done)"}
+              <CheckCircle2 size={16} strokeWidth={2} className={(progress_data?.count ?? 0) >= 10 ? "text-muted-emerald" : "text-muted-text/30"} />
+              <span className={`font-sans text-sm ${(progress_data?.count ?? 0) >= 10 ? "text-pearl-text line-through opacity-70" : "text-muted-text"}`}>
+                Log your first 10 transactions ({Math.min(progress_data?.count ?? 0, 10)}/10)
               </span>
             </li>
           </ul>
@@ -128,10 +128,19 @@ function ActiveChallenge({
               <li key={key} className="flex items-center gap-3">
                 <CheckCircle2 size={16} strokeWidth={2} className={isDone ? "text-muted-emerald" : "text-muted-text/30"} />
                 <span className={`font-sans text-sm ${isDone ? "text-pearl-text line-through opacity-70" : "text-muted-text"}`}>
-                  {formatTaskLabel(key)}{Boolean(isDone) && " (Done)"}
+                  {formatTaskLabel(key)}
                 </span>
               </li>
             ))}
+            {/* Hybrid challenge support (e.g., FIRST_STEPS has tasks + count) */}
+            {'count' in progress_data && 'target' in progress_data && (
+              <li className="flex items-center gap-3">
+                <CheckCircle2 size={16} strokeWidth={2} className={progress_data.count >= progress_data.target ? "text-muted-emerald" : "text-muted-text/30"} />
+                <span className={`font-sans text-sm ${progress_data.count >= progress_data.target ? "text-pearl-text line-through opacity-70" : "text-muted-text"}`}>
+                  ({progress_data.count}/{progress_data.target}) log your first {progress_data.target} transactions to build the habit
+                </span>
+              </li>
+            )}
           </ul>
         ) : (
           // Fallback (Rest Challenges, etc.)

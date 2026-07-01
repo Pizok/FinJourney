@@ -93,6 +93,11 @@ async def setup_profile(user: AuthUser, db: DbClient, payload: ProfileSetupReque
             .eq("id", user.user_id)
             .execute()
         )
+        
+        from app.journey.repos.inventory_repo import InventoryRepository
+        inv_repo = InventoryRepository(db)
+        await inv_repo.initialize_starter_tokens(user.user_id)
+        
         return {"success": True, "data": result.data[0] if result.data else {}}
     except Exception as e:
         print(f"[setup_profile] ERROR: {type(e).__name__}: {e}")

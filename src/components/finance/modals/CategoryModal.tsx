@@ -108,6 +108,7 @@ export function CategoryModal() {
         addCategory(data as any);
       }
       queryClient.invalidateQueries({ queryKey: ['wallet', 'bootstrap'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'bootstrap'] });
       handleClose();
     },
     onError: (err: any) => {
@@ -129,6 +130,7 @@ export function CategoryModal() {
         updateCategory(editCategory.id, data as any || {});
       }
       queryClient.invalidateQueries({ queryKey: ['wallet', 'bootstrap'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'bootstrap'] });
       handleClose();
     },
     onError: (err: any) => {

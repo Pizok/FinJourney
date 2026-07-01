@@ -37,12 +37,14 @@ import type { Wallet, Category, TransactionType, PaymentMethod } from '@/types/w
 // ---------------------------------------------------------------------------
 
 interface FormValues {
-  type: TransactionType;
+  type: TransactionType | 'savings_contribution' | 'loan_repayment';
   amount: string;
   wallet_id: string;
   source_wallet_id: string;
   destination_wallet_id: string;
   category_id: string;
+  savings_target_id: string;
+  loan_id: string;
   payment_method: PaymentMethod;
   note: string;
   transaction_date: string;
@@ -54,6 +56,8 @@ interface FormErrors {
   source_wallet_id?: string;
   destination_wallet_id?: string;
   category_id?: string;
+  savings_target_id?: string;
+  loan_id?: string;
   payment_method?: string;
   transaction_date?: string;
 }
@@ -75,6 +79,8 @@ function defaultValues(): FormValues {
     source_wallet_id: '',
     destination_wallet_id: '',
     category_id: '',
+    savings_target_id: '',
+    loan_id: '',
     payment_method: 'cash',
     note: '',
     transaction_date: todayDateStr(),
@@ -95,6 +101,12 @@ function validate(v: FormValues): FormErrors {
     if (v.source_wallet_id && v.destination_wallet_id && v.source_wallet_id === v.destination_wallet_id) {
       e.destination_wallet_id = 'Source and destination must be different.';
     }
+  } else if (v.type === 'savings_contribution') {
+    if (!v.source_wallet_id) e.source_wallet_id = 'Please select a source wallet.';
+    if (!v.savings_target_id) e.savings_target_id = 'Please select a savings plan.';
+  } else if (v.type === 'loan_repayment') {
+    if (!v.source_wallet_id) e.source_wallet_id = 'Please select a source wallet.';
+    if (!v.loan_id) e.loan_id = 'Please select a loan.';
   } else {
     if (!v.wallet_id) {
       e.wallet_id = 'Please select a wallet.';
@@ -122,17 +134,35 @@ const PAYMENT_OPTIONS: { value: PaymentMethod; label: string }[] = [
   { value: 'qr_code',     label: 'QR Code' },
 ];
 
-const TYPE_OPTIONS: { value: TransactionType; label: string }[] = [
+const TYPE_OPTIONS: { value: TransactionType | 'savings_contribution' | 'loan_repayment'; label: string }[] = [
   { value: 'expense',  label: 'Expense' },
   { value: 'income',   label: 'Income' },
-  { value: 'transfer', label: 'Transfer' },
+  { value: 'transfer', label: 'Transfer to Wallet' },
+  { value: 'savings_contribution', label: 'Transfer to Savings' },
+  { value: 'loan_repayment', label: 'Loan Repayment' },
 ];
 
 // ---------------------------------------------------------------------------
 // AddTransactionModal
 // ---------------------------------------------------------------------------
 
-export function TransactionModalForm({ wallets, categories, isOpen, onClose, onSuccess }: { wallets: Wallet[]; categories: Category[]; isOpen: boolean; onClose: () => void; onSuccess: () => void }) {
+export function TransactionModalForm({ 
+  wallets, 
+  categories, 
+  savingsTargets = [], 
+  loans = [], 
+  isOpen, 
+  onClose, 
+  onSuccess 
+}: { 
+  wallets: Wallet[]; 
+  categories: Category[]; 
+  savingsTargets?: any[]; 
+  loans?: any[]; 
+  isOpen: boolean; 
+  onClose: () => void; 
+  onSuccess: () => void 
+}) {
   const [globalError, setGlobalError] = useState<string | null>(null);
 
   const [values, setValues] = useState<FormValues>(defaultValues);
@@ -163,15 +193,33 @@ export function TransactionModalForm({ wallets, categories, isOpen, onClose, onS
 
   const addTransactionMutation = useMutation({
     mutationFn: async (payload: any) => {
-      return apiFetchClient('transactions', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
+      const { __type, target_id, loan_id, ...apiPayload } = payload;
+      if (__type === 'savings_contribution') {
+        return apiFetchClient(`savings-targets/${target_id}/log`, {
+          method: 'POST',
+          body: JSON.stringify(apiPayload),
+        });
+      } else if (__type === 'loan_repayment') {
+        return apiFetchClient(`loans/${loan_id}/repay`, {
+          method: 'POST',
+          body: JSON.stringify(apiPayload),
+        });
+      } else {
+        return apiFetchClient('transactions', {
+          method: 'POST',
+          body: JSON.stringify(apiPayload),
+        });
+      }
     },
     onSuccess: (_, variables: any) => {
-      if (variables.type === 'income') {
-        queryClient.invalidateQueries({ queryKey: ['analytics'] });
-      }
+      // Always aggressively invalidate to ensure all UI components sync properly
+      queryClient.invalidateQueries({ queryKey: ['journey'] });
+      queryClient.invalidateQueries({ queryKey: ['wallet'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics'] });
+      queryClient.invalidateQueries({ queryKey: ['savings_targets'] });
+      queryClient.invalidateQueries({ queryKey: ['savings-targets'] });
+      
       onSuccess();
       handleClose();
     },
@@ -188,17 +236,35 @@ export function TransactionModalForm({ wallets, categories, isOpen, onClose, onS
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
 
-    const payload = {
-      type: values.type,
-      amount: parseFloat(values.amount),
-      wallet_id: values.type === 'transfer' ? undefined : values.wallet_id,
-      source_wallet_id: values.type === 'transfer' ? values.source_wallet_id : undefined,
-      destination_wallet_id: values.type === 'transfer' ? values.destination_wallet_id : undefined,
-      category_id: values.type === 'expense' ? (values.category_id || undefined) : undefined,
-      payment_method: values.type === 'transfer' ? undefined : values.payment_method,
-      note: values.note.trim() || undefined,
-      transaction_date: values.transaction_date,
-    };
+    let payload: any = {};
+    if (values.type === 'savings_contribution') {
+      payload = {
+        __type: 'savings_contribution',
+        target_id: values.savings_target_id,
+        amount: parseFloat(values.amount),
+        wallet_id: values.source_wallet_id,
+        note: values.note.trim() || undefined,
+      };
+    } else if (values.type === 'loan_repayment') {
+      payload = {
+        __type: 'loan_repayment',
+        loan_id: values.loan_id,
+        amount: parseFloat(values.amount),
+        wallet_id: values.source_wallet_id,
+      };
+    } else {
+      payload = {
+        type: values.type,
+        amount: parseFloat(values.amount),
+        wallet_id: values.type === 'transfer' ? undefined : values.wallet_id,
+        source_wallet_id: values.type === 'transfer' ? values.source_wallet_id : undefined,
+        destination_wallet_id: values.type === 'transfer' ? values.destination_wallet_id : undefined,
+        category_id: values.type === 'expense' ? (values.category_id || undefined) : undefined,
+        payment_method: values.type === 'transfer' ? undefined : values.payment_method,
+        note: values.note.trim() || undefined,
+        transaction_date: values.transaction_date,
+      };
+    }
 
     addTransactionMutation.mutate(payload);
   };
@@ -230,13 +296,13 @@ export function TransactionModalForm({ wallets, categories, isOpen, onClose, onS
           <div
             role="radiogroup"
             aria-label="Transaction type"
-            className="flex gap-2"
+            className="flex flex-wrap gap-2"
           >
             {TYPE_OPTIONS.map(({ value, label }) => {
               const isSelected = values.type === value;
               const colorVar =
                 value === 'income' ? 'var(--color-muted-emerald)'
-                : value === 'expense' ? 'var(--color-terracotta)'
+                : value === 'expense' || value === 'loan_repayment' ? 'var(--color-terracotta)'
                 : 'var(--color-steel-violet)';
               return (
                 <button
@@ -246,7 +312,7 @@ export function TransactionModalForm({ wallets, categories, isOpen, onClose, onS
                   aria-checked={isSelected}
                   onClick={() => setField('type', value)}
                   className={[
-                    'flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+                    'rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
                     'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
                     'focus-visible:outline-[var(--color-muted-emerald)]',
                     'cursor-pointer',
@@ -286,7 +352,7 @@ export function TransactionModalForm({ wallets, categories, isOpen, onClose, onS
           </div>
         </FormField>
 
-        {/* Wallets */}
+        {/* Wallets / Savings / Loans */}
         {values.type === 'transfer' ? (
           <div className="grid grid-cols-2 gap-4">
             <FormField label="Source Wallet" htmlFor="tx-source-wallet" error={errors.source_wallet_id} required>
@@ -312,6 +378,64 @@ export function TransactionModalForm({ wallets, categories, isOpen, onClose, onS
                 <option value="">Select destination…</option>
                 {wallets.map((w) => (
                   <option key={w.id} value={w.id}>{w.name}</option>
+                ))}
+              </FormSelect>
+            </FormField>
+          </div>
+        ) : values.type === 'savings_contribution' ? (
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Source Wallet" htmlFor="tx-source-wallet" error={errors.source_wallet_id} required>
+              <FormSelect
+                id="tx-source-wallet"
+                value={values.source_wallet_id}
+                onChange={(e) => setField('source_wallet_id', e.target.value)}
+                hasError={Boolean(errors.source_wallet_id)}
+              >
+                <option value="">Select source…</option>
+                {wallets.map((w) => (
+                  <option key={w.id} value={w.id}>{w.name}</option>
+                ))}
+              </FormSelect>
+            </FormField>
+            <FormField label="Savings Plan" htmlFor="tx-savings-target" error={errors.savings_target_id} required>
+              <FormSelect
+                id="tx-savings-target"
+                value={values.savings_target_id}
+                onChange={(e) => setField('savings_target_id', e.target.value)}
+                hasError={Boolean(errors.savings_target_id)}
+              >
+                <option value="">Select savings plan…</option>
+                {savingsTargets?.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </FormSelect>
+            </FormField>
+          </div>
+        ) : values.type === 'loan_repayment' ? (
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Source Wallet" htmlFor="tx-source-wallet" error={errors.source_wallet_id} required>
+              <FormSelect
+                id="tx-source-wallet"
+                value={values.source_wallet_id}
+                onChange={(e) => setField('source_wallet_id', e.target.value)}
+                hasError={Boolean(errors.source_wallet_id)}
+              >
+                <option value="">Select source…</option>
+                {wallets.map((w) => (
+                  <option key={w.id} value={w.id}>{w.name}</option>
+                ))}
+              </FormSelect>
+            </FormField>
+            <FormField label="Loan" htmlFor="tx-loan" error={errors.loan_id} required>
+              <FormSelect
+                id="tx-loan"
+                value={values.loan_id}
+                onChange={(e) => setField('loan_id', e.target.value)}
+                hasError={Boolean(errors.loan_id)}
+              >
+                <option value="">Select loan…</option>
+                {loans?.map((l) => (
+                  <option key={l.id} value={l.id}>{l.name}</option>
                 ))}
               </FormSelect>
             </FormField>
@@ -354,7 +478,7 @@ export function TransactionModalForm({ wallets, categories, isOpen, onClose, onS
         )}
 
         {/* Payment Method */}
-        {values.type !== 'transfer' && (
+        {(values.type !== 'transfer' && values.type !== 'savings_contribution' && values.type !== 'loan_repayment') && (
           <FormField label="Payment Method" htmlFor="tx-method" error={errors.payment_method} required>
             <FormSelect
               id="tx-method"
@@ -408,4 +532,3 @@ export function TransactionModalForm({ wallets, categories, isOpen, onClose, onS
     </BaseModal>
   );
 }
-

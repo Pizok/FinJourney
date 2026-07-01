@@ -294,31 +294,25 @@ export function JourneyPageClient() {
             <JourneyHeader isLoading={isLoading} />
           </div>
 
-          {data.recent_events.length === 0 && data.passport.stamps.length === 0 ? (
-            <JourneyEmptyState />
-          ) : (
-            <>
-              {/* Row 2 — Region Overview (current region + progress) */}
-              <div className="col-span-1 lg:col-span-12 flex flex-col">
-                <RegionOverview />
-              </div>
+          {/* Row 2 — Region Overview (map) — always visible */}
+          <div className="col-span-1 lg:col-span-12 flex flex-col">
+            <RegionOverview />
+          </div>
 
-              {/* Row 3 — 12-Month Timeline */}
-              <div className="col-span-1 lg:col-span-12">
-                <TimelineSection />
-              </div>
+          {/* Row 3 — 12-Month Timeline */}
+          <div className="col-span-1 lg:col-span-12">
+            <TimelineSection />
+          </div>
 
-              {/* Row 4 — Passport Stamps */}
-              <div className="col-span-1 lg:col-span-7 flex flex-col">
-                <PassportSection />
-              </div>
+          {/* Row 4 — Passport Stamps */}
+          <div className="col-span-1 lg:col-span-7 flex flex-col">
+            <PassportSection />
+          </div>
 
-              {/* Row 4 — Journey History (last 30 events) */}
-              <div className="col-span-1 lg:col-span-5 flex flex-col">
-                <HistorySection />
-              </div>
-            </>
-          )}
+          {/* Row 4 — Journey History (last 30 events) */}
+          <div className="col-span-1 lg:col-span-5 flex flex-col">
+            <HistorySection />
+          </div>
 
           {/* Modal portal (RegionDetailModal, ReviewDetailModal, PassportDetailModal) */}
           <JourneyModals />

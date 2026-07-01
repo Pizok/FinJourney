@@ -41,40 +41,26 @@ async def log_savings(
             detail="Savings target not found."
         )
 
-    # 2. Create the associated expense transaction manually (bypassing sync transaction_service)
-    import uuid
-    from datetime import datetime, timezone
+    # 2. Execute RPC
+    try:
+        await client.rpc(
+            "log_savings_contribution",
+            {
+                "p_user_id": user_id,
+                "p_wallet_id": wallet_id,
+                "p_target_id": target_id,
+                "p_amount": amount
+            }
+        ).execute()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Failed to log savings contribution: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to log savings contribution."
+        )
 
-    # Deduct wallet balance
-    wallet_res = await client.table("wallets").select("balance").eq("id", wallet_id).eq("user_id", user_id).maybe_single().execute()
-    if wallet_res.data:
-        new_balance = wallet_res.data["balance"] - amount
-        await client.table("wallets").update({"balance": new_balance}).eq("id", wallet_id).execute()
-
-    # Insert transaction
-    tx_row = {
-        "id": str(uuid.uuid4()),
-        "user_id": user_id,
-        "wallet_id": wallet_id,
-        "type": "expense",
-        "amount": amount,
-        "payment_method": "cash",
-        "note": note or f"Contribution to {target['name']}",
-        "transaction_date": datetime.now(timezone.utc).isoformat(),
-        "status": "active"
-    }
-    await client.table("transactions").insert(tx_row).execute()
-
-    # 3. Update target balance
+    # 3. Return updated target (we can fetch it again, or just construct it)
     new_amount = target["current_amount"] + amount
-    
-    # Optional: If new_amount >= target_amount, mark as completed?
-    # Keeping it simple for MVP: just update the balance.
-    update_res = await (
-        client.table("savings_targets")
-        .update({"current_amount": new_amount})
-        .eq("id", target_id)
-        .execute()
-    )
-    
-    return update_res.data[0]
+    target["current_amount"] = new_amount
+    return target

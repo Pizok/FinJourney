@@ -216,7 +216,7 @@ async def get_overview(
     local_now = datetime.now(ZoneInfo(_tz))
     local_date = local_now.date().isoformat()
     
-    events_task = db.table("journey_events").select("*").eq("user_id", user_id).eq("status", "PROCESSED").order("created_at", desc=True).limit(10).execute()
+    events_task = db.table("journey_events").select("*").eq("user_id", user_id).eq("status", "PUBLISHED").order("created_at", desc=True).limit(10).execute()
     # The active review logic expects the daily survival row
     survival_task = db.table("journey_daily_survival").select("*").eq("user_id", user_id).eq("tracking_date", local_date).limit(1).maybe_single().execute()
     
@@ -225,7 +225,7 @@ async def get_overview(
     if current_region_data is None:
         current_region = {
             "id": "quiet_valley",
-            "name": "Quiet Valley",
+            "name": "The Island",
             "description": "Starting Zone",
             "progress_days": 0,
             "total_days": 365,
@@ -245,9 +245,9 @@ async def get_overview(
         region_id = current_region_data.get("region_id", "quiet_valley")
         # Lightweight mapping
         REGION_NAMES = {
-            "quiet_valley": "Quiet Valley",
-            "whispering_woods": "Whispering Woods",
-            "emerald_peaks": "Emerald Peaks"
+            "quiet_valley":     "The Island",
+            "whispering_woods": "The Wilds",
+            "emerald_peaks":    "The Mountain",
         }
         
         current_region = {
@@ -622,6 +622,7 @@ async def change_path(
 async def revive(
     user_id: CurrentUserID,
     hp_svc: HPServiceDep,
+    db: DBClient,
     body: ReviveRequest,
 ) -> dict[str, Any]:
     """
@@ -861,7 +862,7 @@ async def get_history(
     # We ask for one extra to easily determine if there is a next_page
     res = await db.table("journey_events").select("*") \
         .eq("user_id", user_id) \
-        .eq("status", "PROCESSED") \
+        .eq("status", "PUBLISHED") \
         .order("created_at", desc=True) \
         .range(offset, offset + limit) \
         .execute()
