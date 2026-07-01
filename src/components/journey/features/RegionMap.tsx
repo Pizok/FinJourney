@@ -72,7 +72,7 @@ export const MAP_NODES = [
 // This component never mutates statuses itself.
 
 // ─── Mock statuses (dev/preview only — replace with backend data in prod) ────
-export const MOCK_STATUSES = MAP_NODES.reduce((acc, node, i) => {
+export const MOCK_STATUSES = MAP_NODES.reduce((acc: Record<string, string>, node, i) => {
   if (i < 5) acc[node.id] = "SHIFTED";
   else if (i === 5) acc[node.id] = "CURRENT";
   else acc[node.id] = "LOCKED";
@@ -80,7 +80,7 @@ export const MOCK_STATUSES = MAP_NODES.reduce((acc, node, i) => {
 }, {});
 
 // ─── Region metadata ──────────────────────────────────────────────────────────
-export const REGION_META = {
+export const REGION_META: Record<number, { color: string; label: string }> = {
   1: { color: "text-muted-emerald", label: "The Island" },
   2: { color: "text-steel-violet", label: "The Wilds" },
   3: { color: "text-pearl-text", label: "The Mountain" },
@@ -90,14 +90,14 @@ export const REGION_META = {
 
 // Maps backend region_id strings → numeric region numbers used in MAP_NODES.
 // The backend sends string slugs (e.g. "quiet_valley"); MAP_NODES uses integers (1–5).
-export const REGION_ID_TO_NUMBER = {
+export const REGION_ID_TO_NUMBER: Record<string, number> = {
   quiet_valley:    1,
   whispering_woods: 2,
   emerald_peaks:   3,
 };
 
 // ─── Node pin ─────────────────────────────────────────────────────────────────
-function NodePin({ node, status, onClick, isActive }) {
+function NodePin({ node, status, onClick, isActive }: { node: any, status: string, onClick: (node: any) => void, isActive: boolean }) {
   const isLocked = status === "LOCKED";
   const isCurrent = status === "CURRENT";
   const isShifted = status === "SHIFTED";
@@ -153,11 +153,11 @@ function NodePin({ node, status, onClick, isActive }) {
 //                 Falls back to MOCK_STATUSES in dev.
 //   onNodeClick — optional (node) => void callback for parent navigation
 
-export default function RegionMap({ statuses = MOCK_STATUSES, onNodeClick }) {
-  const [selected, setSelected] = useState(null);
+export default function RegionMap({ statuses = MOCK_STATUSES, onNodeClick }: { statuses?: Record<string, string>, onNodeClick?: (node: any) => void }) {
+  const [selected, setSelected] = useState<any | null>(null);
 
-  function handleNodeClick(node) {
-    setSelected((prev) => (prev?.id === node.id ? null : node));
+  function handleNodeClick(node: any) {
+    setSelected((prev: any) => (prev?.id === node.id ? null : node));
     onNodeClick?.(node);
   }
 

@@ -43,7 +43,7 @@ export interface Profile {
 
 export interface PlayerState {
   hp: number;
-  hp_max: number;
+  max_hp: number;
   xp: number;
   xp_to_next_level: number;
   xp_progress_percent: number;

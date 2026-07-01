@@ -80,7 +80,7 @@ export function ProfileVitalsCard() {
   const { profile, player_state, daily_status } = data;
 
   const hpPercent = clampPercent(
-    (player_state.hp / player_state.hp_max) * 100
+    (player_state.hp / (player_state.max_hp ?? 100)) * 100
   );
   const hpColor = hpBarColor(player_state.hp);
   const isLowHp = player_state.hp < 30;
@@ -119,7 +119,7 @@ export function ProfileVitalsCard() {
       <StatBar
         label="HP"
         value={player_state.hp}
-        max={player_state.hp_max}
+        max={player_state.max_hp ?? 100}
         percent={hpPercent}
         barClass={hpColor}
       />
