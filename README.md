@@ -1,5 +1,6 @@
 # FinJourney 🗡️💰
 **Note:** The backend is hosted on Render's free plan, which spins down after inactivity. Expect a 50+ second cold start on the first request.
+**Note:** The website is down for now. I will be back soon.
 
 ## 🚀 Recent Updates
 
